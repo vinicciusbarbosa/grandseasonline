@@ -9,6 +9,7 @@ const DESTINOS = [
   { para: '/status', rotulo: 'Status', icone: 'Visao_geral' },
   { para: '/inventario', rotulo: 'Porão', icone: 'Bau' },
   { para: '/tripulacoes', rotulo: 'Tripulações', icone: 'selTrip' },
+  { para: '/navegacao', rotulo: 'Oceano', icone: 'Oceano' },
 ] as const
 
 /** Contador de recurso: ícone vetorial, valor tabular e o nome só para leitores de tela. */

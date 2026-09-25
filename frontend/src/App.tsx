@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ProvedorSessao } from './auth/SessaoContext'
@@ -9,6 +10,10 @@ import { SelecionarTripulacao } from './paginas/SelecionarTripulacao'
 import { Status } from './paginas/Status'
 import { Inventario } from './paginas/Inventario'
 import { ErroApi } from './api/client'
+import { Carregando } from './componentes/ui/controles'
+
+// O Phaser pesa ~1 MB: só baixa quem abrir a navegação.
+const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +37,15 @@ export function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
+            {/* Protótipo da navegação: roda sem API nem login, para testar direto. */}
+            <Route
+              path="/navegacao"
+              element={
+                <Suspense fallback={<Carregando texto="Içando as velas…" />}>
+                  <TelaNavegacao />
+                </Suspense>
+              }
+            />
 
             <Route element={<RotaProtegida />}>
               <Route element={<LayoutJogo />}>

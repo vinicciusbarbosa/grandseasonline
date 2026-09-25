@@ -33,7 +33,7 @@ sugoigame-novo-leveling/
 │   │   ├── SugoiGame.Application/     serviços, DTOs, contratos
 │   │   ├── SugoiGame.Infrastructure/  EF Core sobre o schema legado
 │   │   └── SugoiGame.Api/             minimal APIs, autenticação, CORS
-│   └── tests/SugoiGame.Tests/         85 testes, sem dependência de banco
+│   └── tests/SugoiGame.Tests/         102 testes, sem dependência de banco
 └── frontend/        React 19 + Vite + TypeScript + Tailwind + TanStack Query
 ```
 
@@ -169,6 +169,44 @@ Telas no React: login, cadastro, seleção/criação de tripulação, status e p
 - **Seletor de sprite do capitão.** A criação sorteia um dos 369 ícones; a
   galeria depende de migrar os assets de `public/Imagens/`.
 
+## Protótipo de navegação oceânica (`/navegacao`)
+
+Teste para decidir entre React + Phaser e Unity: a tela de navegação feita o
+mais perto possível do que ela deve ser. Roda sem API e sem login —
+`npm --prefix frontend run dev` e abrir http://localhost:5173/navegacao.
+
+Recorte usado: o **East Blue** (células 230–460 × 0–112 do mundo legado), com
+as 7 ilhas com nome, as ilhotas e a entrada do canal da Reverse Mountain.
+
+```
+frontend/src/navegacao/
+├── mundo/        Mundo.ts (camada lógica) + mundo.json (gerado)
+├── sim/          regras puras, sem Phaser: rota (A*), navio, vento, ondas, descoberta
+├── cena/         Phaser: shader do oceano, navios, esteira, ilhas, correntes
+├── painel.ts     ponte cena → HUD (useSyncExternalStore)
+└── TelaNavegacao.tsx
+```
+
+- **Nenhum tile de imagem.** O mar é um shader: profundidade, ondas,
+  espuma na costa, terra, névoa fixa, névoa de descoberta e névoa de borda.
+  A única entrada é `public/mundo/terra.png` (96 KB): distância até a costa,
+  tipo de terra e névoa, gerada da arte original por
+  `frontend/scripts/gerar_mundo.py` (Python com Pillow, numpy, scipy e PyYAML).
+- **O mundo real do novo leveling é 460×360 células**, não 200×100 (esse é o
+  `Mapa_Oceano` antigo). Ilhas, correntes, névoa e bloqueio já estão nessa
+  escala, então foi mantida.
+- **A grade continua existindo, mas o jogador não a vê.** O A* roda nas
+  células e a rota é "esticada" em poucas retas; o navio persegue um ponto à
+  frente na rota, o que vira curva. O botão *Grade* mostra células e chunks.
+- **`sim/` não conhece Phaser nem React.** É a parte que vai para o servidor
+  (autoritativo) em C# ou que a Unity reimplementaria. A simulação usa passo
+  fixo de 1/60 s.
+- **Navios desenhados por código**, provisórios: casco, vela, bandeira e
+  sombra são texturas separadas. Arte de verdade entra com as mesmas chaves.
+
+Não coberto ainda: redemoinhos (não há nenhum no recorte), clima e
+tempestades, encontros, multiplayer e interação ao atracar.
+
 ## Decisões de mapeamento
 
 O schema legado tem nomes que enganam. As entidades usam nomes decentes e o
@@ -219,7 +257,7 @@ Depois disso: 189 tabelas, 10 seeds sem falha, acentuação correta.
 
 ## Lacuna de teste conhecida
 
-Os 85 testes rodam sem banco de propósito — são rápidos e não exigem
+Os 102 testes rodam sem banco de propósito — são rápidos e não exigem
 infraestrutura. Mas isso deixa um ponto cego: **eles não exercitam o caminho de
 desserialização HTTP**.
 
