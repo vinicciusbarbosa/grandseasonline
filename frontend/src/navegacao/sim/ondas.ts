@@ -1,54 +1,105 @@
+import type { Vetor } from '../mundo/Mundo'
+import { intensidadeTempestade } from './tempestade'
+
 /**
- * Balanço do navio nas ondas. É só visual: mexe no "ShipVisual", nunca na
- * posição lógica.
+ * O mar como um campo de ondas de verdade: a soma de algumas ondas
+ * senoidais com direções, comprimentos e velocidades diferentes. A soma
+ * nunca se repete de forma reconhecível, e é a MESMA função que o shader
+ * usa para desenhar o relevo da água — o navio sobe na crista que o jogador
+ * está vendo passar embaixo dele.
  *
- * Cada navio soma várias senoides com sementes próprias, e uma envoltória lenta
- * modula a amplitude — assim há momentos de quase calmaria e momentos de
- * balanço forte, e o movimento nunca se repete de forma reconhecível.
+ * A altura é só visual: mexe no desenho do navio, nunca na posição lógica.
  */
-export type PerfilOnda = {
-  fase: number[]
+
+export type OndaComponente = {
+  /** Direção de propagação, em radianos. */
+  direcao: number
+  /** Comprimento de onda, em px do mundo. */
+  comprimento: number
+  /** Amplitude base, em px de altura. */
+  amplitude: number
+  /** Velocidade de fase, em px/s. */
+  velocidade: number
+  fase: number
+}
+
+/**
+ * Ondulação do mar. As direções são fixas de propósito: a fase depende de
+ * direção × posição, e girar as ondas com o vento faria o desenho "nadar"
+ * longe da origem do mapa.
+ */
+const ONDAS: OndaComponente[] = [
+  { direcao: -0.15, comprimento: 520, amplitude: 3.2, velocidade: 42, fase: 0.0 },
+  { direcao: 0.45, comprimento: 310, amplitude: 2.0, velocidade: 33, fase: 1.7 },
+  { direcao: -0.85, comprimento: 190, amplitude: 1.3, velocidade: 26, fase: 4.1 },
+  { direcao: 1.75, comprimento: 740, amplitude: 1.8, velocidade: 50, fase: 2.6 },
+]
+
+export const QUANTIDADE_ONDAS = ONDAS.length
+
+export function componentes(): readonly OndaComponente[] {
+  return ONDAS
+}
+
+/** Quanto a tempestade multiplica as ondas no núcleo (o shader usa o mesmo número). */
+export const AGITACAO_TEMPESTADE = 2.6
+
+/** Agitação do mar num ponto: 1 no mar normal, até 3,6× no núcleo da tempestade. */
+export function agitacaoEm(p: Vetor, celula: number) {
+  return 1 + AGITACAO_TEMPESTADE * intensidadeTempestade(p, celula)
+}
+
+export function alturaDoMar(ondas: readonly OndaComponente[], p: Vetor, t: number, agitacao: number) {
+  let h = 0
+  for (const o of ondas) {
+    const k = (Math.PI * 2) / o.comprimento
+    const d = Math.cos(o.direcao) * p.x + Math.sin(o.direcao) * p.y
+    h += o.amplitude * Math.sin(k * (d - o.velocidade * t) + o.fase)
+  }
+  return h * agitacao
 }
 
 export type Balanco = {
-  /** Subida/descida, -1..1 aproximadamente. */
+  /** Subida/descida do casco, em px. */
   altura: number
-  /** Rolagem (inclinação lateral), em graus. */
+  /** Rolagem, em radianos (positivo: aderna para boreste). */
   rolagem: number
-  /** Arfagem (proa sobe/desce), em graus. */
+  /** Arfagem, em radianos (positivo: proa sobe). */
   arfagem: number
 }
 
-/** Estado do mar por região: amplitude e irregularidade das ondas. */
-export type EstadoMar = { amplitude: number; irregularidade: number }
+/**
+ * Amostra o mar em quatro pontos do casco (proa, popa, bombordo, boreste):
+ * a média vira a altura, as diferenças viram arfagem e rolagem. Um navio
+ * mais estável "sente" menos cada onda.
+ */
+export function balancoNoMar(
+  ondas: readonly OndaComponente[],
+  centro: Vetor,
+  rumo: number,
+  meioComprimento: number,
+  meiaLargura: number,
+  t: number,
+  agitacao: number,
+  sensibilidade: number,
+): Balanco {
+  const fx = Math.cos(rumo)
+  const fy = Math.sin(rumo)
+  const amostra = (frente: number, lado: number) =>
+    alturaDoMar(
+      ondas,
+      { x: centro.x + fx * frente - fy * lado, y: centro.y + fy * frente + fx * lado },
+      t,
+      agitacao,
+    )
 
-export const MAR_CALMO: EstadoMar = { amplitude: 0.35, irregularidade: 0.2 }
-export const MAR_MODERADO: EstadoMar = { amplitude: 1, irregularidade: 0.5 }
-export const MAR_TEMPESTADE: EstadoMar = { amplitude: 2.2, irregularidade: 1 }
+  const proa = amostra(meioComprimento, 0)
+  const popa = amostra(-meioComprimento, 0)
+  const bombordo = amostra(0, -meiaLargura * 1.6)
+  const boreste = amostra(0, meiaLargura * 1.6)
 
-export function criarPerfilOnda(semente: number): PerfilOnda {
-  const fase: number[] = []
-  let s = semente * 9301 + 49297
-  for (let i = 0; i < 8; i++) {
-    s = (s * 9301 + 49297) % 233280
-    fase.push((s / 233280) * Math.PI * 2)
-  }
-  return { fase }
-}
-
-export function balanco(perfil: PerfilOnda, t: number, mar: EstadoMar, sensibilidade: number): Balanco {
-  const [a, b, c, d, e, f, g, h] = perfil.fase
-  // Envoltória: grupos de ondas maiores chegam e passam.
-  const grupo = 0.55 + 0.45 * Math.sin(t * 0.13 + g) * Math.sin(t * 0.071 + h)
-  const k = mar.amplitude * sensibilidade * grupo
-  const irr = mar.irregularidade
-
-  const altura =
-    (Math.sin(t * 0.8 + a) * 0.5 + Math.sin(t * 1.7 + b) * 0.24 * (1 + irr) + Math.sin(t * 0.31 + c) * 0.62) * k
-
-  const rolagem = (Math.sin(t * 1.1 + d) * 1.8 + Math.sin(t * 0.47 + e) * 0.9 + Math.sin(t * 2.3 + f) * 0.5 * irr) * k
-
-  const arfagem = (Math.sin(t * 0.9 + e) * 1.1 + Math.sin(t * 1.9 + a) * 0.5 * irr) * k
-
+  const altura = ((proa + popa + bombordo + boreste) / 4) * sensibilidade
+  const arfagem = Math.atan2(proa - popa, meioComprimento * 2) * 1.6 * sensibilidade
+  const rolagem = Math.atan2(bombordo - boreste, meiaLargura * 3.2) * 1.3 * sensibilidade
   return { altura, rolagem, arfagem }
 }

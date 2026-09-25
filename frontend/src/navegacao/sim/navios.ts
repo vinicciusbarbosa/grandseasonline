@@ -67,18 +67,21 @@ export type FisicaNavio = {
   aderencia: number
   /** Multiplicador da amplitude das ondas no visual (1 = neutro). */
   sensibilidadeOnda: number
+  /** 0–1: quanto o mar agitado tira de velocidade. */
+  perdaNoMar: number
   /** 0–1: quanto do bônus/penalidade do vento o navio aproveita. */
   aproveitamentoVento: number
 }
 
 export function fisicaDoNavio(a: AtributosNavegacao): FisicaNavio {
   return {
-    velocidadeMax: a.maxSpeed * 16,
-    aceleracao: a.acceleration * 5,
-    desaceleracao: a.deceleration * 6,
-    giro: ((a.turnRate * 12) * Math.PI) / 180,
+    velocidadeMax: a.maxSpeed * 9,
+    aceleracao: a.acceleration * 2.6,
+    desaceleracao: a.deceleration * 3.2,
+    giro: ((a.turnRate * 8) * Math.PI) / 180,
     aderencia: 6.5 - a.driftFactor * 0.55,
     sensibilidadeOnda: 1.55 - a.waveResistance * 0.1,
+    perdaNoMar: 0.45 - a.waveResistance * 0.03,
     aproveitamentoVento: a.windEfficiency / 10,
   }
 }

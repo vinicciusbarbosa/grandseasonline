@@ -25,6 +25,9 @@ export type RetratoNavegacao = {
   /** Multiplicador de velocidade que o vento está dando agora. */
   fatorVento: number
   naCorrente: boolean
+  /** 0–1: intensidade da tempestade onde o navio está. */
+  tempestade: number
+  som: boolean
   zonaSegura: boolean
   descoberto: number
   escalaTempo: number
@@ -36,6 +39,8 @@ export type RetratoNavegacao = {
 export interface ControleNavegacao {
   trocarNavio(tipo: TipoNavio): void
   alternarGrade(): void
+  alternarSom(): void
+  irParaTempestade(): void
   definirEscalaTempo(escala: number): void
   navegarPara(x: number, y: number): void
   esquecerDescoberta(): void

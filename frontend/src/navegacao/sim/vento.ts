@@ -1,4 +1,5 @@
-import { ruidoSuave } from './ruido'
+import { diferencaAngular, ruidoSuave } from './ruido'
+import { intensidadeTempestade, tempestadeMaisProxima } from './tempestade'
 import type { Vetor } from '../mundo/Mundo'
 
 /**
@@ -40,25 +41,39 @@ const REGIMES: Record<number, Regime> = {
   7: { direcaoBase: 0, giro: 180 * GRAUS, intensidadeBase: 0.04, rajada: 0.03, turbulencia: 0.05, ritmo: 0.02 },
 }
 
-export function ventoEm(mar: number, p: Vetor, tempo: number): EstadoVento {
+export function ventoEm(mar: number, p: Vetor, tempo: number, celula: number): EstadoVento {
   const r = REGIMES[mar] ?? REGIMES[1]
   // Um leve gradiente espacial evita que o mar inteiro vire junto, como um bloco.
   const deriva = (p.x * 0.00025 + p.y * 0.00018)
-  const direcao = r.direcaoBase + r.giro * ruidoSuave(tempo * r.ritmo + deriva, mar)
-  const intensidade = Math.min(
+  let direcao = r.direcaoBase + r.giro * ruidoSuave(tempo * r.ritmo + deriva, mar)
+  let intensidade = Math.min(
     1,
     Math.max(0, r.intensidadeBase + r.rajada * ruidoSuave(tempo * 0.18 + deriva * 3, mar + 5)),
   )
-  return { direcao, intensidade, turbulencia: r.turbulencia }
+  let turbulencia = r.turbulencia
+
+  // Tempestade: o vento gira em volta do olho (sentido anti-horário, como um
+  // ciclone do hemisfério norte), forte e com rajadas violentas.
+  const tempestade = intensidadeTempestade(p, celula)
+  if (tempestade > 0) {
+    const t = tempestadeMaisProxima(p, celula)
+    const paraOlho = Math.atan2(t.cy * celula - p.y, t.cx * celula - p.x)
+    const ciclone = paraOlho + Math.PI / 2 + 0.35 + ruidoSuave(tempo * 0.6, 17) * 0.5
+    direcao += diferencaAngular(direcao, ciclone) * tempestade
+    const rajada = 0.85 + 0.15 * ruidoSuave(tempo * 1.4, 23)
+    intensidade += (rajada - intensidade) * tempestade
+    turbulencia += (1 - turbulencia) * tempestade
+  }
+  return { direcao, intensidade, turbulencia }
 }
 
 /**
  * Multiplicador de velocidade pelo vento, contínuo em vez de por faixas.
- * Com vento forte e aproveitamento 0,7 ele passa por perto da tabela do dossiê:
- * 0° ≈ +15%, 45° ≈ +11%, 90° ≈ +2%, 135° ≈ -6%, 180° ≈ -10%.
+ * Com vento de 70% e aproveitamento 0,7: a favor ≈ +20%, través ≈ +3%,
+ * contra ≈ −17%. Contra o vento o navio sente de verdade.
  */
 export function fatorDoVento(rumo: number, vento: EstadoVento, aproveitamento: number) {
   const alinhamento = Math.cos(rumo - vento.direcao)
-  const efeito = 0.025 + 0.125 * alinhamento
+  const efeito = 0.04 + 0.26 * alinhamento
   return 1 + efeito * vento.intensidade * (aproveitamento / 0.7)
 }

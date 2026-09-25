@@ -2,48 +2,54 @@ import Phaser from 'phaser'
 import { Mundo, RAIO_ZONA_SEGURA, type Ilha, type Vetor } from '../mundo/Mundo'
 import { painelNavegacao, type ControleNavegacao, type SituacaoNavio } from '../painel'
 import { Descoberta } from '../sim/descoberta'
-import {
-  criarEstadoViagem,
-  navegarPara,
-  passoNavegacao,
-  type EstadoViagem,
-} from '../sim/navegacao'
+import { criarEstadoViagem, navegarPara, passoNavegacao, type EstadoViagem } from '../sim/navegacao'
 import { fisicaDoNavio, NAVIOS, type FisicaNavio, type TipoNavio } from '../sim/navios'
-import { MAR_CALMO, type EstadoMar } from '../sim/ondas'
+import { agitacaoEm, balancoNoMar, componentes } from '../sim/ondas'
+import { intensidadeTempestade, TEMPESTADES } from '../sim/tempestade'
 import { ventoEm, type EstadoVento } from '../sim/vento'
-import { gerarArtesNavios } from './artesNavio'
+import { Clima } from './Clima'
 import { Correntes } from './Correntes'
 import { Esteira } from './Esteira'
 import { Ilhas } from './Ilhas'
 import { NavioVisual } from './NavioVisual'
+import { ACHATAMENTO } from './projecao'
 import { FRAGMENTO_OCEANO } from './shaderOceano'
+import { criarTexturaRuido } from './texturaRuido'
+import { VentoVisual } from './VentoVisual'
 
 const PASSO_FIXO = 1 / 60
-const PX_POR_NO = 12
+const PX_POR_NO = 9
 const ILHA_INICIAL = 'Ilha Dawn'
 
 export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   mundo!: Mundo
-  private descoberta!: Descoberta
   estado!: EstadoViagem
+  private descoberta!: Descoberta
   private fisica!: FisicaNavio
   private tipo: TipoNavio = 'pirata'
   private navio!: NavioVisual
   private esteira!: Esteira
   private correntes!: Correntes
   private ilhas!: Ilhas
+  private ventoVisual!: VentoVisual
+  private clima!: Clima
   private oceano!: Phaser.GameObjects.Shader
   private texDescoberta!: Phaser.Textures.CanvasTexture
   private rota!: Phaser.GameObjects.Graphics
+  /** Tudo que fica deitado no mar: achatado pela câmera inclinada. */
+  private plano!: Phaser.GameObjects.Container
+  /** O que a câmera segue: a posição do navio já projetada. */
+  private readonly alvoCamera = { x: 0, y: 0 }
 
-  private tempo = 0
+  tempo = 0
   private acumulador = 0
   private escalaTempo = 1
   private grade = false
   private zoomUsuario = 1
   private vento: EstadoVento = { direcao: 0, intensidade: 0.5, turbulencia: 0 }
+  private tempestadeNaVista = 0
   private versaoPintada = -1
-  private ultimaPintura = 0
+  ultimaPintura = 0
   private ultimoRetrato = 0
   private aviso: { texto: string; ate: number } | null = null
   private toque: { x: number; y: number } | null = null
@@ -63,30 +69,34 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
 
     this.texDescoberta = this.textures.createCanvas('descoberta', this.mundo.largura, this.mundo.altura)!
     this.pintarDescoberta()
+    criarTexturaRuido(this, 'ruido')
 
     this.oceano = this.add
       .shader(
         {
           name: 'oceano',
           fragmentSource: FRAGMENTO_OCEANO,
-          initialUniforms: { uTerra: 0, uDescoberta: 1 },
+          initialUniforms: { uTerra: 0, uDescoberta: 1, uRuido: 2 },
           setupUniforms: (definir: (nome: string, valor: unknown) => void) => this.uniformesOceano(definir),
         },
         0,
         0,
         16,
         16,
-        ['terra', 'descoberta'],
+        ['terra', 'descoberta', 'ruido'],
       )
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(0)
 
-    gerarArtesNavios(this)
-    this.correntes = new Correntes(this, this.mundo)
-    this.ilhas = new Ilhas(this, this.mundo, this.descoberta)
-    this.rota = this.add.graphics().setDepth(1.5)
-    this.esteira = new Esteira(this)
+    this.plano = this.add.container(0, 0).setScale(1, ACHATAMENTO).setDepth(1)
+    this.correntes = new Correntes(this, this.mundo, this.plano)
+    this.ilhas = new Ilhas(this, this.mundo, this.descoberta, this.plano)
+    this.rota = this.add.graphics()
+    this.plano.add(this.rota)
+    this.esteira = new Esteira(this, this.plano)
+    this.ventoVisual = new VentoVisual(this, this.plano)
+    this.clima = new Clima(this)
 
     // Começa atracado na primeira ilha do East Blue, com a proa para o mar aberto.
     const inicial = this.mundo.ilhas.find((i) => i.nome === ILHA_INICIAL) ?? this.mundo.ilhas[0]
@@ -105,24 +115,28 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
 
     const camera = this.cameras.main
     camera.setBackgroundColor(0x0b1220)
-    camera.setBounds(-400, -400, this.mundo.larguraPx + 800, this.mundo.alturaPx + 800)
-    camera.centerOn(this.estado.posicao.x, this.estado.posicao.y)
+    camera.setBounds(-400, -400 * ACHATAMENTO, this.mundo.larguraPx + 800, (this.mundo.alturaPx + 800) * ACHATAMENTO)
+    this.atualizarAlvoCamera()
+    camera.centerOn(this.alvoCamera.x, this.alvoCamera.y)
+    camera.startFollow(this.alvoCamera, false, 0.08, 0.08)
 
     this.input.mouse?.disableContextMenu()
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.toque = { x: p.x, y: p.y }
+      this.clima.desbloquearSom()
     })
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (!this.toque || p.button !== 0) return
       const moveu = Math.hypot(p.x - this.toque.x, p.y - this.toque.y)
       this.toque = null
       if (moveu < 10) {
+        // Tela → mundo: a câmera dá o ponto projetado; desfaz o achatamento.
         const ponto = this.cameras.main.getWorldPoint(p.x, p.y)
-        this.clicar({ x: ponto.x, y: ponto.y })
+        this.clicar({ x: ponto.x, y: ponto.y / ACHATAMENTO })
       }
     })
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
-      this.zoomUsuario = Phaser.Math.Clamp(this.zoomUsuario * (dy > 0 ? 0.9 : 1.1), 0.35, 2)
+      this.zoomUsuario = Phaser.Math.Clamp(this.zoomUsuario * (dy > 0 ? 0.9 : 1.1), 0.4, 2)
     })
   }
 
@@ -139,12 +153,23 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.grade = !this.grade
   }
 
+  alternarSom() {
+    this.clima.desbloquearSom()
+    this.clima.somLigado = !this.clima.somLigado
+  }
+
   definirEscalaTempo(escala: number) {
     this.escalaTempo = escala
   }
 
   navegarPara(x: number, y: number) {
     this.clicar({ x, y })
+  }
+
+  /** Atalho do HUD: traça rota até a borda da tempestade. */
+  irParaTempestade() {
+    const t = TEMPESTADES[0]
+    this.clicar({ x: t.cx * this.mundo.celula, y: t.cy * this.mundo.celula })
   }
 
   esquecerDescoberta() {
@@ -154,7 +179,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   // ---- Laço ------------------------------------------------------------------------
 
   update(_time: number, deltaMs: number) {
-    const dt = Math.min(deltaMs, 50) / 1000 * this.escalaTempo
+    const dt = (Math.min(deltaMs, 50) / 1000) * this.escalaTempo
     this.tempo += dt
 
     // Passo fixo: a simulação dá o mesmo resultado em 30 ou 144 fps — e é o
@@ -163,12 +188,22 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     while (this.acumulador >= PASSO_FIXO) {
       this.acumulador -= PASSO_FIXO
       const mar = this.mundo.marEm(this.estado.posicao)
-      this.vento = ventoEm(mar, this.estado.posicao, this.tempo)
+      this.vento = ventoEm(mar, this.estado.posicao, this.tempo, this.mundo.celula)
       passoNavegacao(this.mundo, this.estado, this.fisica, this.vento, PASSO_FIXO)
     }
 
-    const estadoMar = this.estadoDoMar()
-    this.navio.atualizar(this.estado, this.fisica, this.vento, estadoMar, this.tempo)
+    const celula = this.mundo.celula
+    const balanco = balancoNoMar(
+      componentes(),
+      this.estado.posicao,
+      this.estado.rumo,
+      this.navio.meioComprimento,
+      this.navio.meiaLargura,
+      this.tempo,
+      agitacaoEm(this.estado.posicao, celula),
+      this.fisica.sensibilidadeOnda,
+    )
+    this.navio.atualizar(this.estado, this.fisica, this.vento, balanco, this.tempo)
 
     const razao = Math.min(1, this.estado.velocidade / this.fisica.velocidadeMax)
     const deriva = Math.hypot(this.estado.correnteAtual.x, this.estado.correnteAtual.y)
@@ -180,7 +215,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
             proa: this.navio.pontoDaProa(this.estado),
             centro: this.estado.posicao,
             rumo: this.estado.rumo,
-            razao: Math.max(razao, Math.min(0.25, deriva / 120)),
+            razao: Math.max(razao, Math.min(0.25, deriva / 80)),
             velocidade: this.estado.velocidade,
             meiaLargura: this.navio.meiaLargura,
           }
@@ -189,13 +224,20 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
 
     this.descoberta.revelar(this.estado.posicao)
     const agora = performance.now()
-    if (this.descoberta.versao !== this.versaoPintada && agora - this.ultimaPintura > 120) {
+    if (this.descoberta.versao !== this.versaoPintada && agora - this.ultimaPintura > 150) {
       this.pintarDescoberta()
       this.ultimaPintura = agora
     }
 
     this.atualizarCamera(dt, razao)
-    this.correntes.atualizar(dt, this.cameras.main.worldView)
+    const camera = this.cameras.main
+    const centro = { x: camera.midPoint.x, y: camera.midPoint.y / ACHATAMENTO }
+    const alvoTempestade = intensidadeTempestade(centro, celula)
+    this.tempestadeNaVista += (alvoTempestade - this.tempestadeNaVista) * Math.min(1, dt * 1.5)
+
+    this.correntes.atualizar(dt, camera.worldView)
+    this.ventoVisual.atualizar(dt, this.vento, this.tempestadeNaVista, camera.worldView)
+    this.clima.atualizar(dt, this.tempestadeNaVista, this.vento, (x, y) => intensidadeTempestade({ x, y }, celula))
     this.ilhas.atualizar(this.estado.posicao, this.tempo)
     this.desenharRota()
 
@@ -210,7 +252,6 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   private criarNavio(tipo: TipoNavio) {
     this.fisica = fisicaDoNavio(NAVIOS[tipo].atributos)
     this.navio = new NavioVisual(this, tipo, tipo === 'pirata' ? 7 : 13)
-    this.cameras.main.startFollow(this.navio.raiz, false, 0.08, 0.08)
   }
 
   private clicar(p: Vetor) {
@@ -230,34 +271,27 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.aviso = { texto, ate: performance.now() + 2500 }
   }
 
-  /** Amplitude das ondas: calmaria no Calm Belt, e acompanha o vento no resto. */
-  private estadoDoMar(): EstadoMar {
-    const mar = this.mundo.marEm(this.estado.posicao)
-    if (mar === 7) return MAR_CALMO
-    const agitacao = mar === 5 || mar === 6 ? 1.4 : 1
-    return {
-      amplitude: (0.45 + 0.75 * this.vento.intensidade) * agitacao,
-      irregularidade: 0.3 + this.vento.turbulencia * 0.7,
-    }
+  private atualizarAlvoCamera() {
+    this.alvoCamera.x = this.estado.posicao.x + this.olharAdiante.x
+    this.alvoCamera.y = (this.estado.posicao.y + this.olharAdiante.y) * ACHATAMENTO
   }
 
   private atualizarCamera(dt: number, razao: number) {
     const camera = this.cameras.main
     // Olhar adiante: a câmera se adianta na direção do movimento.
-    const alvo = { x: this.estado.movimento.x * 0.9, y: this.estado.movimento.y * 0.9 }
-    const suave = 1 - Math.exp(-1.8 * dt)
+    const alvo = { x: this.estado.movimento.x * 1.1, y: this.estado.movimento.y * 1.1 }
+    const suave = 1 - Math.exp(-1.5 * dt)
     this.olharAdiante.x += (alvo.x - this.olharAdiante.x) * suave
     this.olharAdiante.y += (alvo.y - this.olharAdiante.y) * suave
-    camera.setFollowOffset(-this.olharAdiante.x, -this.olharAdiante.y)
+    this.atualizarAlvoCamera()
 
     // Abre um pouco em alta velocidade; aproxima ao atracar.
-    const atracado = this.estado.atracadoEm ? 1.22 : 1
-    const zoomAlvo = this.zoomUsuario * (1 - 0.14 * razao) * atracado
+    const atracado = this.estado.atracadoEm ? 1.2 : 1
+    const zoomAlvo = this.zoomUsuario * 1.15 * (1 - 0.12 * razao) * atracado
     camera.setZoom(camera.zoom + (zoomAlvo - camera.zoom) * (1 - Math.exp(-2 * dt)))
 
     // O oceano é preso à tela (scrollFactor 0) e cobre exatamente a vista: o
     // zoom da câmera escala em torno do centro, então o tamanho é tela / zoom.
-    // O pedaço do mundo que ele pinta vem da worldView no momento do render.
     this.oceano.setPosition(camera.width / 2, camera.height / 2)
     // setSize não recalcula a origem de exibição; setOrigin sim.
     this.oceano.setSize(camera.width / camera.zoom + 4, camera.height / camera.zoom + 4).setOrigin(0.5)
@@ -266,6 +300,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   private uniformesOceano(definir: (nome: string, valor: unknown) => void) {
     const camera = this.cameras.main
     const v = camera.worldView
+    const celula = this.mundo.celula
     // O quad tem 2 unidades de sobra de cada lado além da vista (ver atualizarCamera).
     const folga = 2
     definir('uRet', [v.x - folga, v.y - folga, v.width + folga * 2, v.height + folga * 2])
@@ -274,7 +309,21 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     definir('uTempo', this.tempo)
     definir('uVento', [Math.cos(this.vento.direcao), Math.sin(this.vento.direcao), this.vento.intensidade])
     definir('uGrade', this.grade ? 1 : 0)
-    definir('uCelula', this.mundo.celula)
+    definir('uCelula', celula)
+    definir('uAchatamento', ACHATAMENTO)
+
+    const ondas = componentes()
+    ondas.forEach((o, i) => {
+      const k = (Math.PI * 2) / o.comprimento
+      definir(`uOnda${i}`, [Math.cos(o.direcao), Math.sin(o.direcao), k, k * o.velocidade])
+    })
+    definir('uAmplitudes', ondas.map((o) => o.amplitude))
+    definir('uFases', ondas.map((o) => o.fase))
+
+    const t = TEMPESTADES[0]
+    definir('uTempestade', [t.cx * celula, t.cy * celula, t.raio * celula, t.nucleo * celula])
+    definir('uTempestadeNaVista', this.tempestadeNaVista)
+    definir('uRelampago', this.clima.relampago)
   }
 
   private pintarDescoberta() {
@@ -354,6 +403,8 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       ventoIntensidade: this.vento.intensidade,
       fatorVento: e.fatorVento,
       naCorrente: Math.hypot(e.correnteAtual.x, e.correnteAtual.y) > 5,
+      tempestade: intensidadeTempestade(e.posicao, this.mundo.celula),
+      som: this.clima.somLigado,
       zonaSegura,
       descoberto: this.descoberta.porcentagem(),
       escalaTempo: this.escalaTempo,

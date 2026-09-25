@@ -201,11 +201,22 @@ frontend/src/navegacao/
 - **`sim/` não conhece Phaser nem React.** É a parte que vai para o servidor
   (autoritativo) em C# ou que a Unity reimplementaria. A simulação usa passo
   fixo de 1/60 s.
-- **Navios desenhados por código**, provisórios: casco, vela, bandeira e
-  sombra são texturas separadas. Arte de verdade entra com as mesmas chaves.
+- **Câmera levemente inclinada** (`cena/projecao.ts`): projeção oblíqua; a
+  lógica segue em 2D. O que fica deitado no mar vai num container achatado; o
+  que tem altura (navio, raios, nomes) é projetado ponto a ponto.
+- **Navio em 3D desenhado por código** (`cena/NavioVisual.ts`): casco em
+  camadas, convés, cabine, mastros, velas que giram e enchem com o vento. Sobe,
+  desce, aderna e arfa amostrando as ondas sob o casco — o mesmo campo de
+  ondas (`sim/ondas.ts`) que o shader desenha.
+- **Desempenho**: o shader não calcula ruído por pixel (lê uma textura de
+  ruído 256×256 gerada no navegador) e as partículas da esteira são sprites
+  em lote.
+- **Tempestade** no sul do East Blue (`sim/tempestade.ts`): vento em ciclone,
+  ondas até 3,6× maiores, navio mais lento, chuva, raios, clarão e trovão com
+  som sintetizado (Web Audio, sem arquivos).
 
-Não coberto ainda: redemoinhos (não há nenhum no recorte), clima e
-tempestades, encontros, multiplayer e interação ao atracar.
+Não coberto ainda: redemoinhos (não há nenhum no recorte), encontros,
+multiplayer e interação ao atracar.
 
 ## Decisões de mapeamento
 

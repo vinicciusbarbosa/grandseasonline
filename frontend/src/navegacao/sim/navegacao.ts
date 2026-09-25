@@ -2,6 +2,7 @@ import type { Ilha, Mundo, Vetor } from '../mundo/Mundo'
 import type { FisicaNavio } from './navios'
 import { comprimentoRestante, planejarRota } from './rota'
 import { diferencaAngular, girarPara } from './ruido'
+import { intensidadeTempestade } from './tempestade'
 import { fatorDoVento, type EstadoVento } from './vento'
 
 /**
@@ -66,7 +67,7 @@ export function pararNavio(estado: EstadoViagem) {
   estado.indoPara = null
 }
 
-const VELOCIDADE_CORRENTE = 42 // px/s por ponto de intensidade
+const VELOCIDADE_CORRENTE = 30 // px/s por ponto de intensidade
 
 export function passoNavegacao(
   mundo: Mundo,
@@ -101,7 +102,9 @@ export function passoNavegacao(
     if (restante < mundo.celula * 3) fatorCurva *= Math.max(0.12, Math.cos(Math.min(erro, Math.PI / 2)))
     // Velocidade com que ainda dá para parar no destino.
     const freio = Math.sqrt(2 * fisica.desaceleracao * Math.max(0, restante - 4))
-    velocidadeAlvo = Math.min(fisica.velocidadeMax * estado.fatorVento * fatorCurva, freio + 6)
+    // Mar grosso freia: o casco bate nas ondas em vez de deslizar.
+    const mar = 1 - intensidadeTempestade(posicao, mundo.celula) * fisica.perdaNoMar
+    velocidadeAlvo = Math.min(fisica.velocidadeMax * estado.fatorVento * fatorCurva * mar, freio + 5)
 
     const noFim = estado.pontoAtual === rota.length - 1
     // Chegou: ou está em cima do ponto, ou está perto e teria de dar a volta.

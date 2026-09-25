@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { RAIO_ZONA_SEGURA, type Ilha, type Mundo, type Vetor } from '../mundo/Mundo'
 import type { Descoberta } from '../sim/descoberta'
+import { projetar } from './projecao'
 
 type IlhaNaTela = {
   ilha: Ilha
@@ -19,7 +20,8 @@ export class Ilhas {
   private readonly mundo: Mundo
   private readonly descoberta: Descoberta
 
-  constructor(cena: Phaser.Scene, mundo: Mundo, descoberta: Descoberta) {
+  /** A zona segura fica deitada no mar (`plano`); doca e nome ficam de pé. */
+  constructor(cena: Phaser.Scene, mundo: Mundo, descoberta: Descoberta, plano: Phaser.GameObjects.Container) {
     this.mundo = mundo
     this.descoberta = descoberta
     const raioZona = RAIO_ZONA_SEGURA * mundo.celula
@@ -27,7 +29,8 @@ export class Ilhas {
     for (const ilha of mundo.ilhas) {
       const doca = mundo.posicaoDaDoca(ilha)
 
-      const zona = cena.add.graphics({ x: doca.x, y: doca.y }).setDepth(0.8)
+      const zona = cena.add.graphics({ x: doca.x, y: doca.y })
+      plano.add(zona)
       const segmentos = 36
       zona.lineStyle(2, 0xf0d68e, 1)
       for (let i = 0; i < segmentos; i += 2) {
@@ -40,7 +43,8 @@ export class Ilhas {
       zona.fillStyle(0xf0d68e, 0.05)
       zona.fillCircle(0, 0, raioZona)
 
-      const marcador = cena.add.graphics({ x: doca.x, y: doca.y }).setDepth(5)
+      const naTela = projetar(doca.x, doca.y)
+      const marcador = cena.add.graphics({ x: naTela.x, y: naTela.y }).setDepth(5)
       marcador.fillStyle(0x1b1409, 0.55)
       marcador.fillCircle(0, 0, 10)
       marcador.lineStyle(2.5, 0xf0d68e, 1)
@@ -54,7 +58,7 @@ export class Ilhas {
       marcador.strokePath()
 
       const nome = cena.add
-        .text(doca.x, doca.y - 22, ilha.nome, {
+        .text(naTela.x, naTela.y - 22, ilha.nome, {
           fontFamily: 'Cinzel, Georgia, serif',
           fontSize: '17px',
           fontStyle: 'bold',

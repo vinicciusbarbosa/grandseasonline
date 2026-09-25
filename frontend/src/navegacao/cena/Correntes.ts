@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import type { Mundo } from '../mundo/Mundo'
+import { ACHATAMENTO } from './projecao'
 
 type Risco = { x: number; y: number; dx: number; dy: number; vida: number }
 
@@ -10,9 +11,11 @@ export class Correntes {
   private readonly celulas: { x: number; y: number; dx: number; dy: number }[] = []
   private riscos: Risco[] = []
 
-  constructor(cena: Phaser.Scene, mundo: Mundo) {
+  /** `plano` é o container do mar (achatado pela câmera inclinada). */
+  constructor(cena: Phaser.Scene, mundo: Mundo, plano: Phaser.GameObjects.Container) {
     this.mundo = mundo
-    this.grafico = cena.add.graphics().setDepth(0.5)
+    this.grafico = cena.add.graphics()
+    plano.add(this.grafico)
     for (let cy = 0; cy < mundo.altura; cy++) {
       for (let cx = 0; cx < mundo.largura; cx++) {
         const centro = mundo.centroDa(cx, cy)
@@ -22,10 +25,13 @@ export class Correntes {
     }
   }
 
+  /** `vista` em coordenadas projetadas (worldView da câmera). */
   atualizar(dt: number, vista: Phaser.Geom.Rectangle) {
     const margem = this.mundo.celula
+    const topo = vista.y / ACHATAMENTO
+    const base = vista.bottom / ACHATAMENTO
     for (const c of this.celulas) {
-      if (c.x < vista.x - margem || c.x > vista.right + margem || c.y < vista.y - margem || c.y > vista.bottom + margem) continue
+      if (c.x < vista.x - margem || c.x > vista.right + margem || c.y < topo - margem || c.y > base + margem) continue
       if (Math.random() < dt * 1.6) {
         this.riscos.push({
           x: c.x + (Math.random() - 0.5) * this.mundo.celula,

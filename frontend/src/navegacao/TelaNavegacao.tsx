@@ -5,6 +5,7 @@ import { Cantoneiras, Losango } from '../componentes/ui/ornamentos'
 import { CenaOceano } from './cena/CenaOceano'
 import { painelNavegacao, type RetratoNavegacao } from './painel'
 import { AVISTADA, VISITADA } from './sim/descoberta'
+import { TEMPESTADES } from './sim/tempestade'
 import { NAVIOS, type AtributosNavegacao, type TipoNavio } from './sim/navios'
 
 /**
@@ -57,7 +58,7 @@ export default function TelaNavegacao() {
             </div>
           )}
           <p className="pointer-events-none absolute bottom-3 left-1/2 hidden -translate-x-1/2 text-xs tracking-wide text-creme/55 lg:block">
-            Clique no mar para navegar · clique numa ilha para atracar · roda do mouse para zoom
+            Clique no mar para navegar · numa ilha para atracar · roda do mouse: zoom
           </p>
         </>
       )}
@@ -102,6 +103,11 @@ function Localizacao({ retrato }: { retrato: RetratoNavegacao }) {
           {retrato.zonaSegura && (
             <span className="rounded-full border border-ouro/60 bg-ouro/15 px-2.5 py-0.5 text-xs text-ouro-claro">
               Zona segura
+            </span>
+          )}
+          {retrato.tempestade > 0.05 && (
+            <span className="rounded-full border border-pirata/70 bg-pirata/25 px-2.5 py-0.5 text-xs text-creme">
+              {retrato.tempestade > 0.7 ? 'Olho da tempestade' : 'Tempestade'}
             </span>
           )}
           {retrato.naCorrente && (
@@ -247,13 +253,27 @@ function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOcea
           </button>
         ))}
         <button
-          onClick={() => cena.alternarGrade()}
+          onClick={() => cena.alternarSom()}
           className={`ml-auto rounded-sm border px-2.5 py-1 ${
+            retrato.som ? 'border-ouro/80 text-ouro-claro' : 'border-painel-borda/40 text-creme/70 hover:border-ouro/40'
+          }`}
+        >
+          Som
+        </button>
+        <button
+          onClick={() => cena.alternarGrade()}
+          className={`rounded-sm border px-2.5 py-1 ${
             retrato.grade ? 'border-ouro/80 text-ouro-claro' : 'border-painel-borda/40 text-creme/70 hover:border-ouro/40'
           }`}
           title="Mostra a grade lógica e os chunks de 10×10"
         >
           Grade
+        </button>
+        <button
+          onClick={() => cena.irParaTempestade()}
+          className="w-full rounded-sm border border-pirata/50 px-2.5 py-1 text-creme/80 hover:border-pirata"
+        >
+          Navegar até a tempestade
         </button>
       </Quadro>
     </div>
@@ -264,6 +284,7 @@ const LARGURA_MINIMAPA = 300
 
 function Minimapa({ retrato, aoNavegar }: { retrato: RetratoNavegacao; aoNavegar: (x: number, y: number) => void }) {
   const tela = useRef<HTMLCanvasElement>(null)
+  const base = useRef<{ versao: number; imagem: ImageData | null }>({ versao: -1, imagem: null })
   const fontes = painelNavegacao.fontes
 
   useEffect(() => {
@@ -273,16 +294,36 @@ function Minimapa({ retrato, aoNavegar }: { retrato: RetratoNavegacao; aoNavegar
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const imagem = ctx.createImageData(mundo.largura, mundo.altura)
-    for (let i = 0; i < mundo.bloqueio.length; i++) {
-      const visto = descoberta.estado[i]
-      let cor: [number, number, number]
-      if (visto === 0) cor = [16, 22, 34]
-      else if (mundo.bloqueio[i]) cor = visto === VISITADA ? [176, 150, 104] : [150, 128, 92]
-      else cor = visto === AVISTADA ? [38, 96, 132] : [52, 124, 160]
-      imagem.data.set([...cor, 255], i * 4)
+    // A base (terra, mar, névoa) só é refeita quando a descoberta muda.
+    if (base.current.versao !== descoberta.versao || !base.current.imagem) {
+      const imagem = base.current.imagem ?? ctx.createImageData(mundo.largura, mundo.altura)
+      const d = imagem.data
+      for (let i = 0; i < mundo.bloqueio.length; i++) {
+        const visto = descoberta.estado[i]
+        let r = 16
+        let g = 22
+        let b = 34
+        if (visto !== 0 && mundo.bloqueio[i]) [r, g, b] = visto === VISITADA ? [176, 150, 104] : [150, 128, 92]
+        else if (visto !== 0) [r, g, b] = visto === AVISTADA ? [38, 96, 132] : [52, 124, 160]
+        d[i * 4] = r
+        d[i * 4 + 1] = g
+        d[i * 4 + 2] = b
+        d[i * 4 + 3] = 255
+      }
+      base.current = { versao: descoberta.versao, imagem }
     }
-    ctx.putImageData(imagem, 0, 0)
+    ctx.putImageData(base.current.imagem!, 0, 0)
+
+    // Tempestade: círculo tracejado vermelho.
+    ctx.setLineDash([2, 2])
+    ctx.strokeStyle = 'rgba(214,90,80,0.8)'
+    ctx.lineWidth = 0.8
+    for (const t of TEMPESTADES) {
+      ctx.beginPath()
+      ctx.arc(t.cx, t.cy, t.raio, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.setLineDash([])
 
     const px = 1 / mundo.celula
     ctx.fillStyle = '#f0d68e'
