@@ -31,3 +31,7 @@ public/Imagens/Icones/con.png
 # Git LFS ou um repositório separado só de assets.
 public/Imagens/
 public/Sons/
+
+# Python
+__pycache__/
+*.pyc
