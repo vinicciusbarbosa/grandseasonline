@@ -16,7 +16,7 @@ export type Tempestade = {
   nucleo: number
 }
 
-export const TEMPESTADES: readonly Tempestade[] = [{ cx: 165, cy: 85, raio: 20, nucleo: 9 }]
+export const TEMPESTADES: readonly Tempestade[] = [{ cx: 160, cy: 90, raio: 34, nucleo: 15 }]
 
 /** 0 fora, 1 no núcleo, com transição suave na borda. */
 export function intensidadeTempestade(p: Vetor, celula: number) {

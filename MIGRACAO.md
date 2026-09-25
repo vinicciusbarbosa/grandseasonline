@@ -212,8 +212,16 @@ frontend/src/navegacao/
   ruído 256×256 gerada no navegador) e as partículas da esteira são sprites
   em lote.
 - **Tempestade** no sul do East Blue (`sim/tempestade.ts`): vento em ciclone,
-  ondas até 3,6× maiores, navio mais lento, chuva, raios, clarão e trovão com
-  som sintetizado (Web Audio, sem arquivos).
+  vagas altas de crista pontuda (as mesmas no shader e no balanço do navio),
+  navio mais lento, chuva em sprites com respingos, raios fractais que descem
+  e piscam, clarão localizado e trovão sintetizado (estalo + ronco).
+- **Redemoinho** no núcleo da tempestade (`sim/redemoinho.ts`): na borda a
+  água segura o navio; mais perto, arrasta; na captura o jogador perde o
+  controle, o navio gira para dentro e alaga; no centro ele se parte e a
+  tripulação recomeça na última ilha.
+- **Rastro no próprio shader** (`cena/Esteira.ts`): uma textura que acompanha
+  o navio guarda a água mexida (popa, proa cortando a água, braços do "V") e
+  o shader a pinta com o mesmo estilo do mar.
 
 Não coberto ainda: redemoinhos (não há nenhum no recorte), encontros,
 multiplayer e interação ao atracar.

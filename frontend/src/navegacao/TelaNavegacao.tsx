@@ -83,6 +83,9 @@ const SITUACAO: Record<RetratoNavegacao['situacao'], string> = {
   parado: 'À deriva',
   navegando: 'Navegando',
   'indo-atracar': 'Rumo à doca',
+  redemoinho: 'Na correnteza do redemoinho',
+  capturado: 'Preso no redemoinho!',
+  naufragado: 'O navio se partiu',
 }
 
 function Localizacao({ retrato }: { retrato: RetratoNavegacao }) {
@@ -274,6 +277,12 @@ function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOcea
           className="w-full rounded-sm border border-pirata/50 px-2.5 py-1 text-creme/80 hover:border-pirata"
         >
           Navegar até a tempestade
+        </button>
+        <button
+          onClick={() => cena.irParaRedemoinho()}
+          className="w-full rounded-sm border border-pirata/50 px-2.5 py-1 text-creme/80 hover:border-pirata"
+        >
+          Navegar até o redemoinho
         </button>
       </Quadro>
     </div>

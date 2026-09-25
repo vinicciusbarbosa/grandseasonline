@@ -7,7 +7,7 @@ import type { TipoNavio } from './sim/navios'
  * estado umas dez vezes por segundo; o React assina com useSyncExternalStore.
  * Comandos vão no sentido contrário, pela interface `ControleNavegacao`.
  */
-export type SituacaoNavio = 'atracado' | 'parado' | 'navegando' | 'indo-atracar'
+export type SituacaoNavio = 'atracado' | 'parado' | 'navegando' | 'indo-atracar' | 'redemoinho' | 'capturado' | 'naufragado'
 
 export type RetratoNavegacao = {
   navio: TipoNavio
@@ -41,6 +41,7 @@ export interface ControleNavegacao {
   alternarGrade(): void
   alternarSom(): void
   irParaTempestade(): void
+  irParaRedemoinho(): void
   definirEscalaTempo(escala: number): void
   navegarPara(x: number, y: number): void
   esquecerDescoberta(): void

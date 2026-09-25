@@ -4,7 +4,8 @@ import { painelNavegacao, type ControleNavegacao, type SituacaoNavio } from '../
 import { Descoberta } from '../sim/descoberta'
 import { criarEstadoViagem, navegarPara, passoNavegacao, type EstadoViagem } from '../sim/navegacao'
 import { fisicaDoNavio, NAVIOS, type FisicaNavio, type TipoNavio } from '../sim/navios'
-import { agitacaoEm, balancoNoMar, componentes } from '../sim/ondas'
+import { agitacaoEm, balancoNoMar, componentes, componentesTempestade } from '../sim/ondas'
+import { REDEMOINHOS } from '../sim/redemoinho'
 import { intensidadeTempestade, TEMPESTADES } from '../sim/tempestade'
 import { ventoEm, type EstadoVento } from '../sim/vento'
 import { Clima } from './Clima'
@@ -35,6 +36,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   private clima!: Clima
   private oceano!: Phaser.GameObjects.Shader
   private texDescoberta!: Phaser.Textures.CanvasTexture
+  private rascunhoDescoberta: HTMLCanvasElement | null = null
   private rota!: Phaser.GameObjects.Graphics
   /** Tudo que fica deitado no mar: achatado pela câmera inclinada. */
   private plano!: Phaser.GameObjects.Container
@@ -54,6 +56,8 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   private aviso: { texto: string; ate: number } | null = null
   private toque: { x: number; y: number } | null = null
   private olharAdiante = { x: 0, y: 0 }
+  /** Onde o navio volta depois de naufragar: a última ilha em que atracou. */
+  private ultimaIlha: Ilha | null = null
 
   constructor() {
     super('oceano')
@@ -70,20 +74,21 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.texDescoberta = this.textures.createCanvas('descoberta', this.mundo.largura, this.mundo.altura)!
     this.pintarDescoberta()
     criarTexturaRuido(this, 'ruido')
+    this.esteira = new Esteira(this)
 
     this.oceano = this.add
       .shader(
         {
           name: 'oceano',
           fragmentSource: FRAGMENTO_OCEANO,
-          initialUniforms: { uTerra: 0, uDescoberta: 1, uRuido: 2 },
+          initialUniforms: { uTerra: 0, uDescoberta: 1, uRuido: 2, uRastro: 3 },
           setupUniforms: (definir: (nome: string, valor: unknown) => void) => this.uniformesOceano(definir),
         },
         0,
         0,
         16,
         16,
-        ['terra', 'descoberta', 'ruido'],
+        ['terra', 'descoberta', 'ruido', 'rastro-a'],
       )
       .setOrigin(0.5)
       .setScrollFactor(0)
@@ -94,12 +99,12 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.ilhas = new Ilhas(this, this.mundo, this.descoberta, this.plano)
     this.rota = this.add.graphics()
     this.plano.add(this.rota)
-    this.esteira = new Esteira(this, this.plano)
     this.ventoVisual = new VentoVisual(this, this.plano)
     this.clima = new Clima(this)
 
     // Começa atracado na primeira ilha do East Blue, com a proa para o mar aberto.
     const inicial = this.mundo.ilhas.find((i) => i.nome === ILHA_INICIAL) ?? this.mundo.ilhas[0]
+    this.ultimaIlha = inicial
     this.estado = criarEstadoViagem(this.mundo.posicaoDaDoca(inicial), Math.PI * 0.85)
     this.estado.atracadoEm = inicial
     this.criarNavio(this.tipo)
@@ -167,6 +172,13 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   }
 
   /** Atalho do HUD: traça rota até a borda da tempestade. */
+  /** Atalho do HUD: rota até a borda do redemoinho (o resto é com a água). */
+  irParaRedemoinho() {
+    const r = REDEMOINHOS[0]
+    const c = this.mundo.celula
+    this.clicar({ x: (r.cx - r.raio * 0.8) * c, y: (r.cy - r.raio * 0.2) * c })
+  }
+
   irParaTempestade() {
     const t = TEMPESTADES[0]
     this.clicar({ x: t.cx * this.mundo.celula, y: t.cy * this.mundo.celula })
@@ -193,6 +205,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     }
 
     const celula = this.mundo.celula
+    const tormentaNavio = intensidadeTempestade(this.estado.posicao, celula)
     const balanco = balancoNoMar(
       componentes(),
       this.estado.posicao,
@@ -202,25 +215,29 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       this.tempo,
       agitacaoEm(this.estado.posicao, celula),
       this.fisica.sensibilidadeOnda,
+      tormentaNavio,
     )
-    this.navio.atualizar(this.estado, this.fisica, this.vento, balanco, this.tempo)
+    this.navio.atualizar(this.estado, this.fisica, this.vento, balanco, this.tempo, dt)
+    if (this.estado.atracadoEm) this.ultimaIlha = this.estado.atracadoEm
+    if (this.estado.naufragio !== null && this.estado.naufragio > 5) this.voltarAoPorto()
 
     const razao = Math.min(1, this.estado.velocidade / this.fisica.velocidadeMax)
-    const deriva = Math.hypot(this.estado.correnteAtual.x, this.estado.correnteAtual.y)
     this.esteira.atualizar(
       dt,
-      razao > 0.01 || deriva > 1
+      this.estado.posicao,
+      this.estado.naufragio === null
         ? {
             popa: this.navio.pontoDaPopa(this.estado),
             proa: this.navio.pontoDaProa(this.estado),
             centro: this.estado.posicao,
             rumo: this.estado.rumo,
-            razao: Math.max(razao, Math.min(0.25, deriva / 80)),
-            velocidade: this.estado.velocidade,
+            razao,
             meiaLargura: this.navio.meiaLargura,
+            meioComprimento: this.navio.meioComprimento,
           }
         : null,
     )
+    this.oceano.setTextures(['terra', 'descoberta', 'ruido', this.esteira.chave])
 
     this.descoberta.revelar(this.estado.posicao)
     const agora = performance.now()
@@ -254,6 +271,16 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.navio = new NavioVisual(this, tipo, tipo === 'pirata' ? 7 : 13)
   }
 
+  /** Depois do naufrágio: um navio novo espera na última ilha visitada. */
+  private voltarAoPorto() {
+    const ilha = this.ultimaIlha ?? this.mundo.ilhas[0]
+    this.estado = criarEstadoViagem(this.mundo.posicaoDaDoca(ilha), Math.PI * 0.85)
+    this.estado.atracadoEm = ilha
+    this.navio.destruir()
+    this.criarNavio(this.tipo)
+    this.aviso = { texto: `O redemoinho partiu o navio. A tripulação recomeça em ${ilha.nome}.`, ate: performance.now() + 5000 }
+  }
+
   private clicar(p: Vetor) {
     // Clique em terra (ou colado numa doca) é pedido para atracar na ilha mais próxima.
     const emTerra = !this.mundo.navegavel(p)
@@ -262,9 +289,9 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       this.avisar('Não dá para navegar em terra.')
       return
     }
-    if (navegarPara(this.mundo, this.estado, p, ilha) === 'sem-rota') {
-      this.avisar('Não há passagem até lá.')
-    }
+    const resultado = navegarPara(this.mundo, this.estado, p, ilha)
+    if (resultado === 'sem-rota') this.avisar('Não há passagem até lá.')
+    if (resultado === 'sem-controle') this.avisar('O redemoinho arrancou o leme das suas mãos!')
   }
 
   private avisar(texto: string) {
@@ -294,15 +321,16 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     // zoom da câmera escala em torno do centro, então o tamanho é tela / zoom.
     this.oceano.setPosition(camera.width / 2, camera.height / 2)
     // setSize não recalcula a origem de exibição; setOrigin sim.
-    this.oceano.setSize(camera.width / camera.zoom + 4, camera.height / camera.zoom + 4).setOrigin(0.5)
+    // A sobra cobre o tremor de tela dos trovões.
+    this.oceano.setSize(camera.width / camera.zoom + 80, camera.height / camera.zoom + 80).setOrigin(0.5)
   }
 
   private uniformesOceano(definir: (nome: string, valor: unknown) => void) {
     const camera = this.cameras.main
     const v = camera.worldView
     const celula = this.mundo.celula
-    // O quad tem 2 unidades de sobra de cada lado além da vista (ver atualizarCamera).
-    const folga = 2
+    // O quad tem 40 unidades de sobra de cada lado além da vista (ver atualizarCamera).
+    const folga = 40
     definir('uRet', [v.x - folga, v.y - folga, v.width + folga * 2, v.height + folga * 2])
     definir('uVista', [v.x, v.y, Math.max(1, v.width), Math.max(1, v.height)])
     definir('uMundo', [this.mundo.larguraPx, this.mundo.alturaPx])
@@ -320,10 +348,23 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     definir('uAmplitudes', ondas.map((o) => o.amplitude))
     definir('uFases', ondas.map((o) => o.fase))
 
+    const vagas = componentesTempestade()
+    vagas.forEach((o, i) => {
+      const k = (Math.PI * 2) / o.comprimento
+      definir(`uVaga${i}`, [Math.cos(o.direcao), Math.sin(o.direcao), k, k * o.velocidade])
+    })
+    definir('uVagaAmp', vagas.map((o) => o.amplitude))
+    definir('uVagaFase', vagas.map((o) => o.fase))
+
     const t = TEMPESTADES[0]
     definir('uTempestade', [t.cx * celula, t.cy * celula, t.raio * celula, t.nucleo * celula])
     definir('uTempestadeNaVista', this.tempestadeNaVista)
     definir('uRelampago', this.clima.relampago)
+    definir('uRelampagoPos', [this.clima.posicaoRelampago.x, this.clima.posicaoRelampago.y])
+
+    const r = REDEMOINHOS[0]
+    definir('uRedemoinho', [r.cx * celula, r.cy * celula, r.raio * celula, r.captura * celula])
+    definir('uJanelaRastro', [this.esteira.janela.x, this.esteira.janela.y, this.esteira.janela.lado, 0])
   }
 
   private pintarDescoberta() {
@@ -338,7 +379,13 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       imagem.data[i * 4 + 2] = v
       imagem.data[i * 4 + 3] = 255
     }
-    ctx.putImageData(imagem, 0, 0)
+    // Borra de leve: a grade de células vira uma borda arredondada, não um degrau.
+    const rascunho = (this.rascunhoDescoberta ??= Object.assign(document.createElement('canvas'), { width: largura, height: altura }))
+    rascunho.getContext('2d')!.putImageData(imagem, 0, 0)
+    ctx.clearRect(0, 0, largura, altura)
+    ctx.filter = 'blur(1.4px)'
+    ctx.drawImage(rascunho, 0, 0)
+    ctx.filter = 'none'
     this.texDescoberta.refresh()
     this.versaoPintada = this.descoberta.versao
   }
@@ -377,7 +424,10 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     const e = this.estado
     const mar = this.mundo.marEm(e.posicao)
     let situacao: SituacaoNavio = 'parado'
-    if (e.atracadoEm) situacao = 'atracado'
+    if (e.naufragio !== null) situacao = 'naufragado'
+    else if (e.capturado) situacao = 'capturado'
+    else if (e.zonaRedemoinho !== 'fora' && !e.atracadoEm) situacao = 'redemoinho'
+    else if (e.atracadoEm) situacao = 'atracado'
     else if (e.rota && e.indoPara) situacao = 'indo-atracar'
     else if (e.rota || e.velocidade > 3) situacao = 'navegando'
 

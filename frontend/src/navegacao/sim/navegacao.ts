@@ -2,6 +2,7 @@ import type { Ilha, Mundo, Vetor } from '../mundo/Mundo'
 import type { FisicaNavio } from './navios'
 import { comprimentoRestante, planejarRota } from './rota'
 import { diferencaAngular, girarPara } from './ruido'
+import { influenciaRedemoinho, type Zona } from './redemoinho'
 import { intensidadeTempestade } from './tempestade'
 import { fatorDoVento, type EstadoVento } from './vento'
 
@@ -30,6 +31,14 @@ export type EstadoViagem = {
   /** Último multiplicador de vento aplicado, para o HUD. */
   fatorVento: number
   correnteAtual: Vetor
+  /** Onde o navio está em relação ao redemoinho. */
+  zonaRedemoinho: Zona
+  /** Preso no redemoinho: o jogador perdeu o controle. */
+  capturado: boolean
+  /** 0–1: quanto de água já entrou no navio. */
+  alagamento: number
+  /** Segundos desde que o navio se partiu; null enquanto inteiro. */
+  naufragio: number | null
 }
 
 export function criarEstadoViagem(posicao: Vetor, rumo = 0): EstadoViagem {
@@ -45,13 +54,18 @@ export function criarEstadoViagem(posicao: Vetor, rumo = 0): EstadoViagem {
     giroAtual: 0,
     fatorVento: 1,
     correnteAtual: { x: 0, y: 0 },
+    zonaRedemoinho: 'fora',
+    capturado: false,
+    alagamento: 0,
+    naufragio: null,
   }
 }
 
-export type ResultadoComando = 'ok' | 'sem-rota'
+export type ResultadoComando = 'ok' | 'sem-rota' | 'sem-controle'
 
 /** Clique no mar: navega até o ponto. Clique numa ilha: vai até a doca e atraca. */
 export function navegarPara(mundo: Mundo, estado: EstadoViagem, destino: Vetor, ilha: Ilha | null): ResultadoComando {
+  if (estado.capturado || estado.naufragio !== null) return 'sem-controle'
   const alvo = ilha ? mundo.posicaoDaDoca(ilha) : destino
   const rota = planejarRota(mundo, estado.posicao, alvo)
   if (!rota) return 'sem-rota'
@@ -77,6 +91,21 @@ export function passoNavegacao(
   dt: number,
 ) {
   const { posicao } = estado
+
+  if (estado.naufragio !== null) {
+    estado.naufragio += dt
+    estado.velocidade = 0
+    return
+  }
+
+  const redemoinho = influenciaRedemoinho(posicao, mundo.celula)
+  estado.zonaRedemoinho = redemoinho?.zona ?? 'fora'
+  if (redemoinho && (redemoinho.zona === 'captura' || redemoinho.zona === 'centro')) estado.capturado = true
+  if (estado.capturado && redemoinho) {
+    girarNoRedemoinho(mundo, estado, redemoinho, dt)
+    return
+  }
+
   let velocidadeAlvo = 0
   let rumoAlvo = estado.rumo
 
@@ -104,7 +133,9 @@ export function passoNavegacao(
     const freio = Math.sqrt(2 * fisica.desaceleracao * Math.max(0, restante - 4))
     // Mar grosso freia: o casco bate nas ondas em vez de deslizar.
     const mar = 1 - intensidadeTempestade(posicao, mundo.celula) * fisica.perdaNoMar
-    velocidadeAlvo = Math.min(fisica.velocidadeMax * estado.fatorVento * fatorCurva * mar, freio + 5)
+    // Na borda do redemoinho a água segura o casco: o leme e o pano rendem pouco.
+    const segura = redemoinho ? 1 - 0.65 * Math.min(1, redemoinho.profundidade * 1.6) : 1
+    velocidadeAlvo = Math.min(fisica.velocidadeMax * estado.fatorVento * fatorCurva * mar * segura, freio + 5)
 
     const noFim = estado.pontoAtual === rota.length - 1
     // Chegou: ou está em cima do ponto, ou está perto e teria de dar a volta.
@@ -120,7 +151,8 @@ export function passoNavegacao(
 
   // --- Rumo -------------------------------------------------------------------
   // O leme morde mais com o navio andando; parado, ele ainda gira, mas devagar.
-  const autoridade = 0.35 + 0.65 * Math.min(1, estado.velocidade / (fisica.velocidadeMax * 0.5))
+  let autoridade = 0.35 + 0.65 * Math.min(1, estado.velocidade / (fisica.velocidadeMax * 0.5))
+  if (redemoinho) autoridade *= 1 - 0.6 * Math.min(1, redemoinho.profundidade * 1.6)
   const rumoAntes = estado.rumo
   estado.rumo = Math.atan2(Math.sin(estado.rumo), Math.cos(estado.rumo))
   estado.rumo = girarPara(estado.rumo, rumoAlvo, fisica.giro * autoridade * dt)
@@ -145,6 +177,10 @@ export function passoNavegacao(
   const alvoCorrente = corrente
     ? { x: corrente.dx * corrente.forca * VELOCIDADE_CORRENTE, y: corrente.dy * corrente.forca * VELOCIDADE_CORRENTE }
     : { x: 0, y: 0 }
+  if (redemoinho) {
+    alvoCorrente.x += redemoinho.correnteza.x
+    alvoCorrente.y += redemoinho.correnteza.y
+  }
   estado.correnteAtual.x += (alvoCorrente.x - estado.correnteAtual.x) * Math.min(1, dt * 1.5)
   estado.correnteAtual.y += (alvoCorrente.y - estado.correnteAtual.y) * Math.min(1, dt * 1.5)
 
@@ -162,6 +198,43 @@ export function passoNavegacao(
   const dx = (estado.movimento.x + estado.correnteAtual.x) * dt
   const dy = (estado.movimento.y + estado.correnteAtual.y) * dt
   mover(mundo, estado, dx, dy)
+}
+
+/**
+ * Preso: o navio orbita para dentro, girando em torno de si cada vez mais
+ * rápido, enquanto a água entra. No centro, ele se parte.
+ */
+function girarNoRedemoinho(
+  mundo: Mundo,
+  estado: EstadoViagem,
+  r: NonNullable<ReturnType<typeof influenciaRedemoinho>>,
+  dt: number,
+) {
+  estado.rota = null
+  estado.indoPara = null
+  estado.atracadoEm = null
+
+  // Separa a correnteza em giro (mantido) e sucção (mais lenta aqui dentro):
+  // a espiral leva uns 9 s da captura até o centro, tempo de ver a água entrar.
+  const radial = { x: (r.centro.x - estado.posicao.x) / Math.max(r.distancia, 1), y: (r.centro.y - estado.posicao.y) / Math.max(r.distancia, 1) }
+  const naDirecaoDoCentro = r.correnteza.x * radial.x + r.correnteza.y * radial.y
+  const giro = { x: r.correnteza.x - radial.x * naDirecaoDoCentro, y: r.correnteza.y - radial.y * naDirecaoDoCentro }
+  const succao = 9 + 12 * r.profundidade
+  estado.correnteAtual.x = giro.x
+  estado.correnteAtual.y = giro.y
+  estado.movimento.x = radial.x * succao
+  estado.movimento.y = radial.y * succao
+
+  // Gira em torno de si: a proa acompanha a correnteza e ainda rodopia.
+  const rodopio = 0.6 + 3.2 * Math.pow(r.profundidade, 2)
+  const antes = estado.rumo
+  estado.rumo = girarPara(estado.rumo, r.tangente, 1.2 * dt) + rodopio * dt * -1
+  estado.giroAtual = diferencaAngular(antes, estado.rumo) / Math.max(dt, 1e-6)
+  estado.velocidade = Math.hypot(r.correnteza.x, r.correnteza.y) * 0.6
+
+  estado.alagamento = Math.min(1, estado.alagamento + dt / 9)
+  mover(mundo, estado, (estado.movimento.x + estado.correnteAtual.x) * dt, (estado.movimento.y + estado.correnteAtual.y) * dt)
+  if (r.zona === 'centro') estado.naufragio = 0
 }
 
 /** Move com colisão contra terra: desliza pela costa em vez de atravessar. */

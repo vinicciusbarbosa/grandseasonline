@@ -120,6 +120,8 @@ export const PROJETOS: Record<TipoNavio, Projeto> = {
 }
 
 type P3 = { x: number; y: number; z: number }
+type Respingo = { x: number; y: number; z: number; vx: number; vy: number; vz: number; vida: number; duracao: number; tamanho: number }
+type Destroco = P3 & { vx: number; vy: number; vz: number; giro: number; angulo: number; comprimento: number; cor: number }
 type P2 = { x: number; y: number; profundidade: number }
 
 const PASSOS_CASCO = 22
@@ -182,6 +184,10 @@ export class NavioVisual {
   private cosArf = 1
   private sinArf = 0
   private altura = 0
+  /** Transformação extra aplicada antes de tudo (pedaços do naufrágio). */
+  private preTransformar: ((l: P3) => P3) | null = null
+  private respingos: Respingo[] = []
+  private destrocos: Destroco[] = []
 
   constructor(cena: Phaser.Scene, tipo: TipoNavio, semente: number) {
     this.tipo = tipo
@@ -195,7 +201,8 @@ export class NavioVisual {
   // ---- Geometria -----------------------------------------------------------------
 
   /** Local → tela, com o balanço e o rumo do quadro atual. */
-  private projetar(l: P3, semOnda = false): P2 {
+  private projetar(entrada: P3, semOnda = false): P2 {
+    const l = this.preTransformar ? this.preTransformar(entrada) : entrada
     const y1 = l.y * this.cosRol - l.z * this.sinRol
     const z1 = l.y * this.sinRol + l.z * this.cosRol
     const x2 = l.x * this.cosArf - z1 * this.sinArf
@@ -246,41 +253,6 @@ export class NavioVisual {
     this.g.lineBetween(pa.x, pa.y, pb.x, pb.y)
   }
 
-  /** Caixa (caixote, castelo): faces viradas para a câmera e o tampo. */
-  private caixa(x: number, y: number, z: number, cx: number, cy: number, altura: number, cor: number, contorno: number) {
-    const c = [
-      { x: x - cx, y: y - cy },
-      { x: x + cx, y: y - cy },
-      { x: x + cx, y: y + cy },
-      { x: x - cx, y: y + cy },
-    ]
-    const faces = [
-      { a: 0, b: 1, n: [0, -1] },
-      { a: 1, b: 2, n: [1, 0] },
-      { a: 2, b: 3, n: [0, 1] },
-      { a: 3, b: 0, n: [-1, 0] },
-    ]
-    for (const f of faces) {
-      const frente = this.voltadoParaCamera(f.n[0], f.n[1])
-      if (frente <= 0) continue
-      const pa = c[f.a]
-      const pb = c[f.b]
-      const face = [
-        { ...pa, z },
-        { ...pb, z },
-        { ...pb, z: z + altura },
-        { ...pa, z: z + altura },
-      ]
-      // Face de frente mais clara, lateral mais escura.
-      const luz = 0.62 + 0.3 * frente + 0.08 * this.voltadoParaCamera(f.n[1], -f.n[0])
-      this.preencher(face, escurecer(cor, 1 - luz))
-      this.tracar(face, 0.8, contorno, 0.7)
-    }
-    const tampo = c.map((p) => ({ ...p, z: z + altura }))
-    this.preencher(tampo, clarear(cor, 0.12))
-    this.tracar(tampo, 0.8, contorno, 0.8)
-  }
-
   /** Cilindro vertical (barril, cesto, base de mastro). */
   private cilindro(x: number, y: number, z: number, raio: number, altura: number, cor: number, aros: number, raioTopo = raio) {
     const base = this.projetar({ x, y, z })
@@ -318,14 +290,16 @@ export class NavioVisual {
 
   // ---- Quadro ----------------------------------------------------------------------
 
-  atualizar(estado: EstadoViagem, fisica: FisicaNavio, vento: EstadoVento, balanco: Balanco, tempo: number) {
+  atualizar(estado: EstadoViagem, fisica: FisicaNavio, vento: EstadoVento, balanco: Balanco, tempo: number, dt: number) {
     const p = this.projeto
     this.g.clear()
 
     const razao = Math.min(1, estado.velocidade / fisica.velocidadeMax)
     // Nas curvas o navio aderna para fora; mais solto, mais aderna.
     const adernar = -estado.giroAtual * (0.12 + fisica.sensibilidadeOnda * 0.08) * (0.3 + razao)
-    const rolagem = balanco.rolagem + adernar
+    // Alagado, ele fica pesado e jogado de um lado para o outro.
+    const agua = estado.alagamento
+    const rolagem = balanco.rolagem + adernar + Math.sin(tempo * 2.3) * 0.12 * agua
     const arfagem = balanco.arfagem + razao * 0.03
 
     this.cx = estado.posicao.x
@@ -336,18 +310,20 @@ export class NavioVisual {
     this.sinRol = Math.sin(rolagem)
     this.cosArf = Math.cos(arfagem)
     this.sinArf = Math.sin(arfagem)
-    this.altura = balanco.altura
+    this.altura = balanco.altura - agua * 7
     this.g.setDepth(3 + this.cy * 1e-5)
 
-    this.desenharAguaEmVolta(razao, tempo)
+    if (estado.naufragio !== null) {
+      this.desenharNaufragio(estado.naufragio, dt)
+      return
+    }
+
+    this.desenharSombra()
     this.desenharCasco()
-
-    // Objetos sobre o convés, do fundo para a frente.
-    const objetos: { profundidade: number; desenhar: () => void }[] = []
-    const xCastelo = xDe(p, p.castelo / 2)
-    objetos.push({ profundidade: this.profundidadeDe(xCastelo, 0), desenhar: () => this.desenharCastelo() })
-
-    for (const item of this.itensDoConves()) objetos.push(item)
+    // O castelo faz parte do casco: sempre antes dos mastros, senão o mastro
+    // de mezena (que nasce nele) some dentro dele conforme o rumo.
+    this.desenharCastelo()
+    if (agua > 0.02) this.desenharAguaNoConves(agua, tempo)
 
     const relativo = diferencaAngular(estado.rumo, vento.direcao)
     const alinhamento = Math.cos(relativo)
@@ -357,43 +333,150 @@ export class NavioVisual {
     if (alinhamento < -0.3) enchimento *= -0.55
     const tremor = ruidoSuave(tempo * 7, this.semente) * 0.12 * (1.2 - vento.intensidade)
 
-    for (const m of p.mastros) {
-      const x = xDe(p, m.s)
-      objetos.push({
-        profundidade: this.profundidadeDe(x, 0),
-        desenhar: () => this.desenharMastro(m, x, regulagem, (enchimento + tremor) * 7, vento, estado.rumo, tempo),
-      })
-    }
-
-    objetos.sort((a, b) => a.profundidade - b.profundidade)
-    for (const o of objetos) o.desenhar()
+    // Mastros do fundo para a frente.
+    const mastros = p.mastros
+      .map((m) => ({ m, x: xDe(p, m.s) }))
+      .sort((a, b) => this.profundidadeDe(a.x, 0) - this.profundidadeDe(b.x, 0))
+    for (const { m, x } of mastros) this.desenharMastro(m, x, regulagem, (enchimento + tremor) * 7, vento, estado.rumo, tempo)
 
     this.desenharCordame()
+    this.atualizarRespingos(dt, razao, agua, balanco)
   }
 
-  /** Halo turquesa, espuma no costado e onda de proa. */
-  private desenharAguaEmVolta(razao: number, tempo: number) {
+  /** Sombra do casco na água (o resto da água em volta é do shader). */
+  private desenharSombra() {
+    this.preencher(contorno(this.projeto, 0, 1.05).map((l) => ({ ...l, x: l.x + 3, y: l.y + 5 })), 0x001018, 0.25, true)
+  }
+
+  /** Água no convés: sobe com o alagamento e escorre para o lado que aderna. */
+  private desenharAguaNoConves(agua: number, tempo: number) {
     const p = this.projeto
-    // Halo: a água clareia em volta do casco, como na referência.
-    this.preencher(contorno(p, 0, 1.55).map((l) => ({ ...l, x: l.x * 1.12 })), 0x7fe7e0, 0.14, true)
-    // Sombra do casco na água.
-    this.preencher(contorno(p, 0, 1.05).map((l) => ({ ...l, x: l.x + 3, y: l.y + 5 })), 0x001018, 0.25, true)
+    const nivel = p.alturaDeck + 0.6 + agua * 2
+    const balanco = Math.sin(tempo * 2.3) * 4 * agua
+    const lamina = contorno(p, nivel, 1, 3.4, p.castelo * 0.9, 1).map((l) => ({ ...l, y: l.y * (0.75 + 0.25 * agua) + balanco }))
+    this.preencher(lamina, 0x3a8fb0, 0.25 + 0.45 * agua)
+    this.tracar(lamina, 1.2, 0xd9f4ff, 0.35 * agua)
+  }
 
-    // Colar de espuma na linha d'água, que pulsa com a água batendo.
-    const pulso = 0.5 + 0.5 * Math.sin(tempo * 3.1 + this.semente)
-    this.tracar(contorno(p, 0.5, 1.07), 2.2 + pulso, 0xffffff, 0.35 + 0.35 * razao)
-
-    // Onda de proa: dois bigodes brancos que abrem para trás com a velocidade.
-    if (razao > 0.05) {
-      for (const lado of [-1, 1]) {
-        const pts: P3[] = []
-        for (let i = 0; i <= 10; i++) {
-          const s = 1 - i * 0.05
-          const abre = 1.5 + (1 - s) * (4 + 14 * razao)
-          pts.push({ x: xDe(p, s) + 2, y: lado * (meiaLarguraEm(p, s) + abre), z: 0 })
-        }
-        this.tracar(pts, 2.6 * razao + 1, 0xffffff, 0.3 + 0.5 * razao, false)
+  /**
+   * Borrifos em 3D: a proa cortando a água em velocidade, as ondas batendo no
+   * casco no mar grosso e, alagando, água passando por cima da amurada.
+   */
+  private atualizarRespingos(dt: number, razao: number, agua: number, balanco: Balanco) {
+    const p = this.projeto
+    const proa = xDe(p, 1)
+    const emitir = (qtd: number, fonte: () => P3, v: () => { vx: number; vy: number; vz: number }) => {
+      let n = qtd
+      while (n > 0 && this.respingos.length < 160) {
+        if (n < 1 && Math.random() > n) break
+        n -= 1
+        this.respingos.push({ ...fonte(), ...v(), vida: 0, duracao: 0.5 + Math.random() * 0.4, tamanho: 0.8 + Math.random() * 1.2 })
       }
+    }
+    // Proa cortando a água: leque dos dois lados.
+    const corte = Math.max(0, razao - 0.3) * 1.4 + Math.max(0, -balanco.arfagem) * 3
+    emitir(dt * 60 * corte, () => ({ x: proa - 6 - Math.random() * 8, y: (Math.random() - 0.5) * 6, z: 1 }), () => {
+      const lado = Math.random() < 0.5 ? -1 : 1
+      return { vx: 10 + Math.random() * 20, vy: lado * (18 + Math.random() * 26), vz: 22 + Math.random() * 30 }
+    })
+    // Alagando: jatos entrando por cima da amurada.
+    if (agua > 0) {
+      emitir(dt * 30 * agua, () => {
+        const s = 0.25 + Math.random() * 0.7
+        const lado = Math.random() < 0.5 ? -1 : 1
+        return { x: xDe(p, s), y: lado * (meiaLarguraEm(p, s) + 2), z: p.alturaDeck + 3 }
+      }, () => ({ vx: (Math.random() - 0.5) * 10, vy: 0, vz: 28 + Math.random() * 18 }))
+    }
+
+    const g = this.g
+    for (const r of this.respingos) {
+      r.vida += dt
+      r.x += r.vx * dt
+      r.y += r.vy * dt
+      r.z += r.vz * dt
+      r.vz -= 140 * dt
+      // Jatos da amurada caem para dentro do convés.
+      if (agua > 0 && Math.abs(r.y) > 1) r.y -= Math.sign(r.y) * 22 * dt
+    }
+    this.respingos = this.respingos.filter((r) => r.vida < r.duracao && r.z > -2)
+    for (const r of this.respingos) {
+      const s = this.projetar(r)
+      const f = r.vida / r.duracao
+      g.fillStyle(0xffffff, 0.85 * (1 - f))
+      g.fillCircle(s.x, s.y, r.tamanho * (1 + f * 0.6))
+    }
+  }
+
+  /**
+   * O navio se parte: as duas metades se afastam, adernam e afundam; os
+   * mastros tombam e as tábuas voam e ficam boiando.
+   */
+  private desenharNaufragio(t: number, dt: number) {
+    const p = this.projeto
+    const pal = p.paleta
+    if (this.destrocos.length === 0) {
+      for (let i = 0; i < 26; i++) {
+        const a = Math.random() * Math.PI * 2
+        const v = 20 + Math.random() * 50
+        this.destrocos.push({
+          x: (Math.random() - 0.5) * p.comprimento * 0.5,
+          y: (Math.random() - 0.5) * p.meiaLargura,
+          z: p.alturaDeck,
+          vx: Math.cos(a) * v,
+          vy: Math.sin(a) * v,
+          vz: 30 + Math.random() * 60,
+          giro: (Math.random() - 0.5) * 10,
+          angulo: Math.random() * Math.PI,
+          comprimento: 5 + Math.random() * 9,
+          cor: Math.random() < 0.5 ? pal.amurada : pal.casco,
+        })
+      }
+    }
+    const afunda = Math.min(1, t / 3.5)
+    const alfa = 1 - Math.max(0, (t - 2.5) / 1.5)
+    if (alfa <= 0) return
+
+    for (const [s0, s1, lado] of [[0, 0.52, -1], [0.48, 1, 1]] as const) {
+      const pivo = xDe(p, (s0 + s1) / 2)
+      const inclina = lado * afunda * 0.9
+      this.preTransformar = (l) => {
+        const x = l.x - pivo
+        // A metade gira em torno do corte e desce.
+        const z = l.z * Math.cos(inclina) - x * Math.sin(inclina) * 0.6
+        return { x: l.x + lado * afunda * 14, y: l.y * (1 - afunda * 0.1), z: z - afunda * 22 }
+      }
+      for (let i = 0; i <= 6; i++) {
+        const f = i / 6
+        this.preencher(contorno(p, f * (p.alturaDeck + 3), 0.8 + 0.2 * f, 0, s0, s1), misturar(pal.cascoBaixo, pal.casco, f), alfa)
+      }
+      this.preencher(contorno(p, p.alturaDeck + 0.3, 1, 3.2, s0, s1), pal.deck, alfa)
+      // Mastro tombando para fora.
+      const m = p.mastros[lado < 0 ? 2 : 0]
+      const xm = xDe(p, m.s)
+      const queda = Math.min(1.3, afunda * 1.8)
+      this.linha({ x: xm, y: 0, z: p.alturaDeck }, { x: xm + lado * Math.sin(queda) * m.altura * 0.8, y: 0, z: p.alturaDeck + Math.cos(queda) * m.altura * 0.8 }, 3, pal.mastro, alfa)
+    }
+    this.preTransformar = null
+
+    // Destroços voando e depois boiando.
+    const g = this.g
+    for (const d of this.destrocos) {
+      d.x += d.vx * dt
+      d.y += d.vy * dt
+      d.z = Math.max(0, d.z + d.vz * dt)
+      d.vz -= 120 * dt
+      if (d.z === 0) {
+        d.vx *= Math.exp(-2 * dt)
+        d.vy *= Math.exp(-2 * dt)
+        d.giro *= Math.exp(-2 * dt)
+      }
+      d.angulo += d.giro * dt
+      const c = Math.cos(d.angulo) * d.comprimento * 0.5
+      const s = Math.sin(d.angulo) * d.comprimento * 0.5
+      const a = this.projetar({ x: d.x - c, y: d.y - s, z: d.z })
+      const b = this.projetar({ x: d.x + c, y: d.y + s, z: d.z })
+      g.lineStyle(2.4, d.cor, alfa)
+      g.lineBetween(a.x, a.y, b.x, b.y)
     }
   }
 
@@ -424,27 +507,11 @@ export class NavioVisual {
       this.g.strokeEllipse(c.x, c.y, 3.5, 3.5 * ACHATAMENTO)
     }
 
-    // Portinholas com canhões de bronze no costado visível.
-    for (const s of p.canhoes) {
-      const x = xDe(p, s)
-      const y = ladoVisivel * (meiaLarguraEm(p, s) + 0.3)
-      const z = p.alturaDeck - 4
-      const quadro = [
-        { x: x - 3.2, y, z: z - 2.8 },
-        { x: x + 3.2, y, z: z - 2.8 },
-        { x: x + 3.2, y, z: z + 2.8 },
-        { x: x - 3.2, y, z: z + 2.8 },
-      ]
-      this.preencher(quadro, 0x1a0e06)
-      this.tracar(quadro, 1, pal.amurada, 0.9)
-      const boca = this.projetar({ x, y: y + ladoVisivel * 3.5, z })
-      this.g.fillStyle(0xb8862e, 1)
-      this.g.fillEllipse(boca.x, boca.y, 5.2, 4.6)
-      this.g.fillStyle(0xe6c071, 1)
-      this.g.fillEllipse(boca.x - 0.8, boca.y - 0.8, 2.2, 1.8)
-      this.g.fillStyle(0x120b05, 1)
-      this.g.fillEllipse(boca.x, boca.y, 2.4, 2.1)
-    }
+    // Portinholas com canhões, embutidas no costado: cada uma fica no plano
+    // do casco naquele ponto (acompanha a curva), com a tampa aberta por cima
+    // e o cano de bronze saindo na direção da normal.
+    for (const s of p.canhoes) this.desenharCanhao(s, 1)
+    for (const s of p.canhoes) this.desenharCanhao(s, -1)
 
     // Convés com tábuas.
     const conves = contorno(p, p.alturaDeck + 0.3, 1, 3.2, p.castelo * 0.9, 1)
@@ -483,6 +550,55 @@ export class NavioVisual {
     this.tracar(voluta, 1, pal.contorno, 0.8, false)
     // Gurupés.
     this.linha({ x: proa - 6, y: 0, z: topoAmurada }, { x: proa + 20, y: 0, z: topoAmurada + 9 }, 2.6, pal.mastro)
+  }
+
+  private desenharCanhao(s: number, lado: number) {
+    const p = this.projeto
+    const pal = p.paleta
+    const topoAmurada = p.alturaDeck + 3
+    const z = p.alturaDeck - 3.5
+    // Largura do costado nessa altura (as camadas estreitam para baixo).
+    const f = z / topoAmurada
+    const escala = 0.8 + 0.2 * Math.min(1, f * 1.3)
+    const w = meiaLarguraEm(p, s) * escala
+    const ds = 0.01
+    const inclinacao = ((meiaLarguraEm(p, s + ds) - meiaLarguraEm(p, s - ds)) * escala) / (2 * ds * p.comprimento)
+    // Tangente (ao longo do casco) e normal para fora, no plano.
+    const tl = Math.hypot(1, inclinacao)
+    const T = { x: 1 / tl, y: (lado * inclinacao) / tl }
+    const N = { x: (-lado * inclinacao) / tl, y: lado / tl }
+    if (this.voltadoParaCamera(N.x, N.y) < 0.08) return
+
+    const c = { x: xDe(p, s), y: lado * w, z }
+    const em = (dt: number, dz: number, dn = 0.2): P3 => ({ x: c.x + T.x * dt + N.x * dn, y: c.y + T.y * dt + N.y * dn, z: c.z + dz })
+
+    // Batente e buraco da portinhola.
+    const batente = [em(-3.4, -3), em(3.4, -3), em(3.4, 3), em(-3.4, 3)]
+    this.preencher(batente, escurecer(pal.casco, 0.35))
+    const buraco = [em(-2.5, -2.2, 0.3), em(2.5, -2.2, 0.3), em(2.5, 2.2, 0.3), em(-2.5, 2.2, 0.3)]
+    this.preencher(buraco, 0x120905)
+    // Tampa aberta, presa em cima e levantada para fora.
+    const tampa = [em(-3.2, 3, 0.3), em(3.2, 3, 0.3), em(3.2, 5.2, 3.2), em(-3.2, 5.2, 3.2)]
+    this.preencher(tampa, pal.amurada)
+    this.tracar(tampa, 0.7, pal.contorno, 0.8)
+
+    // Cano: cilindro curto ao longo da normal, com boca em anel.
+    const aro = (dn: number, r: number) => {
+      const pts: P3[] = []
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2
+        pts.push(em(Math.cos(a) * r, Math.sin(a) * r, dn))
+      }
+      return pts
+    }
+    const tras = this.projetar(em(0, 0, 0.3))
+    const frente = this.projetar(em(0, 0, 4.5))
+    this.g.lineStyle(3.6, 0x6b4a16, 1)
+    this.g.lineBetween(tras.x, tras.y, frente.x, frente.y)
+    this.g.lineStyle(1.4, 0xe0b25a, 0.9)
+    this.g.lineBetween(tras.x, tras.y - 0.8, frente.x, frente.y - 0.8)
+    this.preencher(aro(4.6, 2), 0xb8862e)
+    this.preencher(aro(4.7, 1.1), 0x120905)
   }
 
   /** Castelo de popa: plataforma alta, janela na popa, leme e lanterna. */
@@ -574,52 +690,6 @@ export class NavioVisual {
     this.g.fillCircle(lanterna.x, lanterna.y, 4.5)
     this.g.fillStyle(0xffe9a6, 1)
     this.g.fillCircle(lanterna.x, lanterna.y, 1.8)
-  }
-
-  /** Caixotes, barris, escotilha e sacos: a carga que dá vida ao convés. */
-  private itensDoConves() {
-    const p = this.projeto
-    const pal = p.paleta
-    const z = p.alturaDeck + 0.4
-    const L = p.comprimento
-    const W = p.meiaLargura
-    const itens: { profundidade: number; desenhar: () => void }[] = []
-    const add = (x: number, y: number, desenhar: () => void) => itens.push({ profundidade: this.profundidadeDe(x, y), desenhar })
-
-    // Escotilha com grade.
-    add(L * 0.06, 0, () => {
-      const x = L * 0.06
-      const quad = [
-        { x: x - 5, y: -4.5, z },
-        { x: x + 5, y: -4.5, z },
-        { x: x + 5, y: 4.5, z },
-        { x: x - 5, y: 4.5, z },
-      ]
-      this.preencher(quad, escurecer(pal.deck, 0.55))
-      this.tracar(quad, 1.2, escurecer(pal.deck, 0.3))
-      for (let i = -1; i <= 1; i++) this.linha({ x: x + i * 2.5, y: -4.5, z }, { x: x + i * 2.5, y: 4.5, z }, 0.7, pal.tabuas, 0.8)
-    })
-
-    // Pilha de caixotes perto do mastro de proa.
-    add(L * 0.2, -W * 0.45, () => {
-      this.caixa(L * 0.2, -W * 0.45, z, 4, 4, 7, 0x9b6a35, pal.contorno)
-      this.caixa(L * 0.2 + 0.5, -W * 0.45 + 0.4, z + 7, 3, 3, 5, 0xb07d42, pal.contorno)
-    })
-    add(L * 0.27, -W * 0.2, () => this.caixa(L * 0.27, -W * 0.2, z, 3.2, 3.2, 5, 0xa87038, pal.contorno))
-
-    // Barris.
-    add(-L * 0.02, W * 0.5, () => this.cilindro(-L * 0.02, W * 0.5, z, 3.2, 7, 0x8c5a2b, 2, 3))
-    add(L * 0.04, W * 0.55, () => this.cilindro(L * 0.04, W * 0.55, z, 3, 6.5, 0x7d4f25, 2, 2.8))
-
-    // Sacos de lona.
-    add(-L * 0.12, -W * 0.45, () => {
-      const c = this.projetar({ x: -L * 0.12, y: -W * 0.45, z: z + 2 })
-      this.g.fillStyle(0xcdb996, 1)
-      this.g.fillEllipse(c.x, c.y, 9, 6)
-      this.g.fillStyle(0xe3d3b3, 1)
-      this.g.fillEllipse(c.x - 1, c.y - 1.5, 5, 3)
-    })
-    return itens
   }
 
   private desenharMastro(m: Mastro, x: number, regulagem: number, barriga: number, vento: EstadoVento, rumo: number, tempo: number) {
@@ -738,14 +808,12 @@ export class NavioVisual {
     }
     this.tracar([ponto(0, 0), ponto(1, 0), ponto(1, 1), ponto(0, 1)], 0.7, 0x000000, 0.6)
 
-    // O desenho fica "colado" na bandeira: achata conforme o ângulo em que é vista.
-    const c = this.projetar(ponto(0.5, 0.5))
-    const a = this.projetar(ponto(0, 0.5))
-    const b = this.projetar(ponto(1, 0.5))
-    const esticar = (b.x - a.x) / comprimento
-    if (Math.abs(esticar) < 0.15) return
-    if (this.tipo === 'pirata') jollyRoger(this.g, c.x, c.y, esticar, 0.8)
-    else gaivota(this.g, c.x, c.y, esticar, 0.8)
+    // O emblema é pintado NO pano: cada forma é mapeada para (u, v) da
+    // bandeira e passa pela mesma ondulação e perspectiva que ela.
+    const k = 0.8
+    const noPano = (forma: [number, number][], cor: number) =>
+      this.preencher(forma.map(([dx, dy]) => ponto(0.5 + (dx * k) / comprimento, 0.5 + (dy * k) / altura)), cor)
+    for (const [forma, cor] of this.tipo === 'pirata' ? JOLLY_ROGER : GAIVOTA) noPano(forma, cor)
   }
 
   /** Estais e ovéns: do topo dos mastros ao gurupés e às amuradas. */
@@ -795,52 +863,56 @@ export class NavioVisual {
   }
 }
 
-/**
- * Jolly Roger dos Chapéus de Palha: caveira com ossos cruzados e o chapéu
- * de palha com fita vermelha. Medidas em unidades do desenho; `esticar`
- * achata na horizontal (e espelha, se negativo) e `e` é a escala.
- */
-function jollyRoger(g: Phaser.GameObjects.Graphics, x: number, y: number, esticar: number, e: number) {
-  const X = (dx: number) => x + dx * esticar * e
-  const Y = (dy: number) => y + dy * e
-  const W = (w: number) => w * Math.abs(esticar) * e
-  const H = (h: number) => h * e
-  const osso = 0xf4f0e6
+// ---- Emblemas: formas em unidades do desenho, pintadas no pano ------------------
 
-  // Ossos cruzados atrás da caveira, com as pontas arredondadas.
-  g.lineStyle(H(2.4), osso, 1)
-  g.lineBetween(X(-8), Y(-5), X(8), Y(7))
-  g.lineBetween(X(8), Y(-5), X(-8), Y(7))
-  g.fillStyle(osso, 1)
-  for (const [dx, dy] of [[-8, -5], [8, 7], [8, -5], [-8, 7]]) {
-    g.fillCircle(X(dx - 1), Y(dy - 0.6), H(1.5))
-    g.fillCircle(X(dx + 1), Y(dy + 0.6), H(1.5))
+type Forma = [number, number][]
+
+function elipse(cx: number, cy: number, rx: number, ry: number, n = 16): Forma {
+  const pts: Forma = []
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2
+    pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry])
   }
-  // Caveira.
-  g.fillEllipse(X(0), Y(0.5), W(11), H(10))
-  g.fillRect(X(0) - W(3), Y(4), W(6), H(3))
-  g.fillStyle(0x111111, 1)
-  g.fillEllipse(X(-2.4), Y(1), W(3), H(3.2))
-  g.fillEllipse(X(2.4), Y(1), W(3), H(3.2))
-  g.fillTriangle(X(0), Y(2.6), X(-0.8), Y(3.8), X(0.8), Y(3.8))
-  // Chapéu de palha: aba larga, copa e fita vermelha.
-  g.fillStyle(0xf0c24b, 1)
-  g.fillEllipse(X(0), Y(-3.6), W(16), H(4))
-  g.fillEllipse(X(0), Y(-6), W(9), H(6))
-  g.fillStyle(0xc4322c, 1)
-  g.fillRect(X(0) - W(4.4), Y(-5), W(8.8), H(1.6))
+  return pts
 }
 
-/** Gaivota da Marinha, para a bandeira azul. */
-function gaivota(g: Phaser.GameObjects.Graphics, x: number, y: number, esticar: number, e: number) {
-  const X = (dx: number) => x + dx * esticar * e
-  const Y = (dy: number) => y + dy * e
-  g.lineStyle(2.2 * e, 0xf8fafc, 1)
-  g.beginPath()
-  g.moveTo(X(-9), Y(-1))
-  g.lineTo(X(-3), Y(-4))
-  g.lineTo(X(0), Y(1))
-  g.lineTo(X(3), Y(-4))
-  g.lineTo(X(9), Y(-1))
-  g.strokePath()
+function retangulo(x0: number, y0: number, x1: number, y1: number): Forma {
+  return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
 }
+
+/** Barra grossa entre dois pontos (um osso). */
+function barra(ax: number, ay: number, bx: number, by: number, largura: number): Forma {
+  const d = Math.hypot(bx - ax, by - ay)
+  const nx = (-(by - ay) / d) * (largura / 2)
+  const ny = ((bx - ax) / d) * (largura / 2)
+  return [[ax + nx, ay + ny], [bx + nx, by + ny], [bx - nx, by - ny], [ax - nx, ay - ny]]
+}
+
+const OSSO = 0xf4f0e6
+
+/** Jolly Roger dos Chapéus de Palha: ossos cruzados, caveira e chapéu com fita. */
+const JOLLY_ROGER: [Forma, number][] = [
+  [barra(-8, -4, 8, 7, 2.4), OSSO],
+  [barra(8, -4, -8, 7, 2.4), OSSO],
+  ...([[-8, -4], [8, 7], [8, -4], [-8, 7]] as const).flatMap(([x, y]): [Forma, number][] => [
+    [elipse(x - 1, y - 0.7, 1.5, 1.5, 10), OSSO],
+    [elipse(x + 1, y + 0.7, 1.5, 1.5, 10), OSSO],
+  ]),
+  [elipse(0, 0.5, 5.5, 5), OSSO],
+  [retangulo(-3, 3.5, 3, 7), OSSO],
+  [elipse(-2.3, 1, 1.5, 1.7, 10), 0x111111],
+  [elipse(2.3, 1, 1.5, 1.7, 10), 0x111111],
+  [[[0, 2.6], [-0.9, 3.9], [0.9, 3.9]], 0x111111],
+  [retangulo(-1.6, 5.4, 1.6, 5.9), 0x111111],
+  [elipse(0, -3.6, 8.5, 2.1), 0xf0c24b],
+  [elipse(0, -6, 4.6, 3.1), 0xf0c24b],
+  [retangulo(-4.4, -5.1, 4.4, -3.6), 0xc4322c],
+]
+
+/** Gaivota da Marinha. */
+const GAIVOTA: [Forma, number][] = [
+  [barra(-9, -1, -3, -4, 2), 0xf8fafc],
+  [barra(-3, -4, 0, 1, 2), 0xf8fafc],
+  [barra(0, 1, 3, -4, 2), 0xf8fafc],
+  [barra(3, -4, 9, -1, 2), 0xf8fafc],
+]
