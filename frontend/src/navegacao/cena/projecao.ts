@@ -11,7 +11,11 @@
  * ponto a ponto.
  */
 export const ACHATAMENTO = 0.84
-export const ELEVACAO = 0.55
+/**
+ * sen do mesmo ângulo (cos = ACHATAMENTO): é uma rotação de câmera de verdade,
+ * e por isso as ilhas renderizadas em 3D (cena/ilhas3d) casam ao pixel.
+ */
+export const ELEVACAO = Math.sqrt(1 - ACHATAMENTO * ACHATAMENTO)
 
 export function projetar(x: number, y: number, z = 0) {
   return { x, y: y * ACHATAMENTO - z * ELEVACAO }

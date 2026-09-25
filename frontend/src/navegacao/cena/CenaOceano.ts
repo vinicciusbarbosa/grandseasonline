@@ -80,6 +80,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
 
   preload() {
     this.load.image('terra', `${import.meta.env.BASE_URL}mundo/terra.png`)
+    Ilhas.carregar(this)
   }
 
   create() {

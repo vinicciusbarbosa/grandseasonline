@@ -345,7 +345,9 @@ void main() {
 
   // ---- Terra ------------------------------------------------------------------
   vec3 cor = agua;
-  if (sdn < 2.0) {
+  // Ilha modelada em 3D (tipo = 40): a terra é a imagem assada por cima; aqui só água.
+  float modelada = 1.0 - smoothstep(0.02, 0.05, abs(tipo - 40.0 / 255.0));
+  if (sdn < 2.0 && modelada < 0.5) {
     float dentro = max(0.0, -sdn);
     vec3 terra = corTerra(p, dentro, tipo);
     // Com a câmera inclinada, a costa virada para o sul mostra um barranco.

@@ -1,7 +1,20 @@
 import Phaser from 'phaser'
 import { RAIO_ZONA_SEGURA, type Ilha, type Mundo, type Vetor } from '../mundo/Mundo'
+import ilhasAssadas from '../mundo/ilhas-assadas.json'
+import ilhasModeladas from '../mundo/ilhas.json'
 import type { Descoberta } from '../sim/descoberta'
+import type { FaixaAssada } from './ilhas3d/Assador'
+import { ESCALA_ASSADA } from './ilhas3d/escala'
+import type { MetaIlha } from './ilhas3d/terreno'
 import { projetar } from './projecao'
+
+const MODELADAS = ilhasModeladas as unknown as MetaIlha[]
+/** Faixas já assadas (scripts/assar_ilhas.mjs): o jogo só carrega as imagens. */
+const ASSADAS = ilhasAssadas as unknown as { id: number; faixas: (FaixaAssada & { arquivo: string })[] }[]
+/** `?assar-ilhas` na URL força assar na hora (é o que o script de assar usa). */
+const ASSAR_NA_HORA = ASSADAS.length === 0 || (typeof location !== 'undefined' && location.search.includes('assar-ilhas'))
+
+type IlhaEm3d = { meta: MetaIlha; faixas: FaixaAssada[]; imagens: Phaser.GameObjects.Image[]; baseY: number[]; vista: number }
 
 type IlhaNaTela = {
   ilha: Ilha
@@ -12,11 +25,25 @@ type IlhaNaTela = {
 }
 
 /**
- * Ilhas como instâncias no mundo: a silhueta já vem da terra no shader; aqui
- * entram a doca (o ponto de atracação), o nome e a zona segura.
+ * Ilhas como instâncias no mundo: as modeladas em 3D (cena/ilhas3d) são
+ * assadas em imagens na criação da cena; as outras continuam sendo só a
+ * terra do shader. Aqui também entram a doca, o nome e a zona segura.
  */
 export class Ilhas {
   private readonly itens: IlhaNaTela[] = []
+  private readonly em3d: IlhaEm3d[] = []
+  /** Todas as ilhas modeladas já estão na cena (o script de assar espera por isso). */
+  prontas = false
+
+  /** Chamado no preload: as faixas assadas ou, sem elas, os mapas de altura para assar agora. */
+  static carregar(cena: Phaser.Scene) {
+    const base = import.meta.env.BASE_URL
+    if (ASSAR_NA_HORA) {
+      for (const m of MODELADAS) cena.load.image(`ilha-dados-${m.id}`, `${base}mundo/ilhas/${m.id}.png`)
+      return
+    }
+    for (const ilha of ASSADAS) for (const f of ilha.faixas) cena.load.image(f.chave, `${base}mundo/ilhas/assadas/${f.arquivo}`)
+  }
   private readonly mundo: Mundo
   private readonly descoberta: Descoberta
 
@@ -25,6 +52,7 @@ export class Ilhas {
     this.mundo = mundo
     this.descoberta = descoberta
     const raioZona = RAIO_ZONA_SEGURA * mundo.celula
+    this.assar(cena)
 
     for (const ilha of mundo.ilhas) {
       const doca = mundo.posicaoDaDoca(ilha)
@@ -74,7 +102,79 @@ export class Ilhas {
     }
   }
 
+  private assar(cena: Phaser.Scene) {
+    if (MODELADAS.length === 0) {
+      this.prontas = true
+      return
+    }
+    if (!ASSAR_NA_HORA) {
+      for (const ilha of ASSADAS) {
+        const meta = MODELADAS.find((m) => m.id === ilha.id)
+        if (meta) this.colocar(cena, meta, ilha.faixas)
+      }
+      this.prontas = true
+      return
+    }
+    // Sem as imagens prontas: monta em 3D agora (o Three.js só é baixado neste caso).
+    void import('./ilhas3d/Assador').then(({ Assador }) => {
+      const inicio = performance.now()
+      const assador = new Assador()
+      for (const meta of MODELADAS) {
+        const fonte = cena.textures.get(`ilha-dados-${meta.id}`).getSourceImage() as HTMLImageElement
+        const tela = document.createElement('canvas')
+        tela.width = meta.colunas
+        tela.height = meta.linhas
+        const ctx = tela.getContext('2d', { willReadFrequently: true })!
+        ctx.drawImage(fonte, 0, 0)
+        this.colocar(cena, meta, assador.assar(cena, meta, ctx.getImageData(0, 0, meta.colunas, meta.linhas)).faixas)
+      }
+      assador.destruir()
+      this.prontas = true
+      if (import.meta.env.DEV) console.info(`ilhas 3D assadas em ${Math.round(performance.now() - inicio)} ms`)
+    })
+  }
+
+  private colocar(cena: Phaser.Scene, meta: MetaIlha, faixas: FaixaAssada[]) {
+    const imagens = faixas.map((f) =>
+      cena.add
+        .image(f.x, f.y, f.chave)
+        .setOrigin(0, 0)
+        .setScale(1 / ESCALA_ASSADA)
+        // Mesma régua do navio (3 + y·1e-5): o que está mais ao sul fica na frente.
+        .setDepth(3 + f.sul * 1e-5 - 1e-7)
+        .setAlpha(0),
+    )
+    this.em3d.push({ meta, faixas, imagens, baseY: imagens.map((i) => i.y), vista: 0 })
+  }
+
   atualizar(posicaoNavio: Vetor, tempo: number) {
+    // O Baratie (flutuante) sobe e desce devagar com o mar.
+    for (const ilha of this.em3d) {
+      if (!ilha.meta.flutuante) continue
+      const dy = Math.sin(tempo * 0.9) * 1.6 + Math.sin(tempo * 1.7 + 1) * 0.6
+      ilha.imagens.forEach((img, k) => img.setY(ilha.baseY[k] + dy))
+    }
+    // Ilha modelada aparece inteira (com um fade) quando alguma parte dela é avistada.
+    for (const ilha of this.em3d) {
+      if (ilha.vista < 1) {
+        const m = ilha.meta
+        let avistada = false
+        for (let y = m.y; y < m.y + m.linhas * m.passo && !avistada; y += this.mundo.celula) {
+          for (let x = m.x; x < m.x + m.colunas * m.passo; x += this.mundo.celula) {
+            const { cx, cy } = this.mundo.celulaDe({ x, y })
+            if (this.mundo.dentro(cx, cy) && this.mundo.bloqueio[this.mundo.indice(cx, cy)] && this.descoberta.estado[this.mundo.indice(cx, cy)] > 0) {
+              avistada = true
+              break
+            }
+          }
+        }
+        if (avistada) {
+          ilha.vista = Math.min(1, ilha.vista + 0.04)
+          for (const img of ilha.imagens) img.setAlpha(ilha.vista)
+        }
+      }
+    }
+
     for (const item of this.itens) {
       const { cx, cy } = this.mundo.celulaDe(item.doca)
       const conhecida = this.descoberta.estado[this.mundo.indice(cx, cy)] > 0

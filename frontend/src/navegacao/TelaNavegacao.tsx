@@ -66,7 +66,7 @@ export default function TelaNavegacao() {
               retrato.combate.inimigoPerto ? 'hidden' : 'hidden xl:block'
             }`}
           >
-            Clique no mar para navegar · numa ilha para atracar · no navio inimigo para mirar · Q/E: canhões · roda do mouse: zoom
+            Clique no mar para navegar · numa ilha para atracar · no navio inimigo para ver a área de ataque · Q/E: canhões · roda do mouse: zoom
           </p>
           {batalha && (
             <TelaAbordagem
@@ -118,7 +118,10 @@ function Localizacao({ retrato }: { retrato: RetratoNavegacao }) {
           <Losango className="text-ouro" />
           <h1 className="titulo-serif text-xl text-ouro-claro">{retrato.mar}</h1>
         </div>
-        <p className="numero-ficha mt-1 text-sm text-creme/70">{retrato.coordenada}</p>
+        <p className="numero-ficha mt-1 text-sm text-creme/70">
+          {retrato.coordenada}
+          {retrato.berries > 0 && <span className="ml-3 text-ouro-claro">฿ {retrato.berries.toLocaleString('pt-BR')}</span>}
+        </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <span className="text-creme/90">{detalhe}</span>
           {retrato.zonaSegura && (
@@ -228,45 +231,48 @@ const ROTULOS: [keyof AtributosNavegacao, string][] = [
 function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOceano }) {
   return (
     <div className="pointer-events-none absolute right-4 bottom-4 flex w-80 flex-col gap-3">
-      <Quadro className="p-4">
-        <p className="mb-3 flex items-center gap-2 text-xs tracking-wider text-creme/55 uppercase">
-          <Losango className="text-ouro" tamanho={6} /> Navio
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {(Object.keys(NAVIOS) as TipoNavio[]).map((tipo) => {
-            const modelo = NAVIOS[tipo]
-            const ativo = retrato.navio === tipo
-            return (
-              <button
-                key={tipo}
-                onClick={() => cena.trocarNavio(tipo)}
-                className={`rounded-sm border px-3 py-2 text-left transition-all ${
-                  ativo
-                    ? 'border-ouro/80 bg-painel-claro/80 shadow-[0_0_16px_-6px_var(--color-ouro)]'
-                    : 'border-painel-borda/40 hover:border-ouro/40'
-                }`}
-              >
-                <span className={`titulo-serif block text-sm ${tipo === 'pirata' ? 'text-[#e8836f]' : 'text-[#8fb8e4]'}`}>
-                  {modelo.nome}
-                </span>
-                <span className="text-[0.68rem] text-creme/55">{tipo === 'pirata' ? 'Pirata' : 'Marinha'}</span>
-              </button>
-            )
-          })}
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-creme/65">{NAVIOS[retrato.navio].descricao}</p>
-        <div className="mt-3 space-y-1.5">
-          {ROTULOS.map(([chave, rotulo]) => (
-            <div key={chave} className="flex items-center gap-2 text-[0.7rem]">
-              <span className="w-20 text-creme/60">{rotulo}</span>
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-abissal/70">
-                <div className="h-full bg-ouro/80" style={{ width: `${NAVIOS[retrato.navio].atributos[chave] * 10}%` }} />
+      {/* Em combate o cartão do navio sai de cena para liberar a vista. */}
+      {!retrato.combate.inimigoPerto && (
+        <Quadro className="p-4">
+          <p className="mb-3 flex items-center gap-2 text-xs tracking-wider text-creme/55 uppercase">
+            <Losango className="text-ouro" tamanho={6} /> Navio
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(NAVIOS) as TipoNavio[]).map((tipo) => {
+              const modelo = NAVIOS[tipo]
+              const ativo = retrato.navio === tipo
+              return (
+                <button
+                  key={tipo}
+                  onClick={() => cena.trocarNavio(tipo)}
+                  className={`rounded-sm border px-3 py-2 text-left transition-all ${
+                    ativo
+                      ? 'border-ouro/80 bg-painel-claro/80 shadow-[0_0_16px_-6px_var(--color-ouro)]'
+                      : 'border-painel-borda/40 hover:border-ouro/40'
+                  }`}
+                >
+                  <span className={`titulo-serif block text-sm ${tipo === 'pirata' ? 'text-[#e8836f]' : 'text-[#8fb8e4]'}`}>
+                    {modelo.nome}
+                  </span>
+                  <span className="text-[0.68rem] text-creme/55">{tipo === 'pirata' ? 'Pirata' : 'Marinha'}</span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-creme/65">{NAVIOS[retrato.navio].descricao}</p>
+          <div className="mt-3 space-y-1.5">
+            {ROTULOS.map(([chave, rotulo]) => (
+              <div key={chave} className="flex items-center gap-2 text-[0.7rem]">
+                <span className="w-20 text-creme/60">{rotulo}</span>
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-abissal/70">
+                  <div className="h-full bg-ouro/80" style={{ width: `${NAVIOS[retrato.navio].atributos[chave] * 10}%` }} />
+                </div>
+                <span className="numero-ficha w-6 text-right text-creme/70">{NAVIOS[retrato.navio].atributos[chave]}</span>
               </div>
-              <span className="numero-ficha w-6 text-right text-creme/70">{NAVIOS[retrato.navio].atributos[chave]}</span>
-            </div>
-          ))}
-        </div>
-      </Quadro>
+            ))}
+          </div>
+        </Quadro>
+      )}
 
       <Quadro className="flex flex-wrap items-center gap-2 p-3 text-xs">
         <span className="text-creme/55">Tempo</span>
@@ -324,96 +330,82 @@ const SITUACAO_BATERIA: Record<RetratoNavegacao['combate']['baterias']['boreste'
 }
 
 /**
- * Combate naval: casco e velas do nosso navio, o alvo e as duas baterias.
- * Só aparece quando há inimigo por perto (ou o casco está avariado).
+ * Combate naval, compacto: uma faixa só no pé da tela com as duas baterias
+ * e o estado do nosso navio. O estado do inimigo fica em cima do próprio
+ * navio dele, no mar — não precisa repetir aqui.
  */
 function PainelCombate({ retrato, cena, aoAbordar }: { retrato: RetratoNavegacao; cena: CenaOceano; aoAbordar: () => void }) {
   const c = retrato.combate
   const avariado = c.casco < c.cascoMax || c.velas < c.velasMax
-  if (!c.inimigoPerto && !avariado && retrato.berries === 0) return null
+  if (!c.inimigoPerto && !avariado) return null
 
   return (
-    <div className="pointer-events-none absolute bottom-10 left-1/2 w-[27rem] max-w-[calc(100vw-2rem)] -translate-x-1/2">
-      <Quadro className="p-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="mb-1.5 text-xs tracking-wider text-creme/55 uppercase">Nosso navio</p>
-            <Barra rotulo="Casco" valor={c.casco} max={c.cascoMax} cor="bg-vida" />
-            <Barra rotulo="Velas" valor={c.velas} max={c.velasMax} cor="bg-creme/80" />
-            {retrato.berries > 0 && (
-              <p className="mt-1.5 text-[0.7rem] text-creme/60">
-                Saque: <span className="numero-ficha text-ouro-claro">฿ {retrato.berries.toLocaleString('pt-BR')}</span>
-              </p>
-            )}
-          </div>
-          <div>
-            <p className="mb-1.5 truncate text-xs tracking-wider text-creme/55 uppercase">{c.alvo ? c.alvo.nome : 'Sem alvo à vista'}</p>
-            {c.alvo ? (
-              <>
-                <Barra rotulo="Casco" valor={c.alvo.casco} max={c.alvo.cascoMax} cor="bg-pirata" />
-                <Barra rotulo="Velas" valor={c.alvo.velas} max={c.alvo.velasMax} cor="bg-creme/80" />
-                <p className="mt-1.5 text-[0.7rem] text-creme/60">
-                  Distância <span className="numero-ficha text-creme/85">{Math.round(c.alvo.distancia / 9)}</span> braças
-                </p>
-              </>
-            ) : (
-              <p className="text-[0.7rem] leading-relaxed text-creme/50">Clique num navio inimigo para mirar.</p>
-            )}
-          </div>
+    <div className="pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+      {c.podeAbordar && (
+        <button
+          onClick={aoAbordar}
+          className="pointer-events-auto animate-pulse rounded-full border border-pirata bg-pirata/60 px-5 py-1 titulo-serif text-base text-creme shadow-lg hover:bg-pirata/80"
+        >
+          Abordar!
+        </button>
+      )}
+      <div
+        className="pointer-events-auto flex items-center gap-3 border border-painel-borda/45 bg-painel/75 px-2.5 py-2 text-creme shadow-[0_6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md"
+        style={{ borderRadius: 'var(--sg-raio)' }}
+      >
+        <Bateria lado="bombordo" info={c.baterias.bombordo} aoDisparar={() => cena.disparar('bombordo')} />
+        <div className="w-32">
+          <Barra rotulo="Casco" valor={c.casco} max={c.cascoMax} cor="bg-vida" />
+          <Barra rotulo="Velas" valor={c.velas} max={c.velasMax} cor="bg-creme/80" />
         </div>
-
-        {c.alvo && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {(['bombordo', 'boreste'] as const).map((lado) => {
-              const b = c.baterias[lado]
-              const pronta = b.situacao === 'pronta'
-              const carga = b.recargaMax > 0 ? 1 - b.recarga / b.recargaMax : 1
-              return (
-                <button
-                  key={lado}
-                  onClick={() => cena.disparar(lado)}
-                  className={`relative overflow-hidden rounded-sm border px-3 py-2 text-left transition-all ${
-                    pronta ? 'border-ouro bg-ouro/15 shadow-[0_0_16px_-5px_var(--color-ouro)]' : 'border-painel-borda/45'
-                  }`}
-                >
-                  <span className="absolute inset-y-0 left-0 bg-ouro/10" style={{ width: `${carga * 100}%` }} />
-                  <span className="relative flex items-center justify-between">
-                    <span className="titulo-serif text-sm text-creme">{lado === 'bombordo' ? '◀ Bombordo' : 'Boreste ▶'}</span>
-                    <kbd className="rounded-sm border border-painel-borda/60 px-1.5 text-[0.65rem] text-creme/60">{lado === 'bombordo' ? 'Q' : 'E'}</kbd>
-                  </span>
-                  <span className={`relative text-[0.68rem] ${pronta ? 'text-ouro-claro' : 'text-creme/55'}`}>
-                    {b.situacao === 'recarregando' ? `Recarregando ${b.recarga.toFixed(1)} s` : SITUACAO_BATERIA[b.situacao]}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {c.podeAbordar && (
-          <button
-            onClick={aoAbordar}
-            className="mt-3 w-full animate-pulse rounded-sm border border-pirata bg-pirata/35 px-3 py-2 text-center titulo-serif text-lg text-creme hover:bg-pirata/55"
-          >
-            Abordar!
-          </button>
-        )}
-        {c.alvo && !c.podeAbordar && c.alvo.casco < c.alvo.cascoMax * 0.4 && (
-          <p className="mt-2 text-center text-[0.7rem] text-creme/55">Inimigo avariado: encoste devagar ao lado dele para abordar.</p>
-        )}
-      </Quadro>
+        <Bateria lado="boreste" info={c.baterias.boreste} aoDisparar={() => cena.disparar('boreste')} />
+      </div>
     </div>
+  )
+}
+
+/** Botão redondo da bateria: o anel mostra a recarga; dourado = pode atirar. */
+function Bateria({
+  lado,
+  info,
+  aoDisparar,
+}: {
+  lado: 'bombordo' | 'boreste'
+  info: RetratoNavegacao['combate']['baterias']['boreste']
+  aoDisparar: () => void
+}) {
+  const pronta = info.situacao === 'pronta'
+  const carga = info.recargaMax > 0 ? 1 - info.recarga / info.recargaMax : 1
+  const r = 17
+  const volta = 2 * Math.PI * r
+  const dica = `${lado === 'bombordo' ? 'Bombordo (Q)' : 'Boreste (E)'} — ${
+    info.situacao === 'recarregando' ? `recarregando ${info.recarga.toFixed(1)} s` : SITUACAO_BATERIA[info.situacao]
+  }`
+  return (
+    <button onClick={aoDisparar} title={dica} className="relative size-11 shrink-0">
+      <svg viewBox="-22 -22 44 44" className="absolute inset-0 size-full -rotate-90">
+        <circle r={r} fill={pronta ? 'rgba(201,162,39,0.25)' : 'rgba(7,10,16,0.55)'} stroke="rgba(93,107,138,0.6)" strokeWidth="2.5" />
+        <circle
+          r={r}
+          fill="none"
+          stroke={pronta ? 'var(--color-ouro-claro)' : 'var(--color-ouro)'}
+          strokeOpacity={pronta ? 1 : 0.7}
+          strokeWidth="2.5"
+          strokeDasharray={`${carga * volta} ${volta}`}
+        />
+      </svg>
+      <span className={`relative titulo-serif text-sm ${pronta ? 'text-ouro-claro' : 'text-creme/60'}`}>{lado === 'bombordo' ? 'Q' : 'E'}</span>
+    </button>
   )
 }
 
 function Barra({ rotulo, valor, max, cor }: { rotulo: string; valor: number; max: number; cor: string }) {
   return (
-    <div className="mb-1 flex items-center gap-2 text-[0.7rem]">
-      <span className="w-10 text-creme/60">{rotulo}</span>
+    <div className="flex items-center gap-1.5 text-[0.62rem] leading-4">
+      <span className="w-8 text-creme/55">{rotulo}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-abissal/70">
         <div className={`h-full transition-[width] duration-300 ${cor}`} style={{ width: `${(valor / max) * 100}%` }} />
       </div>
-      <span className="numero-ficha w-9 text-right text-creme/70">{Math.round((valor / max) * 100)}%</span>
     </div>
   )
 }

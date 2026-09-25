@@ -250,7 +250,36 @@ frontend/src/navegacao/
   completo (12.000 berries); afundar a canhão só rende o que boia (1.500).
   As habilidades são provisórias, não as do legado.
 
-Não coberto ainda: encontros aleatórios, multiplayer, interação ao atracar,
+- **HUD de combate compacto**: uma faixa no pé da tela com as baterias Q/E
+  (anel de recarga) e casco/velas do nosso navio; o estado do inimigo fica
+  sobre o navio dele. Q/E miram sozinhos no inimigo dentro do arco — clicar
+  no inimigo só liga/desliga a área de ataque (arcos e alcance).
+- **Ilhas do East Blue em 3D** (`scripts/ilhas/`, `cena/ilhas3d/`): Dawn,
+  Shells Town, Orange Town, Vila Syrup, Baratie, Cocoyashi e Loguetown,
+  maiores e modeladas a partir do anime e da arte do Sugoi (Goa murada com
+  o palácio, Gray Terminal, Monte Colubo, Foosha com moinhos e o Partys Bar;
+  a base 153 com a estátua do Morgan; a faixa da Bala Buggy e o Big Top; a
+  mansão da Kaya e o Going Merry; o Baratie em forma de peixe; o Arlong
+  Park e o pomar da Bellemere; o cadafalso de Loguetown). Como funciona:
+  1. `scripts/ilhas/east_blue.py` descreve cada ilha (costa, montanhas,
+     patamares, materiais do chão, ruas, casas e marcos) com o kit de
+     `scripts/ilhas/kit.py`;
+  2. `gerar_mundo.py` troca a terra da arte pela costa do modelo (navegação
+     e espuma batem com o que se vê) e grava o mapa de altura/material de
+     cada ilha (`public/mundo/ilhas/<id>.png`) e os objetos (`ilhas.json`);
+  3. `cena/ilhas3d` monta a ilha em Three.js com a MESMA câmera do jogo
+     (ACHATAMENTO = cos, ELEVACAO = sen do mesmo ângulo) e a renderiza em
+     faixas horizontais com luz e sombra — cada faixa tem a profundidade do
+     seu limite sul, então o navio passa atrás e na frente das montanhas
+     certo;
+  4. `node scripts/assar_ilhas.mjs` (com o dev server rodando) salva as
+     faixas em WebP (`public/mundo/ilhas/assadas/`, ~2 MB). O jogo só carrega
+     essas imagens; sem elas (ou com `?assar-ilhas`), assa na hora — o
+     Three.js fica num pedaço separado do bundle e só é baixado nesse caso.
+  Mudou uma ilha? Rode `gerar_mundo.py` e depois `assar_ilhas.mjs`.
+
+Não coberto ainda: animação nas ilhas (pás dos moinhos, fumaça, bandeiras),
+encontros aleatórios, multiplayer, interação ao atracar,
 porte do combate de tripulação para o servidor C# (a regra em
 `sim/abordagem.ts` foi escrita para ser portada 1:1) e as habilidades reais.
 

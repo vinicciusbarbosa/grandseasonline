@@ -19,6 +19,7 @@ Rodar da raiz do repositório (precisa de Pillow, numpy, scipy e PyYAML):
 """
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +28,9 @@ from PIL import Image
 from scipy import ndimage
 
 RAIZ = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ilhas import east_blue  # noqa: E402  (as ilhas modeladas à mão)
+
 DADOS = RAIZ / "public" / "Data"
 ARTE = RAIZ / "public" / "Imagens" / "Mapa" / "Mapa_Mundi"
 
@@ -83,6 +87,22 @@ def main() -> None:
     agua = np.isin(rotulos, list(ligados))
 
     terra = ~agua
+
+    # --- Ilhas modeladas à mão (scripts/ilhas) -----------------------------------
+    # Substituem a arte dentro da caixa de cada uma: a costa passa a ser a do
+    # modelo 3D, e a navegação bate exatamente com o que se vê.
+    x0r, y0r = RECORTE[0], RECORTE[1]
+    modeladas = east_blue.todas()
+    for ilha in modeladas:
+        bx0, by0 = int(ilha.x0), int(ilha.y0)
+        bx1, by1 = int(ilha.x0 + ilha.largura + 0.999), int(ilha.y0 + ilha.altura + 0.999)
+        fatia_ilha = np.s_[(by0 + y0r) * SUB:(by1 + y0r) * SUB, (bx0 + x0r) * SUB:(bx1 + x0r) * SUB]
+        nova = np.zeros(((by1 - by0) * SUB, (bx1 - bx0) * SUB), dtype=bool)
+        if not ilha.flutuante:
+            nova = ilha.terra_em(SUB, bx0, by0, bx1 - bx0, by1 - by0)
+        agua[fatia_ilha] = ~nova
+    terra = ~agua
+
     # Buraquinhos de terra menores que meia célula são ruído da arte (ícones, nuvens).
     rot_terra, n_terra = ndimage.label(terra)
     tamanhos = ndimage.sum(terra, rot_terra, range(1, n_terra + 1))
@@ -105,11 +125,46 @@ def main() -> None:
     tipo[grande & ~borda] = 128
     tipo[grande & borda] = 255
     tipo = ndimage.uniform_filter(tipo.astype(np.float32), size=9).astype(np.uint8)
+    # Ilhas modeladas em 3D: marca 40 no tipo — o shader desenha só água ali
+    # (a terra de verdade é a imagem assada da ilha, por cima).
+    for ilha in modeladas:
+        if ilha.flutuante:
+            continue
+        bx0, by0 = int(ilha.x0), int(ilha.y0)
+        bx1, by1 = int(ilha.x0 + ilha.largura + 0.999), int(ilha.y0 + ilha.altura + 0.999)
+        fatia_ilha = np.s_[(by0 + y0r) * SUB:(by1 + y0r) * SUB, (bx0 + x0r) * SUB:(bx1 + x0r) * SUB]
+        sub_terra = terra[fatia_ilha]
+        sub_tipo = tipo[fatia_ilha]
+        sub_tipo[ndimage.binary_dilation(sub_terra, iterations=3)] = 40
 
     # --- Distância com sinal até a costa ------------------------------------------
     dist_agua = ndimage.distance_transform_edt(agua)
     dist_terra = ndimage.distance_transform_edt(terra)
     sdf = np.where(agua, dist_agua - 0.5, -(dist_terra - 0.5))
+    # Perto das ilhas modeladas, a distância vem do próprio modelo (contínua):
+    # a espuma da arrebentação acompanha a costa 3D sem degraus. Na água vale a
+    # menor entre ela e a distância até as OUTRAS terras (sem as ilhas).
+    agua_sem_ilhas = agua.copy()
+    for ilha in modeladas:
+        if ilha.flutuante:
+            continue
+        bx0, by0 = int(ilha.x0), int(ilha.y0)
+        bx1, by1 = int(ilha.x0 + ilha.largura + 0.999), int(ilha.y0 + ilha.altura + 0.999)
+        agua_sem_ilhas[(by0 + y0r) * SUB:(by1 + y0r) * SUB, (bx0 + x0r) * SUB:(bx1 + x0r) * SUB] = True
+    sdf_outras = ndimage.distance_transform_edt(agua_sem_ilhas) - 0.5
+    for ilha in modeladas:
+        if ilha.flutuante:
+            continue
+        bx0, by0 = int(ilha.x0), int(ilha.y0)
+        bx1, by1 = int(ilha.x0 + ilha.largura + 0.999), int(ilha.y0 + ilha.altura + 0.999)
+        fatia_ilha = np.s_[(by0 + y0r) * SUB:(by1 + y0r) * SUB, (bx0 + x0r) * SUB:(bx1 + x0r) * SUB]
+        yy, xx = np.mgrid[0:(by1 - by0) * SUB, 0:(bx1 - bx0) * SUB]
+        gx = ((bx0 + (xx + 0.5) / SUB) * CELULA - ilha.px0) / ilha.passo
+        gy = ((by0 + (yy + 0.5) / SUB) * CELULA - ilha.py0) / ilha.passo
+        costa = ndimage.map_coordinates(ilha.costa, [gy, gx], order=1, mode="nearest") / (CELULA / SUB)
+        atual = sdf[fatia_ilha]
+        outras = sdf_outras[fatia_ilha]
+        atual[:] = np.where(costa > 0, -costa, np.minimum(outras, -costa))
     canal_r = np.clip(128 + sdf * (127 / ALCANCE_SDF), 0, 255).astype(np.uint8)
 
     # --- Névoa fixa ------------------------------------------------------------------
@@ -140,6 +195,10 @@ def main() -> None:
         if dentro(x, y):
             bloqueio[y - y0, x - x0] = True
     ilhas = [i for i in ilhas if dentro(i["x"], i["y"])]
+    # Ilhas flutuantes (o Baratie) bloqueiam o casco, mas não viram terra.
+    for ilha in modeladas:
+        for cx_, cy_ in getattr(ilha, "bloqueio_extra", []):
+            bloqueio[cy_, cx_] = True
     for i in ilhas:  # a doca é sempre navegável, como no servidor de mapa do legado
         bloqueio[i["y"] - y0, i["x"] - x0] = False
 
@@ -182,6 +241,21 @@ def main() -> None:
         "correntes": correntes,
         "redemoinhos": redemoinhos,
     }
+    # --- Ilhas 3D: mapa de altura + materiais (PNG) e objetos (JSON) --------------
+    pasta_ilhas = RAIZ / "frontend" / "public" / "mundo" / "ilhas"
+    pasta_ilhas.mkdir(parents=True, exist_ok=True)
+    for ilha in modeladas:
+        ilha.exportar_png(pasta_ilhas / f"{ilha.id}.png")
+        doca = next((d for d in ilhas if d["id"] == ilha.id), None)
+        if doca:
+            dx, dy = doca["x"] - x0, doca["y"] - y0
+            vizinha = any(bloqueio[yy, xx] for yy in range(dy - 1, dy + 2) for xx in range(dx - 1, dx + 2) if (xx, yy) != (dx, dy))
+            if not vizinha:
+                print(f"AVISO: a doca de {ilha.nome} ({dx},{dy}) não encosta na ilha")
+    (RAIZ / "frontend" / "src" / "navegacao" / "mundo" / "ilhas.json").write_text(
+        json.dumps([ilha.meta() for ilha in modeladas], ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
+
     destino_json = RAIZ / "frontend" / "src" / "navegacao" / "mundo" / "mundo.json"
     destino_json.parent.mkdir(parents=True, exist_ok=True)
     destino_json.write_text(json.dumps(saida, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

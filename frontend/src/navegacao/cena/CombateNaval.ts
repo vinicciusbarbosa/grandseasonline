@@ -127,11 +127,14 @@ export class CombateNaval {
     return this.npcTipo === 'marinha' ? 'Patrulha da Marinha' : 'Piratas Saqueadores'
   }
 
-  /** Clique perto do navio inimigo seleciona o alvo. */
+  /**
+   * Clique no navio inimigo liga/desliga a exibição da área de ataque (arcos
+   * e alcance das baterias). Não é preciso para atirar: Q/E miram sozinhos.
+   */
   tentarSelecionar(p: Vetor) {
     if (!this.npc || this.npc.naufragio !== null) return false
     if (Math.hypot(p.x - this.npc.posicao.x, p.y - this.npc.posicao.y) > 70) return false
-    this.alvoSelecionado = true
+    this.alvoSelecionado = !this.alvoSelecionado
     return true
   }
 
@@ -141,7 +144,6 @@ export class CombateNaval {
     if (naZonaSegura(this.mundo, jogador.posicao) || naZonaSegura(this.mundo, this.npc.posicao)) return 'zona-segura'
     const situacao = situacaoDaBateria(jogador, this.combateJogador, lado, this.npc.posicao)
     if (situacao !== 'pronta') return situacao
-    this.alvoSelecionado = true
     this.lancar(dispararSalva(jogador, this.combateJogador, lado, this.npc, meioComprimento, tempestade), true, lado, jogador)
     return 'ok'
   }
