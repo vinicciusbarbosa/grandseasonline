@@ -113,7 +113,7 @@ export const PROJETOS: Record<TipoNavio, Projeto> = {
       mastro: 0x3b2a1c,
       vela: 0xf1f4f7,
       velaBrilho: 0xffffff,
-      bandeira: 0x2c5aa0,
+      bandeira: 0xf6f7f9,
       janela: 0xf2d24a,
     },
   },
@@ -798,7 +798,7 @@ export class NavioVisual {
     if (this.tipo === 'marinha') {
       const c = this.projetar(ponto(0.5, 0.55))
       const k = Math.abs(this.cosR * eixo.x - this.sinR * eixo.y) * 0.9 + 0.1
-      this.g.lineStyle(2, pal.bandeira, 0.9)
+      this.g.lineStyle(2, AZUL_MARINHA, 0.9)
       this.g.beginPath()
       this.g.moveTo(c.x - 7 * k, c.y - 2)
       this.g.lineTo(c.x - 2 * k, c.y - 4)
@@ -824,7 +824,10 @@ export class NavioVisual {
     }
   }
 
-  /** Bandeira preta a favor do vento, com a Jolly Roger de chapéu de palha. */
+  /**
+   * Bandeira a favor do vento: a preta com a Jolly Roger de chapéu de palha,
+   * ou a branca da Marinha, com a gaivota azul e o "MARINE".
+   */
   private desenharBandeira(xm: number, z: number, vento: EstadoVento, rumo: number, tempo: number) {
     const pal = this.projeto.paleta
     const angulo = vento.direcao - rumo + ruidoSuave(tempo * 4, this.semente + 3) * 0.25
@@ -842,14 +845,14 @@ export class NavioVisual {
       const sombra = 0.85 + 0.15 * Math.sin(u0 * 5 - tempo * 9 + this.semente)
       this.preencher([ponto(u0, 0), ponto(u1, 0), ponto(u1, 1), ponto(u0, 1)], misturar(0x000000, pal.bandeira, sombra))
     }
-    this.tracar([ponto(0, 0), ponto(1, 0), ponto(1, 1), ponto(0, 1)], 0.7, 0x000000, 0.6)
+    this.tracar([ponto(0, 0), ponto(1, 0), ponto(1, 1), ponto(0, 1)], 0.7, this.tipo === 'pirata' ? 0x000000 : 0x5b6675, 0.6)
 
     // O emblema é pintado NO pano: cada forma é mapeada para (u, v) da
     // bandeira e passa pela mesma ondulação e perspectiva que ela.
     const k = 0.8
     const noPano = (forma: [number, number][], cor: number) =>
       this.preencher(forma.map(([dx, dy]) => ponto(0.5 + (dx * k) / comprimento, 0.5 + (dy * k) / altura)), cor)
-    for (const [forma, cor] of this.tipo === 'pirata' ? JOLLY_ROGER : GAIVOTA) noPano(forma, cor)
+    for (const [forma, cor] of this.tipo === 'pirata' ? JOLLY_ROGER : MARINHA) noPano(forma, cor)
   }
 
   /** Estais e ovéns: do topo dos mastros ao gurupés e às amuradas. */
@@ -953,10 +956,49 @@ const JOLLY_ROGER: [Forma, number][] = [
   [retangulo(-4.4, -5.1, 4.4, -3.6), 0xc4322c],
 ]
 
-/** Gaivota da Marinha. */
-const GAIVOTA: [Forma, number][] = [
-  [barra(-9, -1, -3, -4, 2), 0xf8fafc],
-  [barra(-3, -4, 0, 1, 2), 0xf8fafc],
-  [barra(0, 1, 3, -4, 2), 0xf8fafc],
-  [barra(3, -4, 9, -1, 2), 0xf8fafc],
+const AZUL_MARINHA = 0x2a5fb0
+
+/** Traço de letra (uma barra fina). */
+const traco = (ax: number, ay: number, bx: number, by: number): [Forma, number] => [barra(ax, ay, bx, by, 0.75), AZUL_MARINHA]
+
+/** Letras de "MARINE" em traços, a partir do canto (x, topo), com 2,2 × 3 de tamanho. */
+function letra(l: string, x: number, t: number): [Forma, number][] {
+  const w = 2.2
+  const b = t + 3
+  const m = t + 1.5
+  switch (l) {
+    case 'M':
+      return [traco(x, b, x, t), traco(x, t, x + w / 2, m + 0.4), traco(x + w / 2, m + 0.4, x + w, t), traco(x + w, t, x + w, b)]
+    case 'A':
+      return [traco(x, b, x + w / 2, t), traco(x + w / 2, t, x + w, b), traco(x + 0.45, m + 0.4, x + w - 0.45, m + 0.4)]
+    case 'R':
+      return [traco(x, b, x, t), traco(x, t, x + w - 0.3, t), traco(x + w - 0.3, t, x + w - 0.3, m), traco(x + w - 0.3, m, x, m), traco(x + 0.5, m, x + w, b)]
+    case 'I':
+      return [traco(x + w / 2, t, x + w / 2, b)]
+    case 'N':
+      return [traco(x, b, x, t), traco(x, t, x + w, b), traco(x + w, b, x + w, t)]
+    default: // E
+      return [traco(x, t, x, b), traco(x, t, x + w, t), traco(x, m, x + w - 0.4, m), traco(x, b, x + w, b)]
+  }
+}
+
+/**
+ * Emblema da Marinha (One Piece): a gaivota azul em perfil — bico para a
+ * esquerda, as duas asas erguidas em penas, cauda em leque — e, embaixo,
+ * "MARINE" em letras de forma. Tudo sobre o pano branco.
+ */
+const MARINHA: [Forma, number][] = [
+  // asa de trás (mais clara, por trás do corpo)
+  [[[0.6, -1.6], [1.8, -6.6], [2.8, -5.5], [3.9, -7.6], [4.5, -5.3], [6.6, -6.4], [5.2, -3.6], [3.4, -1.4]], 0x4f86cf],
+  // corpo, cabeça, bico e cauda
+  [elipse(0.3, -0.6, 5.2, 1.7), AZUL_MARINHA],
+  [elipse(-4.9, -1.5, 1.8, 1.6, 12), AZUL_MARINHA],
+  [[[-6.4, -1.9], [-8.9, -1.0], [-6.3, -0.8]], 0xe8b340],
+  [[[4.8, -0.9], [8.6, -2.6], [7.8, -0.6], [8.8, 0.9], [4.6, 0.3]], AZUL_MARINHA],
+  // asa da frente, com as pontas das penas
+  [[[-3.2, -1.9], [-6.6, -6.9], [-4.9, -6.3], [-4.6, -7.9], [-2.9, -6.1], [-2.0, -7.2], [-0.7, -4.3], [-0.2, -1.8]], AZUL_MARINHA],
+  // olho
+  [elipse(-5.3, -1.8, 0.45, 0.45, 8), 0xf6f7f9],
+  // MARINE
+  ...[...'MARINE'].flatMap((l, i) => letra(l, -8.4 + i * 2.9, 2.6)),
 ]
