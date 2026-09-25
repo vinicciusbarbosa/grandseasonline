@@ -227,8 +227,32 @@ frontend/src/navegacao/
   o navio guarda a água mexida (popa, proa cortando a água, braços do "V") e
   o shader a pinta com o mesmo estilo do mar.
 
-Não coberto ainda: redemoinhos (não há nenhum no recorte), encontros,
-multiplayer e interação ao atracar.
+- **Combate naval de costado** (`sim/combateNaval.ts`, `cena/CombateNaval.ts`):
+  sem modo separado. Clique no navio inimigo marca o alvo; bombordo (Q) e
+  boreste (E) só disparam com o alvo dentro do arco e do alcance da bateria,
+  e cada uma tem recarga própria. A chance de acerto cai com a distância, a
+  velocidade do alvo e a tempestade; a mira antecipa o movimento. Balas tiram
+  casco (75%) e velas (25%); velas rasgadas reduzem a velocidade máxima até a
+  metade. Casco zerado: o navio afunda e a tripulação recomeça na última
+  ilha, com o navio reparado. Não há tiro em zona segura.
+- **Patrulha inimiga** (`sim/iaPatrulha.ts`): vaga pela área dela, avista o
+  jogador a 650 px fora da zona segura, fecha distância e passa a orbitar
+  para manter o costado virado para ele; foge com o casco abaixo de 25%.
+  O inimigo é sempre do outro lado (pirata × marinha) e reaparece 40 s
+  depois de afundado ou capturado.
+- **Abordagem** (`sim/abordagem.ts`, `TelaAbordagem.tsx`): com o inimigo
+  avariado (casco < 40% ou velas < 30%), perto e com pouca velocidade
+  relativa, aparece "Abordar!". O mar congela e começa uma luta por turnos
+  entre as tripulações (4 × 4, ordem por AGL), com a fórmula de dano do
+  legado (`Ataque.php`: esquiva, crítico, bloqueio, dano da vontade, redução
+  por distância e por área) e a vontade subindo a cada rodada. A vida inicial
+  de cada lado herda o estado do casco. Vitória captura o navio com saque
+  completo (12.000 berries); afundar a canhão só rende o que boia (1.500).
+  As habilidades são provisórias, não as do legado.
+
+Não coberto ainda: encontros aleatórios, multiplayer, interação ao atracar,
+porte do combate de tripulação para o servidor C# (a regra em
+`sim/abordagem.ts` foi escrita para ser portada 1:1) e as habilidades reais.
 
 ## Decisões de mapeamento
 

@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { Cantoneiras, Losango } from '../componentes/ui/ornamentos'
 import { CenaOceano } from './cena/CenaOceano'
 import { painelNavegacao, type RetratoNavegacao } from './painel'
+import type { Batalha } from './sim/abordagem'
+import { TelaAbordagem } from './TelaAbordagem'
 import { AVISTADA, VISITADA } from './sim/descoberta'
 import { TEMPESTADES } from './sim/tempestade'
 import { NAVIOS, type AtributosNavegacao, type TipoNavio } from './sim/navios'
@@ -16,6 +18,7 @@ import { NAVIOS, type AtributosNavegacao, type TipoNavio } from './sim/navios'
 export default function TelaNavegacao() {
   const alvo = useRef<HTMLDivElement>(null)
   const [cena, setCena] = useState<CenaOceano | null>(null)
+  const [batalha, setBatalha] = useState<Batalha | null>(null)
   const retrato = useSyncExternalStore(painelNavegacao.assinar, painelNavegacao.obter)
 
   useEffect(() => {
@@ -52,14 +55,29 @@ export default function TelaNavegacao() {
           <Minimapa retrato={retrato} aoNavegar={(x, y) => cena.navegarPara(x, y)} />
           <Instrumentos retrato={retrato} />
           <Comandos retrato={retrato} cena={cena} />
+          <PainelCombate retrato={retrato} cena={cena} aoAbordar={() => setBatalha(cena.abordar())} />
           {retrato.aviso && (
             <div className="pointer-events-none absolute top-24 left-1/2 -translate-x-1/2 rounded-sm border border-pirata/60 bg-abissal/85 px-5 py-2.5 text-sm text-creme shadow-lg backdrop-blur-md">
               {retrato.aviso}
             </div>
           )}
-          <p className="pointer-events-none absolute bottom-3 left-1/2 hidden -translate-x-1/2 text-xs tracking-wide text-creme/55 lg:block">
-            Clique no mar para navegar · numa ilha para atracar · roda do mouse: zoom
+          <p
+            className={`pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-xs tracking-wide text-creme/55 ${
+              retrato.combate.inimigoPerto ? 'hidden' : 'hidden xl:block'
+            }`}
+          >
+            Clique no mar para navegar · numa ilha para atracar · no navio inimigo para mirar · Q/E: canhões · roda do mouse: zoom
           </p>
+          {batalha && (
+            <TelaAbordagem
+              batalha={batalha}
+              nomeInimigo={retrato.combate.alvo?.nome ?? 'o inimigo'}
+              aoTerminar={() => {
+                cena.terminarAbordagem()
+                setBatalha(null)
+              }}
+            />
+          )}
         </>
       )}
     </div>
@@ -293,6 +311,109 @@ function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOcea
           Navegar até o redemoinho
         </button>
       </Quadro>
+    </div>
+  )
+}
+
+const SITUACAO_BATERIA: Record<RetratoNavegacao['combate']['baterias']['boreste']['situacao'], string> = {
+  pronta: 'Pronta!',
+  recarregando: 'Recarregando',
+  'fora-do-arco': 'Fora do arco',
+  'fora-de-alcance': 'Fora de alcance',
+  'sem-alvo': 'Sem alvo',
+}
+
+/**
+ * Combate naval: casco e velas do nosso navio, o alvo e as duas baterias.
+ * Só aparece quando há inimigo por perto (ou o casco está avariado).
+ */
+function PainelCombate({ retrato, cena, aoAbordar }: { retrato: RetratoNavegacao; cena: CenaOceano; aoAbordar: () => void }) {
+  const c = retrato.combate
+  const avariado = c.casco < c.cascoMax || c.velas < c.velasMax
+  if (!c.inimigoPerto && !avariado && retrato.berries === 0) return null
+
+  return (
+    <div className="pointer-events-none absolute bottom-10 left-1/2 w-[27rem] max-w-[calc(100vw-2rem)] -translate-x-1/2">
+      <Quadro className="p-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="mb-1.5 text-xs tracking-wider text-creme/55 uppercase">Nosso navio</p>
+            <Barra rotulo="Casco" valor={c.casco} max={c.cascoMax} cor="bg-vida" />
+            <Barra rotulo="Velas" valor={c.velas} max={c.velasMax} cor="bg-creme/80" />
+            {retrato.berries > 0 && (
+              <p className="mt-1.5 text-[0.7rem] text-creme/60">
+                Saque: <span className="numero-ficha text-ouro-claro">฿ {retrato.berries.toLocaleString('pt-BR')}</span>
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="mb-1.5 truncate text-xs tracking-wider text-creme/55 uppercase">{c.alvo ? c.alvo.nome : 'Sem alvo à vista'}</p>
+            {c.alvo ? (
+              <>
+                <Barra rotulo="Casco" valor={c.alvo.casco} max={c.alvo.cascoMax} cor="bg-pirata" />
+                <Barra rotulo="Velas" valor={c.alvo.velas} max={c.alvo.velasMax} cor="bg-creme/80" />
+                <p className="mt-1.5 text-[0.7rem] text-creme/60">
+                  Distância <span className="numero-ficha text-creme/85">{Math.round(c.alvo.distancia / 9)}</span> braças
+                </p>
+              </>
+            ) : (
+              <p className="text-[0.7rem] leading-relaxed text-creme/50">Clique num navio inimigo para mirar.</p>
+            )}
+          </div>
+        </div>
+
+        {c.alvo && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(['bombordo', 'boreste'] as const).map((lado) => {
+              const b = c.baterias[lado]
+              const pronta = b.situacao === 'pronta'
+              const carga = b.recargaMax > 0 ? 1 - b.recarga / b.recargaMax : 1
+              return (
+                <button
+                  key={lado}
+                  onClick={() => cena.disparar(lado)}
+                  className={`relative overflow-hidden rounded-sm border px-3 py-2 text-left transition-all ${
+                    pronta ? 'border-ouro bg-ouro/15 shadow-[0_0_16px_-5px_var(--color-ouro)]' : 'border-painel-borda/45'
+                  }`}
+                >
+                  <span className="absolute inset-y-0 left-0 bg-ouro/10" style={{ width: `${carga * 100}%` }} />
+                  <span className="relative flex items-center justify-between">
+                    <span className="titulo-serif text-sm text-creme">{lado === 'bombordo' ? '◀ Bombordo' : 'Boreste ▶'}</span>
+                    <kbd className="rounded-sm border border-painel-borda/60 px-1.5 text-[0.65rem] text-creme/60">{lado === 'bombordo' ? 'Q' : 'E'}</kbd>
+                  </span>
+                  <span className={`relative text-[0.68rem] ${pronta ? 'text-ouro-claro' : 'text-creme/55'}`}>
+                    {b.situacao === 'recarregando' ? `Recarregando ${b.recarga.toFixed(1)} s` : SITUACAO_BATERIA[b.situacao]}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {c.podeAbordar && (
+          <button
+            onClick={aoAbordar}
+            className="mt-3 w-full animate-pulse rounded-sm border border-pirata bg-pirata/35 px-3 py-2 text-center titulo-serif text-lg text-creme hover:bg-pirata/55"
+          >
+            Abordar!
+          </button>
+        )}
+        {c.alvo && !c.podeAbordar && c.alvo.casco < c.alvo.cascoMax * 0.4 && (
+          <p className="mt-2 text-center text-[0.7rem] text-creme/55">Inimigo avariado: encoste devagar ao lado dele para abordar.</p>
+        )}
+      </Quadro>
+    </div>
+  )
+}
+
+function Barra({ rotulo, valor, max, cor }: { rotulo: string; valor: number; max: number; cor: string }) {
+  return (
+    <div className="mb-1 flex items-center gap-2 text-[0.7rem]">
+      <span className="w-10 text-creme/60">{rotulo}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-abissal/70">
+        <div className={`h-full transition-[width] duration-300 ${cor}`} style={{ width: `${(valor / max) * 100}%` }} />
+      </div>
+      <span className="numero-ficha w-9 text-right text-creme/70">{Math.round((valor / max) * 100)}%</span>
     </div>
   )
 }

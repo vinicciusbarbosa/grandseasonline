@@ -1,4 +1,7 @@
+import type { InfoCombate } from './cena/CombateNaval'
 import type { Mundo } from './mundo/Mundo'
+import type { Batalha } from './sim/abordagem'
+import type { Lado } from './sim/combateNaval'
 import type { Descoberta } from './sim/descoberta'
 import type { TipoNavio } from './sim/navios'
 
@@ -35,6 +38,9 @@ export type RetratoNavegacao = {
   grade: boolean
   posicao: { x: number; y: number }
   aviso: string | null
+  combate: InfoCombate
+  emAbordagem: boolean
+  berries: number
 }
 
 export interface ControleNavegacao {
@@ -46,6 +52,9 @@ export interface ControleNavegacao {
   definirEscalaTempo(escala: number): void
   navegarPara(x: number, y: number): void
   esquecerDescoberta(): void
+  disparar(lado: Lado): void
+  abordar(): Batalha | null
+  terminarAbordagem(): void
 }
 
 type Ouvinte = () => void

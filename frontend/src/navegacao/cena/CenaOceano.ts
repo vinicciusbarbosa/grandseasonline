@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
 import { Mundo, RAIO_ZONA_SEGURA, type Ilha, type Vetor } from '../mundo/Mundo'
 import { painelNavegacao, type ControleNavegacao, type SituacaoNavio } from '../painel'
+import { batalhaDeAbordagem, type Batalha } from '../sim/abordagem'
+import { fatorVelas, type Lado } from '../sim/combateNaval'
 import { Descoberta } from '../sim/descoberta'
 import { criarEstadoViagem, navegarPara, passoNavegacao, type EstadoViagem } from '../sim/navegacao'
 import { fisicaDoNavio, NAVIOS, type FisicaNavio, type TipoNavio } from '../sim/navios'
@@ -9,8 +11,9 @@ import { REDEMOINHOS } from '../sim/redemoinho'
 import { intensidadeTempestade, TEMPESTADES } from '../sim/tempestade'
 import { ventoEm, type EstadoVento } from '../sim/vento'
 import { Clima } from './Clima'
+import { CombateNaval } from './CombateNaval'
 import { Correntes } from './Correntes'
-import { Esteira } from './Esteira'
+import { Esteira, type EntradaEsteira } from './Esteira'
 import { Ilhas } from './Ilhas'
 import { NavioVisual } from './NavioVisual'
 import { ACHATAMENTO, ELEVACAO } from './projecao'
@@ -22,6 +25,11 @@ import { VisualRedemoinho } from './VisualRedemoinho'
 const PASSO_FIXO = 1 / 60
 const PX_POR_NO = 9
 const ILHA_INICIAL = 'Ilha Dawn'
+/** Saque de berries: capturar o navio rende tudo; afundar, só o que boia. */
+const SAQUE_CAPTURA = 12000
+const SAQUE_AFUNDADO = 1500
+
+type Naufragio = 'redemoinho' | 'combate' | 'abordagem'
 
 export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   mundo!: Mundo
@@ -36,6 +44,11 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   private ventoVisual!: VentoVisual
   private clima!: Clima
   private visualRedemoinho!: VisualRedemoinho
+  private combate!: CombateNaval
+  /** Abordagem em andamento: a cena congela e o React conduz a luta. */
+  private abordagem: Batalha | null = null
+  private motivoNaufragio: Naufragio = 'redemoinho'
+  private berries = 0
   private oceano!: Phaser.GameObjects.Shader
   private texDescoberta!: Phaser.Textures.CanvasTexture
   private rascunhoDescoberta: HTMLCanvasElement | null = null
@@ -104,6 +117,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.ventoVisual = new VentoVisual(this, this.plano)
     this.clima = new Clima(this)
     this.visualRedemoinho = new VisualRedemoinho(this, this.mundo.celula)
+    this.combate = new CombateNaval(this, this.mundo, this.plano, this.tipo)
 
     // Começa atracado na primeira ilha do East Blue, com a proa para o mar aberto.
     const inicial = this.mundo.ilhas.find((i) => i.nome === ILHA_INICIAL) ?? this.mundo.ilhas[0]
@@ -140,9 +154,13 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       if (moveu < 10) {
         // Tela → mundo: a câmera dá o ponto projetado; desfaz o achatamento.
         const ponto = this.cameras.main.getWorldPoint(p.x, p.y)
-        this.clicar({ x: ponto.x, y: ponto.y / ACHATAMENTO })
+        const mundo = { x: ponto.x, y: ponto.y / ACHATAMENTO }
+        // Clique no navio inimigo marca o alvo; em qualquer outro lugar, navega.
+        if (!this.abordagem && !this.combate.tentarSelecionar(mundo)) this.clicar(mundo)
       }
     })
+    this.input.keyboard?.on('keydown-Q', () => this.disparar('bombordo'))
+    this.input.keyboard?.on('keydown-E', () => this.disparar('boreste'))
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
       this.zoomUsuario = Phaser.Math.Clamp(this.zoomUsuario * (dy > 0 ? 0.9 : 1.1), 0.4, 2)
     })
@@ -155,6 +173,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.tipo = tipo
     this.navio.destruir()
     this.criarNavio(tipo)
+    this.combate.definirTipoJogador(tipo)
   }
 
   alternarGrade() {
@@ -174,7 +193,6 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.clicar({ x, y })
   }
 
-  /** Atalho do HUD: traça rota até a borda da tempestade. */
   /** Atalho do HUD: rota até a borda do redemoinho (o resto é com a água). */
   irParaRedemoinho() {
     const r = REDEMOINHOS[0]
@@ -182,6 +200,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.clicar({ x: (r.cx - r.raio * 0.8) * c, y: (r.cy - r.raio * 0.2) * c })
   }
 
+  /** Atalho do HUD: traça rota até o centro da tempestade. */
   irParaTempestade() {
     const t = TEMPESTADES[0]
     this.clicar({ x: t.cx * this.mundo.celula, y: t.cy * this.mundo.celula })
@@ -191,20 +210,67 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.descoberta.esquecer()
   }
 
+  disparar(lado: Lado) {
+    if (this.abordagem) return
+    const tormenta = intensidadeTempestade(this.estado.posicao, this.mundo.celula)
+    const r = this.combate.disparar(this.estado, lado, this.navio.meioComprimento, tormenta)
+    const nome = lado === 'bombordo' ? 'Bombordo' : 'Boreste'
+    if (r === 'fora-do-arco') this.avisar(`${nome}: o inimigo não está desse lado. Vire o costado para ele.`)
+    else if (r === 'fora-de-alcance') this.avisar(`${nome}: fora de alcance.`)
+    else if (r === 'recarregando') this.avisar(`${nome}: recarregando…`)
+    else if (r === 'zona-segura') this.avisar('Não se dispara canhões na zona segura de uma ilha.')
+    else if (r === 'sem-alvo') this.avisar('Nenhum navio inimigo à vista.')
+  }
+
+  /** Encosta no inimigo avariado: a cena congela e começa a luta de tripulações. */
+  abordar(): Batalha | null {
+    const npc = this.combate.npc
+    const deles = this.combate.npcCombate
+    if (this.abordagem || !npc || !deles || !this.combate.info(this.estado).podeAbordar) return null
+    const nosso = this.combate.combateJogador
+    this.abordagem = batalhaDeAbordagem(this.tipo, deles.casco / deles.cascoMax, nosso.casco / nosso.cascoMax)
+    for (const e of [this.estado, npc]) {
+      e.rota = null
+      e.indoPara = null
+      e.velocidade = 0
+      e.movimento = { x: 0, y: 0 }
+    }
+    this.publicarRetrato()
+    return this.abordagem
+  }
+
+  terminarAbordagem() {
+    const b = this.abordagem
+    if (!b) return
+    this.abordagem = null
+    if (b.fim === 'vitoria') {
+      this.berries += SAQUE_CAPTURA
+      this.combate.removerNpc(40)
+      this.avisar(`Navio capturado! Saque completo: ${SAQUE_CAPTURA.toLocaleString('pt-BR')} berries.`, 5000)
+    } else {
+      this.motivoNaufragio = 'abordagem'
+      this.voltarAoPorto()
+    }
+    this.publicarRetrato()
+  }
+
   // ---- Laço ------------------------------------------------------------------------
 
   update(_time: number, deltaMs: number) {
-    const dt = (Math.min(deltaMs, 50) / 1000) * this.escalaTempo
+    // Durante a abordagem o mar congela (dt = 0) e só o React anda.
+    const dt = this.abordagem ? 0 : (Math.min(deltaMs, 50) / 1000) * this.escalaTempo
     this.tempo += dt
 
     // Passo fixo: a simulação dá o mesmo resultado em 30 ou 144 fps — e é o
     // mesmo passo que um servidor autoritativo usaria.
+    // Velas rasgadas pelos canhões tiram velocidade.
+    const fisica = { ...this.fisica, velocidadeMax: this.fisica.velocidadeMax * fatorVelas(this.combate.combateJogador) }
     this.acumulador += dt
     while (this.acumulador >= PASSO_FIXO) {
       this.acumulador -= PASSO_FIXO
       const mar = this.mundo.marEm(this.estado.posicao)
       this.vento = ventoEm(mar, this.estado.posicao, this.tempo, this.mundo.celula)
-      passoNavegacao(this.mundo, this.estado, this.fisica, this.vento, PASSO_FIXO)
+      passoNavegacao(this.mundo, this.estado, fisica, this.vento, PASSO_FIXO)
     }
 
     const celula = this.mundo.celula
@@ -226,24 +292,49 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     }
     this.navio.atualizar(this.estado, this.fisica, this.vento, balanco, this.tempo, dt, alturaMar)
     if (this.estado.atracadoEm) this.ultimaIlha = this.estado.atracadoEm
+
+    const combate = this.combate.atualizar(dt, this.estado, this.vento, tormentaNavio, this.esteira)
+    if (combate.jogadorAfundou) this.motivoNaufragio = 'combate'
+    if (combate.inimigoAfundou) {
+      this.berries += SAQUE_AFUNDADO
+      this.avisar(`${this.combate.nomeNpc} foi a pique. Só deu para pescar ${SAQUE_AFUNDADO.toLocaleString('pt-BR')} berries dos destroços.`, 5000)
+    }
+    this.combate.atualizarVisualNpc(
+      this.vento,
+      (e, meioC, meiaL) =>
+        balancoNoMar(
+          componentes(),
+          e.posicao,
+          e.rumo,
+          meioC,
+          meiaL,
+          this.tempo,
+          agitacaoEm(e.posicao, celula),
+          this.fisica.sensibilidadeOnda,
+          intensidadeTempestade(e.posicao, celula),
+        ),
+      this.tempo,
+      dt,
+      alturaMar,
+    )
     if (this.estado.naufragio !== null && this.estado.naufragio > 5) this.voltarAoPorto()
 
     const razao = Math.min(1, this.estado.velocidade / this.fisica.velocidadeMax)
-    this.esteira.atualizar(
-      dt,
-      this.estado.posicao,
-      this.estado.naufragio === null
-        ? {
-            popa: this.navio.pontoDaPopa(this.estado),
-            proa: this.navio.pontoDaProa(this.estado),
-            centro: this.estado.posicao,
-            rumo: this.estado.rumo,
-            razao,
-            meiaLargura: this.navio.meiaLargura,
-            meioComprimento: this.navio.meioComprimento,
-          }
-        : null,
-    )
+    const esteiras: EntradaEsteira[] = []
+    if (this.estado.naufragio === null) {
+      esteiras.push({
+        popa: this.navio.pontoDaPopa(this.estado),
+        proa: this.navio.pontoDaProa(this.estado),
+        centro: this.estado.posicao,
+        rumo: this.estado.rumo,
+        razao,
+        meiaLargura: this.navio.meiaLargura,
+        meioComprimento: this.navio.meioComprimento,
+      })
+    }
+    const esteiraNpc = this.combate.entradaEsteiraNpc()
+    if (esteiraNpc) esteiras.push(esteiraNpc)
+    this.esteira.atualizar(dt, this.estado.posicao, esteiras)
     this.oceano.setTextures(['terra', 'descoberta', 'ruido', this.esteira.chave])
 
     this.descoberta.revelar(this.estado.posicao)
@@ -291,7 +382,14 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.estado.atracadoEm = ilha
     this.navio.destruir()
     this.criarNavio(this.tipo)
-    this.aviso = { texto: `O redemoinho partiu o navio. A tripulação recomeça em ${ilha.nome}.`, ate: performance.now() + 5000 }
+    this.combate.repararJogador()
+    const causa: Record<Naufragio, string> = {
+      redemoinho: 'O redemoinho partiu o navio.',
+      combate: 'Afundado em combate.',
+      abordagem: 'A tripulação foi derrotada na abordagem e o navio, tomado.',
+    }
+    this.avisar(`${causa[this.motivoNaufragio]} A tripulação recomeça em ${ilha.nome}, com o navio reparado.`, 5000)
+    this.motivoNaufragio = 'redemoinho'
   }
 
   private clicar(p: Vetor) {
@@ -307,8 +405,8 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     if (resultado === 'sem-controle') this.avisar('O redemoinho arrancou o leme das suas mãos!')
   }
 
-  private avisar(texto: string) {
-    this.aviso = { texto, ate: performance.now() + 2500 }
+  private avisar(texto: string, duracao = 2500) {
+    this.aviso = { texto, ate: performance.now() + duracao }
   }
 
   private atualizarAlvoCamera() {
@@ -476,6 +574,9 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       grade: this.grade,
       posicao: { x: e.posicao.x, y: e.posicao.y },
       aviso: this.aviso?.texto ?? null,
+      combate: this.combate.info(this.estado),
+      emAbordagem: this.abordagem !== null,
+      berries: this.berries,
     })
   }
 }

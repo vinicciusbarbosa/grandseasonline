@@ -55,7 +55,8 @@ export class Esteira {
   /** Canto da janela no mundo (alinhado à grade de texels). */
   readonly janela = { x: 0, y: 0, lado: LADO_MUNDO }
   private bracos: Braco[] = []
-  private acumulado = 0
+  private acumulados: number[] = []
+  private respingosPendentes: { p: Vetor; raio: number; forca: number }[] = []
   private esperaApagar = 0
   private iniciada = false
 
@@ -74,7 +75,13 @@ export class Esteira {
     return CHAVES[this.atual]
   }
 
-  atualizar(dt: number, centroNavio: Vetor, e: EntradaEsteira | null) {
+  /** Marca um respingo (bala caindo na água, destroços...) no próximo quadro. */
+  respingo(p: Vetor, raio: number, forca: number) {
+    this.respingosPendentes.push({ p, raio, forca })
+  }
+
+  /** `centroNavio` é quem a janela acompanha; `entradas`, todos os navios a desenhar. */
+  atualizar(dt: number, centroNavio: Vetor, entradas: EntradaEsteira[]) {
     // Janela centrada no navio, andando de texel em texel (sem borrar).
     const nx = Math.floor((centroNavio.x - LADO_MUNDO / 2) / TEXEL) * TEXEL
     const ny = Math.floor((centroNavio.y - LADO_MUNDO / 2) / TEXEL) * TEXEL
@@ -102,7 +109,10 @@ export class Esteira {
     destino.stamp(CHAVES[this.atual], undefined, TAMANHO / 2 + desloca.x, TAMANHO / 2 + desloca.y, { alpha })
 
     this.dt = dt
-    if (e) this.carimbar(destino, dt, e)
+    entradas.forEach((e, i) => this.carimbar(destino, dt, e, i))
+    // Respingos são instantâneos: força inteira, sem multiplicar por dt.
+    for (const r of this.respingosPendentes) this.ponto(destino, r.p, r.raio, r.forca / Math.max(dt, 1e-3))
+    this.respingosPendentes = []
     this.simularBracos(destino, dt)
     destino.render()
     this.atual = 1 - this.atual
@@ -129,7 +139,7 @@ export class Esteira {
     })
   }
 
-  private carimbar(t: Phaser.Textures.DynamicTexture, dt: number, e: EntradaEsteira) {
+  private carimbar(t: Phaser.Textures.DynamicTexture, dt: number, e: EntradaEsteira, indice: number) {
     const r = e.razao
     const frente = { x: Math.cos(e.rumo), y: Math.sin(e.rumo) }
     const lado = { x: -frente.y, y: frente.x }
@@ -153,9 +163,9 @@ export class Esteira {
     }
 
     // Os braços do "V" nascem na popa e se abrem para os lados.
-    this.acumulado += dt * 26 * r
-    while (this.acumulado >= 1) {
-      this.acumulado -= 1
+    this.acumulados[indice] = (this.acumulados[indice] ?? 0) + dt * 26 * r
+    while (this.acumulados[indice] >= 1) {
+      this.acumulados[indice] -= 1
       for (const s of [-1, 1]) {
         const abre = 10 + 14 * r
         this.bracos.push({
