@@ -1,0 +1,35 @@
+# Normaliza fim de linha para LF no repositório.
+#
+# O projeto nasceu em Linux (o legado roda em container) e é editado no Windows.
+# Sem isto, o Git avisa em cada arquivo que vai converter LF para CRLF, e um dia
+# alguém comita a conversão inteira — um diff de milhares de linhas onde nada
+# mudou de verdade.
+* text=auto eol=lf
+
+# Scripts que só rodam no Windows precisam de CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binários: o Git não deve tocar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg binary
+*.ico binary
+*.webp binary
+*.mp3 binary
+*.ogg binary
+*.m4a binary
+*.wav binary
+*.swf binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Os dumps de banco são grandes e ruidosos no diff; não contam como código.
+database/*.sql linguist-generated=true

@@ -1,0 +1,33 @@
+public/ComponentesCache/*.bladec
+servers/vendor
+sql/
+*.log
+
+# Backend .NET (backend/)
+[Bb]in/
+[Oo]bj/
+*.user
+
+# Frontend React (frontend/)
+node_modules/
+dist/
+.vite/
+
+# "con" é nome de dispositivo reservado no Windows (junto com prn, aux, nul,
+# com1-9 e lpt1-9). A entrada aparece no diretório, mas o sistema não consegue
+# abrir o arquivo pelo nome, e o git falha com "unable to index file".
+# É um arquivo de 0 bytes que o jogo nunca usou: nome_atributo_img() em
+# Funcoes/atributos.php devolve "per" para Percepção, e per.png existe.
+public/Imagens/Icones/con.png
+
+# Mídia pesada do jogo legado: 26 mil imagens (323 MB) e 455 áudios (45 MB).
+# Ficam fora do repositório por peso — 400 MB contra 28 MB — e porque nada do
+# código depende delas para compilar ou testar: os 102 testes não tocam em
+# nenhum asset.
+#
+# Os arquivos continuam no disco e o jogo roda normalmente aqui. Eles também
+# existem no repositório público original (github.com/sugoigame/sugoigame),
+# então são recuperáveis. Se um dia precisarem ser versionados, o caminho é
+# Git LFS ou um repositório separado só de assets.
+public/Imagens/
+public/Sons/

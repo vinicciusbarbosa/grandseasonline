@@ -1,0 +1,6 @@
+@SugoiGame.Api_HostAddress = http://localhost:5047
+
+GET {{SugoiGame.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

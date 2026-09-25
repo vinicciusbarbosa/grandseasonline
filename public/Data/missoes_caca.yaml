@@ -1,0 +1,123 @@
+1:
+  nome: Caça aos Jacarés
+  objetivo: 1
+  mares:
+    - 1
+    - 2
+    - 3
+    - 4
+  quant: 15
+  berries: 1000
+2:
+  nome: Caça as Baleias
+  objetivo: 2
+  mares:
+    - 1
+    - 2
+    - 3
+    - 4
+  quant: 15
+  berries: 5000
+3:
+  nome: Caça Tubarões
+  objetivo: 3
+  mares:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+  quant: 15
+  berries: 10000
+4:
+  nome: Caça aos Filhotes de Tartaruga Marítima
+  objetivo: 4
+  mares:
+    - 5
+  quant: 15
+  berries: 30000
+5:
+  nome: Caça aos Reis dos Mares
+  objetivo: 5
+  mares:
+    - 5
+  quant: 15
+  berries: 40000
+6:
+  nome: Caça aos Reis dos Mares Gigante
+  objetivo: 6
+  mares:
+    - 5
+  quant: 15
+  berries: 50000
+7:
+  nome: Caça aos Filhotes de Foca Kung-Fu
+  objetivo: 7
+  mares:
+    - 6
+  quant: 15
+  berries: 60000
+8:
+  nome: Caça aos Grupos de Foca Kung-Fu
+  objetivo: 8
+  mares:
+    - 6
+  quant: 15
+  berries: 65000
+9:
+  nome: Derrote Mohmoo
+  objetivo: 9
+  boss: true
+  mares:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+  quant: 1
+  berries: 500000
+  diario: 1
+
+10:
+  nome: Derrote o Kraken Boxeador
+  objetivo: 10
+  boss: true
+  mares:
+    - 5
+  quant: 1
+  berries: 800000
+  diario: 1
+
+11:
+  nome: Derrote o Cavalo Marinho
+  objetivo: 12
+  boss: true
+  mares:
+    - 6
+  quant: 1
+  berries: 1000000
+  diario: 1
+
+12:
+  nome: Derrote o Peixe Boi
+  objetivo: 13
+  boss: true
+  mares:
+    - 6
+  quant: 1
+  berries: 1500000
+  diario: 1
+
+13:
+  nome: Derrote o Homem-Peixe Fugitivo
+  objetivo: 14
+  boss: true
+  mares:
+    - 6
+  quant: 1
+  berries: 2000000
+  diario: 1
+  recompensas:
+    - tipo: reagent
+      cod_item: 147
+      quant: 1

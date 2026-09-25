@@ -1,0 +1,111 @@
+services:
+  # Banco de dados MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: sugoigame_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: sugoigame_root_pass
+      MYSQL_DATABASE: sugoi_v2
+      MYSQL_USER: sugoigame_user
+      MYSQL_PASSWORD: sugoigame_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database:/docker-entrypoint-initdb.d
+    networks:
+      - sugoigame_network
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Aplicação web PHP + Apache
+  web:
+    build:
+      context: .
+      target: web
+    container_name: sugoigame_web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./public:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+      - ./docker/apache/000-default.conf:/etc/apache2/sites-available/000-default.conf
+    networks:
+      - sugoigame_network
+    depends_on:
+      - mysql
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=sugoigame_user
+      - DB_PASSWORD=sugoigame_pass
+      - DB_NAME=sugoi_v2
+
+  # Servidor WebSocket (Ratchet/PHP)
+  websocket:
+    build:
+      context: .
+      target: websocket
+    container_name: sugoigame_websocket
+    restart: unless-stopped
+    ports:
+      - "9001:9000"
+    volumes:
+      - ./public:/app/public
+      - ./servers/map:/app/servers/map
+    networks:
+      - sugoigame_network
+    depends_on:
+      - mysql
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=sugoigame_user
+      - DB_PASSWORD=sugoigame_pass
+      - DB_NAME=sugoi_v2
+
+  # Servidor de Chat (Node.js)
+  chat:
+    build:
+      context: .
+      target: chat
+    container_name: sugoigame_chat
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./servers/chat:/app
+    networks:
+      - sugoigame_network
+    depends_on:
+      - mysql
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=mysql
+      - DB_USER=sugoigame_user
+      - DB_PASSWORD=sugoigame_pass
+      - DB_NAME=sugoi_v2
+
+  # phpMyAdmin (opcional, para administração do banco)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: sugoigame_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: sugoigame_root_pass
+      MYSQL_ROOT_PASSWORD: sugoigame_root_pass
+    networks:
+      - sugoigame_network
+    depends_on:
+      - mysql
+
+networks:
+  sugoigame_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

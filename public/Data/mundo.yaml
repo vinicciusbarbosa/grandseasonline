@@ -1,0 +1,847 @@
+mares:
+  1:
+    mar: 1
+    nome: "East Blue"
+  2:
+    mar: 2
+    nome: "North Blue"
+  3:
+    mar: 3
+    nome: "West Blue"
+  4:
+    mar: 4
+    nome: "South Blue"
+  5:
+    mar: 5
+    nome: "Grand Line"
+  6:
+    mar: 6
+    nome: "Novo Mundo"
+  7:
+    mar: 7
+    nome: "Calm Belt"
+
+ilhas:
+  # East
+  1:
+    ilha: 1
+    nome: "Ilha Dawn"
+    bg: 9
+    cor_dia: "#00adf1"
+    cor_noite: "#00053d"
+    mar: 1
+    x: 428
+    y: 31
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 2
+      - 3
+      - 12
+      - 36
+      - 37
+  2:
+    ilha: 2
+    nome: "Shells Town"
+    bg: 10
+    cor_dia: "#1d50a9"
+    cor_noite: "#000269"
+    mar: 1
+    x: 373
+    y: 30
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 73
+      - 96
+      - 124
+      - 199
+      - 207
+  3:
+    ilha: 3
+    nome: "Orange Town"
+    bg: 13
+    mar: 1
+    x: 352
+    y: 52
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 74
+      - 104
+      - 135
+      - 143
+      - 208
+  4:
+    ilha: 4
+    nome: "Vila Syrup"
+    bg: 14
+    mar: 1
+    x: 368
+    y: 76
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 4
+      - 39
+      - 40
+      - 69
+      - 204
+  5:
+    ilha: 5
+    nome: "Baratie"
+    bg: 2
+    mar: 1
+    x: 335
+    y: 48
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 5
+      - 83
+      - 103
+      - 106
+      - 120
+  6:
+    ilha: 6
+    nome: "Ilha Cocoyashi"
+    bg: 15
+    mar: 1
+    x: 331
+    y: 19
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 6
+      - 16
+      - 70
+      - 79
+      - 116
+  7:
+    ilha: 7
+    nome: "Loguetown"
+    bg: 19
+    mar: 1
+    x: 309
+    y: 71
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 1
+      - 34
+      - 142
+      - 154
+      - 216
+
+  # North
+  8:
+    ilha: 8
+    nome: "Lvneel Kingdom"
+    bg: 9
+    mar: 2
+    x: 70
+    y: 51
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 90
+      - 100
+      - 137
+      - 139
+      - 140
+  9:
+    ilha: 9
+    nome: "Burlywood Town"
+    bg: 13
+    mar: 2
+    x: 107
+    y: 25
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 76
+      - 118
+      - 130
+      - 152
+  10:
+    ilha: 10
+    nome: "GoldenRod Town"
+    bg: 1
+    mar: 2
+    x: 124
+    y: 26
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 148
+      - 150
+      - 156
+      - 158
+  11:
+    ilha: 11
+    nome: "Oubliette Town"
+    bg: 20
+    mar: 2
+    x: 170
+    y: 31
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 60
+      - 105
+      - 131
+      - 159
+      - 163
+  12:
+    ilha: 12
+    nome: "Vila Whitewood"
+    bg: 1
+    mar: 2
+    x: 149
+    y: 48
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 63
+      - 160
+      - 190
+      - 213
+  13:
+    ilha: 13
+    nome: "Ilha North Coral"
+    bg: 11
+    mar: 2
+    x: 130
+    y: 70
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 71
+      - 171
+      - 175
+      - 181
+  14:
+    ilha: 14
+    nome: "Cartigen"
+    bg: 17
+    mar: 2
+    x: 144
+    y: 85
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 133
+      - 170
+      - 173
+      - 178
+
+  # South
+  15:
+    ilha: 15
+    nome: "Baterilla"
+    bg: 21
+    mar: 4
+    x: 424
+    y: 341
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 144
+      - 149
+      - 168
+      - 176
+      - 177
+  16:
+    ilha: 16
+    nome: "Zozu Town"
+    bg: 13
+    mar: 4
+    x: 415
+    y: 311
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 185
+      - 192
+      - 201
+      - 206
+  17:
+    ilha: 17
+    nome: "Karatê island"
+    bg: 12
+    mar: 4
+    x: 384
+    y: 294
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 179
+      - 191
+      - 200
+      - 205
+      - 214
+  18:
+    ilha: 18
+    nome: "Avalien Town"
+    bg: 13
+    mar: 4
+    x: 353
+    y: 318
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 197
+      - 202
+      - 203
+      - 212
+  19:
+    ilha: 19
+    nome: "Torino"
+    bg: 1
+    mar: 4
+    x: 336
+    y: 286
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 193
+      - 198
+      - 217
+      - 218
+  20:
+    ilha: 20
+    nome: "Cinturão das luas"
+    bg: 14
+    mar: 4
+    x: 304
+    y: 318
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 82
+      - 101
+      - 110
+      - 115
+      - 122
+  21:
+    ilha: 21
+    nome: "Kimotsu Town"
+    bg: 18
+    mar: 4
+    x: 289
+    y: 292
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 161
+      - 166
+      - 172
+      - 174
+      - 194
+
+  # West
+  22:
+    ilha: 22
+    nome: "Ilusia Kingdom"
+    bg: 9
+    mar: 3
+    x: 35
+    y: 337
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 132
+      - 134
+      - 138
+      - 141
+      - 209
+  23:
+    ilha: 23
+    nome: "Ohara"
+    bg: 22
+    mar: 3
+    x: 45
+    y: 296
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 8
+      - 62
+      - 102
+      - 189
+      - 196
+  24:
+    ilha: 24
+    nome: "Ilha Toroa"
+    bg: 3
+    mar: 3
+    x: 81
+    y: 290
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 25
+      - 28
+      - 46
+      - 55
+  25:
+    ilha: 25
+    nome: "Las Camp"
+    bg: 3
+    mar: 3
+    x: 104
+    y: 308
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 65
+      - 117
+      - 129
+      - 147
+  26:
+    ilha: 26
+    nome: "Kima Town"
+    bg: 3
+    mar: 3
+    x: 127
+    y: 329
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 61
+      - 153
+      - 164
+      - 195
+  27:
+    ilha: 27
+    nome: "Jumbo Town"
+    bg: 3
+    mar: 3
+    x: 166
+    y: 325
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 75
+      - 169
+      - 188
+      - 210
+  28:
+    ilha: 28
+    nome: "Ilha Kagero"
+    bg: 1
+    mar: 3
+    x: 157
+    y: 289
+    faccao_base: 1
+    confrontos: 5
+    personagens_disponiveis:
+      - 32
+      - 119
+      - 184
+      - 211
+
+  # Grand Line
+  29:
+    ilha: 29
+    nome: "Cabos Gêmeos"
+    bg: 23
+    mar: 5
+    x: 281
+    y: 177
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 125
+      - 127
+      - 145
+      - 155
+      - 186
+  30:
+    ilha: 30
+    nome: "Whiskey Peak"
+    bg: 8
+    mar: 5
+    x: 292
+    y: 207
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 66
+      - 77
+      - 136
+      - 146
+      - 215
+  31:
+    ilha: 31
+    nome: "Little Garden"
+    bg: 11
+    mar: 5
+    x: 306
+    y: 219
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 42
+      - 167
+      - 182
+      - 183
+      - 187
+  32:
+    ilha: 32
+    nome: "Drum"
+    bg: 4
+    mar: 5
+    x: 323
+    y: 229
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 7
+      - 91
+      - 97
+      - 108
+      - 113
+  33:
+    ilha: 33
+    nome: "Rainbase"
+    bg: 3
+    mar: 5
+    x: 346
+    y: 229
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 21
+      - 30
+      - 31
+      - 33
+      - 67
+      - 367
+  34:
+    ilha: 34
+    nome: "Yuba"
+    bg: 3
+    mar: 5
+    x: 352
+    y: 229
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 38
+      - 41
+      - 123
+      - 151
+      - 157
+  35:
+    ilha: 35
+    nome: "Alubarna"
+    bg: 3
+    mar: 5
+    x: 347
+    y: 225
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 43
+      - 45
+      - 50
+      - 126
+      - 162
+  36:
+    ilha: 36
+    nome: "Nanohana"
+    bg: 3
+    mar: 5
+    x: 352
+    y: 225
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 44
+      - 72
+      - 81
+      - 107
+      - 128
+  37:
+    ilha: 37
+    nome: "Mock Town"
+    bg: 24
+    mar: 5
+    x: 375
+    y: 234
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 18
+      - 51
+      - 78
+      - 93
+      - 112
+  38:
+    ilha: 38
+    nome: "South Grave"
+    bg: 25
+    mar: 5
+    x: 377
+    y: 236
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 68
+      - 80
+      - 98
+      - 111
+      - 114
+  39:
+    ilha: 39
+    nome: "Long Ring Long Land"
+    bg: 11
+    mar: 5
+    x: 395
+    y: 234
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 49
+      - 59
+      - 89
+      - 165
+      - 180
+  40:
+    ilha: 40
+    nome: "Water 7"
+    bg: 6
+    mar: 5
+    x: 424
+    y: 215
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 10
+      - 20
+      - 24
+      - 47
+      - 48
+      - 363
+  41:
+    ilha: 41
+    nome: "Thriller Bark"
+    bg: 26
+    mar: 5
+    x: 442
+    y: 197
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 9
+      - 11
+      - 26
+      - 27
+      - 29
+      - 364
+  42:
+    ilha: 42
+    nome: "Sabaody"
+    bg: 5
+    mar: 5
+    x: 446
+    y: 179
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 57
+      - 84
+      - 85
+      - 86
+      - 87
+      - 121
+  43:
+    ilha: 43
+    nome: "Mariejois"
+    bg: 7
+    mar: 5
+    x: 453
+    y: 192
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 19
+      - 35
+      - 94
+      - 95
+      - 109
+
+  # Novo Mundo
+  44:
+    ilha: 44
+    nome: "Punk Hazard"
+    bg: 27
+    mar: 6
+    x: 34
+    y: 164
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 13
+      - 17
+      - 52
+      - 56
+      - 64
+      - 366
+  45:
+    ilha: 45
+    nome: "Yukiryu"
+    bg: 28
+    mar: 6
+    x: 38
+    y: 119
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 14
+      - 22
+      - 54
+      - 58
+      - 99
+      - 369
+  46:
+    ilha: 46
+    nome: "Raijin"
+    bg: 29
+    mar: 6
+    x: 38
+    y: 190
+    faccao_base: 2
+    confrontos: 10
+    personagens_disponiveis:
+      - 15
+      - 23
+      - 53
+      - 88
+      - 92
+      - 365
+      - 368
+  47:
+    ilha: 47
+    nome: "Laugh Tale"
+    bg: 30
+    restrita: true
+    mar: 6
+    x: 181
+    y: 181
+
+  # outras
+  101:
+    ilha: 101
+    nome: "Impel Down"
+    bg: 31
+    restrita: true
+    mar: 7
+    x: 430
+    y: 258
+  102:
+    ilha: 102
+    nome: "Enies Lobby"
+    bg: 32
+    restrita: true
+    mar: 5
+    x: 421
+    y: 239
+
+faccoes:
+  - cod: 1
+    nome: Jornal Econômico Mundial
+    evolui_outros: true
+    viajante:
+      producao: xp
+  - cod: 2
+    nome: Governo Mundial
+    viajante:
+      producao: haki
+    bonus:
+      - atk
+      - dex
+      - res
+      - hp
+  - cod: 3
+    nome: Exército Revolucionário
+    viajante:
+      producao: haki
+    bonus:
+      - atk
+      - def
+      - dex
+      - hp
+  - cod: 4
+    nome: Caçadores de recompensas
+    viajante:
+      producao: berries
+    bonus:
+      - atk
+      - def
+      - agl
+      - hp
+  - cod: 5
+    nome: Skypeans
+    viajante:
+      producao: haki
+    bonus:
+      - atk
+      - def
+      - agl
+      - pre
+  - cod: 6
+    nome: Homens Peixe
+    viajante:
+      producao: xp
+    bonus:
+      - def
+      - agl
+      - pre
+      - con
+  - cod: 7
+    nome: Kuja
+    viajante:
+      producao: berries
+    bonus:
+      - agl
+      - pre
+      - con
+      - res
+  - cod: 8
+    nome: Tontatta
+    viajante:
+      producao: berries
+    bonus:
+      - dex
+      - res
+      - con
+      - pre
+  - cod: 9
+    nome: Minks
+    viajante:
+      producao: xp
+    bonus:
+      - hp
+      - dex
+      - res
+      - con
+  - cod: 10
+    nome: Samurais
+    viajante:
+      producao: haki
+    bonus:
+      - atk
+      - def
+      - agl
+      - pre
+  - cod: 11
+    nome: Gigantes
+    viajante:
+      producao: xp
+    bonus:
+      - con
+      - res
+      - dex
+      - hp

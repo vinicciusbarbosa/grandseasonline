@@ -1,0 +1,922 @@
+- nome: Gomu Gomu no Mi
+  descricao: Permite ao usuário ter um corpo de borracha.
+  img_format: jpg
+  img: 36
+  cod_akuma: 1
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Alcance
+    - AB:agl,dex,res
+    - Dano
+  vantagens:
+    - 75
+# - nome: Bara Bara no Mi
+#   cod_akuma: 2
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Dano
+#     - AB:agl
+#     - Teleporte
+- nome: Sube Sube no Mi
+  descricao: Permite ao usuário adquirir um corpo escorregadio
+  img_format: jpg
+  img: 12
+  cod_akuma: 3
+  tipo: paramecia
+  categoria: defensiva
+  arquetipos:
+    - Dano
+    - AB:agl
+    - Buff:agl
+- nome: Bomu Bomu no Mi
+  descricao: Permite ao usuário explodir partes do seu corpo inclusive cabelo, meleca do nariz e bafo
+  img_format: jpg
+  img: 32
+  cod_akuma: 4
+  tipo: paramecia
+  categoria: ofensiva
+  arquetipos:
+    - Area
+    - AB:dex
+    - Alcance
+- nome: Kilo Kilo no Mi
+  descricao: Permite ao usuário alterar seu peso desde 1 a 10.000 kg
+  img_format: jpg
+  img: 20
+  cod_akuma: 5
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - AB:def
+    - AB:agl
+    - AB:agl
+# - nome: Hana Hana no Mi
+#   cod_akuma: 6
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Imobilizar
+#     - Area
+#     - Clone
+- nome: Doru Doru no Mi
+  descricao: Permite ao usuário produzir cera do seu corpo e moldá-la em qualquer forma que quiser.
+  img_format: jpg
+  img: 11
+  cod_akuma: 7
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Buff:def,res
+    - Buff:dex
+    - Imobilizar
+- nome: Baku Baku no Mi
+  descricao: Permite ao usuário expandir sua boca em grandes proporções, mastigar e comer qualquer coisa, desde madeira até os mais fortes metais.
+  img_format: jpg
+  img: 8
+  cod_akuma: 8
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - Area
+    - Area
+# - nome: Mane Mane no Mi
+#   cod_akuma: 9
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - CopiarAtributos:atk,def,agl,res,dex
+#     - CopiarAtributos:pre,atk,dex
+#     - CopiarAtributos:res,agl
+- nome: Supa Supa no Mi
+  descricao: Permite ao usuário adquirir um corpo composto completamente de aço e transformar qualquer parte do mesmo em lâminas de aço para atacar
+  img_format: jpg
+  img: 5
+  cod_akuma: 10
+  tipo: paramecia
+  categoria: ofensiva
+  arquetipos:
+    - Dano
+    - Area
+    - AB:atk,dex
+- nome: Toge Toge no Mi
+  descricao: Permite ao usuário brotar espinhos de qualquer parte do seu corpo que podem atravessar paredes de pedra.
+  img_format: jpg
+  img: 12
+  cod_akuma: 11
+  tipo: paramecia
+  categoria: ofensiva
+  arquetipos:
+    - Dano
+    - Area
+    - AB:atk,dex
+- nome: Ori Ori no Mi
+  descricao: Permite ao usuário colocar algemas de ferro em seus inimigos
+  img_format: jpg
+  img: 15
+  cod_akuma: 12
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Imobilizar
+    - Debuff:agl
+    - Dano
+- nome: Bane Bane no Mi
+  descricao: Permite ao usuário transformar suas pernas em molas.
+  img_format: jpg
+  img: 19
+  cod_akuma: 13
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - AB:agl
+    - AB:dex
+    - Dano
+# - nome: Ito Ito no Mi
+#   cod_akuma: 14
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Imobilizar
+#     - Alcance
+#     - Aproximar
+- nome: Noro Noro no Mi
+  descricao: Permite ao usuário lançar raios de Noroma Fótons que diminui a velocidade de qualquer coisa
+  img_format: jpg
+  img: 14
+  cod_akuma: 15
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Debuff:agl
+    - Debuff:atk
+    - Debuff:dex
+# - nome: Doa Doa no Mi
+#   cod_akuma: 16
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - AB:agl
+#     - Alcance
+#     - Teleporte
+# - nome: Awa Awa no Mi
+#   cod_akuma: 17
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Desarmar
+#     - Buff:agl
+#     - Buff:agl
+# - nome: Beri Beri no Mi
+#   cod_akuma: 18
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Dano
+#     - AB:agl
+#     - Teleporte
+- nome: Sabi Sabi no Mi
+  descricao: Permite ao usuário enferrujar objetos metálicos e quebrá-los
+  img_format: jpg
+  img: 8
+  cod_akuma: 19
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Debuff:atk
+    - Debuff:dex
+    - Dano
+- nome: Shari Shari no Mi
+  descricao: Permite ao usuário transformar seus braços e pés em rodas, girando-os em alta velocidade
+  img_format: jpg
+  img: 50
+  cod_akuma: 20
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - AB:agl
+    - AB:dex
+- nome: Horo Horo no Mi
+  descricao: Permite ao usuário criar e controlar hormônios especiais que podem afetar qualquer um
+  img_format: jpg
+  img: 40
+  cod_akuma: 21
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Debuff:def
+    - Debuff:atk
+    - Debuff:agl, res
+# - nome: Yomi Yomi no Mi
+#   cod_akuma: 22
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - AB:ressurrect
+#     - AB:agl
+#     - AB:agl
+- nome: Kage Kage no Mi
+  descricao: Permite ao usuário manifestar e controlar sombras em uma forma física, podendo alterar a forma ou o tamanho, colocar uma sombra em um cadáver sem vida para criar um zombie e trocar de lugar com uma para evitar ataques físicos
+  img_format: jpg
+  img: 48
+  cod_akuma: 23
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Imobilizar
+    - Dano
+    - Debuff:atk
+# - nome: Suke Suke no Mi
+#   cod_akuma: 24
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - AB:agl
+#     - Furtividade
+#     - Invisiblidade
+# - nome: Nikyu Nikyu no Mi
+#   cod_akuma: 25
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Debuff:atk,def,agl,res,pre
+#     - Debuff:dex,atk,def
+#     - Teleporte
+- nome: Toshi Toshi no Mi
+  descricao: Permite ao usuário manipular a idade de pessoas ou objetos
+  img_format: jpg
+  img: 7
+  cod_akuma: 26
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - AB:atk,def,agl,res,pre
+    - AB:dex,atk,def
+    - AB:pre,agl
+# - nome: Jiki Jiki no Mi
+#   cod_akuma: 27
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Area
+#     - Afastar
+#     - Aproximar
+# - nome: Ope Ope no Mi
+#   cod_akuma: 28
+#   tipo: paramecia
+#   categoria: defensiva
+#   arquetipos:
+#     - Cura
+#     - Sangramento
+#     - Imobilizar
+# - nome: Shiro Shiro no Mi
+#   cod_akuma: 29
+#   tipo: paramecia
+#   categoria: defensiva
+#   arquetipos:
+#     - AB:def
+#     - AB:res
+#     - Imunidade
+- nome: Wara Wara no Mi
+  descricao: Permite ao usuário criar e manipular palha à vontade, com a palha tendo propriedades de redirecionar danos.
+  img_format: jpg
+  img: 22
+  cod_akuma: 30
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Area
+    - Dano
+    - AB:def,res
+- nome: Oto Oto no Mi
+  descricao: Permite ao usuário transformar partes de seu corpo em instrumentos musicais e tocar música com uma variedade de efeitos destrutivos.
+  img_format: jpg
+  img: 6
+  cod_akuma: 31
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Alcance
+    - Area
+    - Area
+- nome: Mero Mero no Mi
+  descricao: Concede ao usuário o poder de transformar qualquer ser humano, que tenha pensamentos luxuriosos ou apaixonados, em pedra.
+  img_format: jpg
+  img: 25
+  cod_akuma: 32
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Imobilizar
+    - Debuff:atk
+    - Debuff:dex
+- nome: Doku Doku no Mi
+  descricao: Permite ao usuário produzir e controlar veneno, além de conceder imunidade ao mesmo
+  img_format: jpg
+  img: 55
+  cod_akuma: 33
+  tipo: paramecia
+  categoria: ofensiva
+  arquetipos:
+    - Veneno
+    - Area
+    - Dano
+# - nome: Horu Horu no Mi
+#   cod_akuma: 34
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - TrocarAtributos:atk-def,agl-dex,res-pre,atk-agl,def-pre
+#     - TrocarAtributos:pre-dex,atk-res,dex-def
+#     - TrocarAtributos:res-agl,agl-pre
+- nome: Choki Choki no Mi
+  descricao: Permite ao usuário transformar os dedos e mãos em tesouras que cortam qualquer material como se fosse papel
+  img_format: jpg
+  img: 23
+  cod_akuma: 35
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - Area
+    - Alcance
+- nome: Gura Gura no Mi
+  descricao: Permite ao usuário criar ondas de choque com força suficiente para criar um terremoto
+  img_format: jpg
+  img: 55
+  cod_akuma: 36
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Area
+    - Alcance
+    - Dano
+- nome: Kira Kira no Mi
+  descricao: Permite ao usuário transformar seu corpo em diamante.
+  img_format: jpg
+  img: 1
+  cod_akuma: 37
+  tipo: paramecia
+  categoria: defensiva
+  arquetipos:
+    - AB:def
+    - AB:res
+    - AB:res
+- nome: Woshu Woshu no Mi
+  descricao: Permite ao usuário literalmente "lavar e pendurar para secar" as pessoas e objetos como se fossem roupas
+  img_format: jpg
+  img: 60
+  cod_akuma: 38
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Imobilizar
+    - Debuff:def
+    - Debuff:res
+- nome: Fuwa Fuwa no Mi
+  descricao: Permite ao usuário tornar objetos e o próprio corpo leves e controlá-los
+  img_format: jpg
+  img: 48
+  cod_akuma: 39
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Buff:agl
+    - Debuff:def
+    - Debuff:def
+- nome: Deka Deka no Mi
+  descricao: Permite ao usuário aumentar seu tamanho
+  img_format: jpg
+  img: 48
+  cod_akuma: 40
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - AB:atk
+    - AB:dex
+    - AB:dex
+- nome: Mato Mato no Mi
+  descricao: Dá habilidades ao usuário de uma perfeita precisão
+  img_format: jpg
+  img: 54
+  cod_akuma: 41
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - AB:pre
+    - AB:dex
+    - AB:dex
+- nome: Fuku Fuku no Mi
+  descricao: Permite ao usuário criar roupas e outros trajes a partir de folhas ou pedras
+  img_format: jpg
+  img: 46
+  cod_akuma: 42
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - AB:agl
+    - AB:res
+    - AB:res
+# - nome: Hobi Hobi no Mi
+#   cod_akuma: 43
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Debuff:def
+#     - Debuff:agl
+#     - Desarmar
+- nome: Buki Buki no Mi
+  descricao: Dá ao usuário a capacidade de mudar suas partes do corpo em armas
+  img_format: jpg
+  img: 33
+  cod_akuma: 44
+  tipo: paramecia
+  categoria: ofensiva
+  arquetipos:
+    - Alcance
+    - Dano
+    - Area
+# - nome: Guru Guru no Mi
+#   cod_akuma: 45
+#   tipo: paramecia
+#   categoria: tatica
+#   arquetipos:
+#     - Alcance
+#     - AB:dex
+#     - Empurrar
+- nome: Beta Beta no Mi
+  descricao: Permite ao usuário criar, e controlar uma espécie de substância pegajosa e explosiva
+  img_format: jpg
+  img: 29
+  cod_akuma: 46
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Alcance
+    - Area
+    - Imobilizar
+- nome: Zushi Zushi no Mi
+  descricao: Permite ao usuário manipular a gravidade em torno de um local escolhido, enviando forças gravitacionais
+  img_format: jpg
+  img: 28
+  cod_akuma: 47
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Area
+    - Debuff:agl
+    - Dano
+- nome: Bari Bari no Mi
+  descricao: Permite ao usuário criar barreiras para defender ou atacar à vontade
+  img_format: jpg
+  img: 54
+  cod_akuma: 48
+  tipo: paramecia
+  categoria: defensiva
+  arquetipos:
+    - Buff:def
+    - Buff:res
+    - Buff:res
+# - nome: Chiyu Chiyu no Mi
+#   cod_akuma: 49
+#   tipo: paramecia
+#   categoria: defensiva
+#   arquetipos:
+#     - Cura
+#     - Buff:def
+#     - Buff:res
+- nome: Mochi Mochi no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em massa
+  img_format: jpg
+  img: 11
+  cod_akuma: 50
+  tipo: paramecia
+  categoria: tatica
+  arquetipos:
+    - Alcance
+    - AB:agl
+    - Dano
+- nome: Hito Hito no Mi, Modelo Nika
+  descricao: Permite ao usuário se transformar no lendário "Deus do Sol" Nika e ganhar seus atributos, notavelmente um corpo com 100% de propriedades da borracha.
+  img_format: jpg
+  img: 36
+  cod_akuma: 51
+  tipo: zoan
+  categoria: mitica
+  arquetipos:
+    - Alcance
+    - Area
+    - AB:agl
+- nome: Ushi Ushi no Mi, Modelo Bisão
+  descricao: Permite ao usuário transformar em um bisão híbrido e em um bisão completo à vontade.
+  img_format: jpg
+  img: 48
+  cod_akuma: 52
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - AB:def,res
+    - Dano
+    - AB:atk
+- nome: Tori Tori no Mi, Modelo Falcão
+  descricao: Permite o usuário se transformar em um híbrido metade homem metade falcão ou em um falcão completo.
+  img_format: jpg
+  img: 30
+  cod_akuma: 53
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - AB:agl
+    - AB:dex
+- nome: Mogu Mogu no Mi
+  descricao: Dá ao usuário a capacidade de se transformar em uma toupeira gigante ou um híbrido de toupeira-humana
+  img_format: jpg
+  img: 30
+  cod_akuma: 54
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - Area
+    - AB:dex
+- nome: Inu Inu no Mi, Modelo:Chacal
+  descricao: Permite ao usuário transformar em um chacal híbrido e um chacal completo à vontade
+  img_format: jpg
+  img: 47
+  cod_akuma: 55
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - AB:atk
+    - AB:dex
+- nome: Neko Neko no Mi, Modelo Leopardo
+  descricao: Permite ao usuário transformar-se num Leopardo Hibrido, num Leopardo completo
+  img_format: jpg
+  img: 49
+  cod_akuma: 56
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - AB:agl
+    - AB:dex,pre
+- nome: Inu Inu no Mi, Modelo Lobo
+  descricao: Permite ao usuário se transformar um lobisomem híbrido e um lobisomem completo quando quiser
+  img_format: jpg
+  img: 50
+  cod_akuma: 57
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - AB:atk
+    - AB:dex,pre
+- nome: Ushi Ushi no Mi, Modelo Girafa
+  descricao: Permite ao usuário transformar-se em um híbrido (metade girafa e metade humanoide) ou em uma girafa completa à vontade
+  img_format: jpg
+  img: 47
+  cod_akuma: 58
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - AB:def
+    - AB:dex,res
+- nome: Ryu Ryu no Mi, Modelo Alossauro
+  descricao: Permite ao usuário se transformar em um alossauro híbrido e um alossauro completo à vontade
+  img_format: jpg
+  img: 53
+  cod_akuma: 58
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:def
+    - AB:dex,atk
+- nome: Hebi Hebi no Mi, Modelo Naja Rei
+  descricao:
+  img_format: jpg
+  img: 1
+  cod_akuma: 59
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Veneno
+    - Dano
+    - AB:agl,atk
+- nome: Hebi Hebi no Mi, Modelo Anaconda
+  descricao: Permite ao usuário se transformar em uma anaconda híbrida ou completa à vontade.
+  img_format: jpg
+  img: 40
+  cod_akuma: 60
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Veneno
+    - Dano
+    - AB:res,atk
+# - nome: Tori Tori no Mi, Modelo:Fênix
+#   cod_akuma: 61
+#   tipo: zoan
+#   categoria: mitica
+#   arquetipos:
+#     - Area
+#     - AB:atk,agl,dex
+#     - AB:ressurrect
+- nome: Hito Hito no Mi, Modelo Daibutsu
+  descricao: permite ao usuário se transformar em um Daibutsu (estátua do gigante Buda).
+  img_format: jpg
+  img: 25
+  cod_akuma: 62
+  tipo: zoan
+  categoria: mitica
+  arquetipos:
+    - Area
+    - AB:atk,agl,dex
+    - AB:def,res
+- nome: Zou Zou no Mi, Modelo Mamute
+  descricao: Permite ao usuário se transformar em mamute completo e híbrido
+  img_format: jpg
+  img: 60
+  cod_akuma: 62
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:atk,agl,dex
+    - AB:def,res
+- nome: Uo Uo no Mi Modelo Seiryu
+  descricao: Permite ao usuário se transformar em uma forma híbrida e completa de um Dragão Azul à vontade.
+  img_format: jpg
+  img: 64
+  cod_akuma: 63
+  tipo: zoan
+  categoria: mitica
+  arquetipos:
+    - Alcance
+    - Area
+    - AB:atk,dex
+- nome: Hebi Hebi no Mi, Modelo Yamata no Orochi
+  descricao: Permite ao usuário se transformar em uma versão híbrida e completa do Yamata no Orochi, um dragão serpentino de oito cabeças.
+  img_format: jpg
+  img: 65
+  cod_akuma: 64
+  tipo: zoan
+  categoria: mitica
+  arquetipos:
+    - Alcance
+    - Area
+    - AB:dex
+- nome: Ryu Ryu no Mi, Modelo Espinossauro
+  descricao: Permite ao usuário se transformar em um espinossauro híbrido e um espinossauro completo à vontade
+  img_format: jpg
+  img: 64
+  cod_akuma: 64
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:agl
+    - AB:dex
+- nome: Ryu Ryu no Mi, Modelo Pteranodonte
+  descricao: Permite ao usuário se transformar em um pteranodonte híbrido e um pteranodonte completo à vontade.
+  img_format: jpg
+  img: 49
+  cod_akuma: 65
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:agl,atk,dex
+    - AB:res,pre
+- nome: Ryu Ryu no Mi, Modelo Braquiossauro
+  descricao: Permite ao usuário se transformar em um braquiossauro híbrido e um braquiossauro completo à vontade.
+  img_format: jpg
+  img: 29
+  cod_akuma: 66
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:def
+    - AB:res
+- nome: Ryu Ryu no Mi, Modelo Paquicefalossauro
+  descricao: Permite ao usuário se transformar em uma versão híbrida e completa de um paquicefalossauro à vontade.
+  img_format: jpg
+  img: 28
+  cod_akuma: 67
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:agl
+    - AB:res
+- nome: Inu Inu no Mi, Modelo Okuchi no Makami
+  descricao: Permite ao usuário se transformar em uma forma híbrida e completa de uma divindade lobo
+  img_format: jpg
+  img: 23
+  cod_akuma: 68
+  tipo: zoan
+  categoria: mitica
+  arquetipos:
+    - Dano
+    - AB:dex
+    - AB:atk
+- nome: Neko Neko no Mi, Modelo Dentes de Sabre
+  descricao: Permite ao usuário se transformar em uma versão híbrida e completa de um tigre dentes de sabre à vontade.
+  img_format: jpg
+  img: 53
+  cod_akuma: 69
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:agl
+    - AB:agl
+- nome: Ryu Ryu no Mi, Modelo Triceratops
+  descricao: Permite que o usuário se transforme em uma versão animal ou híbrida de um Triceratops,
+  img_format: jpg
+  img: 57
+  cod_akuma: 70
+  tipo: zoan
+  categoria: ancestral
+  arquetipos:
+    - Dano
+    - AB:def
+    - AB:res
+- nome: Uma Uma no Mi, Modelo Pegasus
+  descricao: Dá a habilidade de se transformar em um Pégaso.
+  img_format: jpg
+  img: 60
+  cod_akuma: 71
+  tipo: zoan
+  categoria: mitica
+  arquetipos:
+    - Dano
+    - AB:agl,pre
+    - AB:dex
+- nome: Moku Moku no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em fumaça à vontade
+  img_format: jpg
+  img: 17
+  cod_akuma: 72
+  tipo: logia
+  categoria: tatica
+  arquetipos:
+    - Area
+    - Dano
+    - AB:agl
+- nome: Suna Suna no Mi
+  descricao: permite ao usuário criar, controlar e se transformar em areia à vontade, podendo controlar os mais diversos tipos desta.
+  img_format: jpg
+  img: 9
+  cod_akuma: 73
+  tipo: logia
+  categoria: tatica
+  arquetipos:
+    - Area
+    - Dano
+    - Alcance
+- nome: Mera Mera no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em chamas à vontade.
+  img_format: jpg
+  img: 63
+  cod_akuma: 74
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Area
+    - Alcance
+    - Dano
+  vantagens:
+    - 81
+- nome: Goro Goro no Mi
+  descricao: Permite ao usuário criar, controlar e transformar-se em eletricidade à vontade
+  img_format: jpg
+  img: 21
+  cod_akuma: 75
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Area
+    - Alcance
+    - AB:dex
+- nome: Hie Hie no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em gelo
+  img_format: jpg
+  img: 31
+  cod_akuma: 76
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Area
+    - Alcance
+    - Imobilizar
+  vantagens:
+    - 83
+- nome: Yami Yami no Mi
+  descricao: Permite ao usuário criar e controlar as trevas à vontade
+  img_format: jpg
+  img: 26
+  cod_akuma: 77
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Debuff:def
+    - Area
+    - Dano
+- nome: Pika Pika no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em luz à vontade
+  img_format: jpg
+  img: 57
+  cod_akuma: 78
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - AB:agl
+    - Alcance
+    - Dano
+- nome: Magu Magu no Mi
+  descricao: Permite ao usuário se tornar, controlar e gerar magma
+  img_format: jpg
+  img: 68
+  cod_akuma: 79
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Dano
+    - Area
+    - AB:atk
+  vantagens:
+    - 74
+- nome: Susu Susu no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em fuligem à vontade
+  img_format: jpg
+  img: 62
+  cod_akuma: 80
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Area
+    - Alcance
+    - AB:agl
+- nome: Numa Numa no Mi
+  descricao: Permite ao usuário tornar-se o elemento de "pântano"
+  img_format: jpg
+  img: 52
+  cod_akuma: 81
+  tipo: logia
+  categoria: tatica
+  arquetipos:
+    - Area
+    - Alcance
+    - Debuff:agl
+- nome: Gasu Gasu no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em gás à vontade
+  img_format: jpg
+  img: 28
+  cod_akuma: 82
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Veneno
+    - Sangramento
+    - Area
+- nome: Yuki Yuki no Mi
+  descricao: Permite ao usuário criar, controlar e se transformar em elemento de "neve" à vontade
+  img_format: jpg
+  img: 29
+  cod_akuma: 83
+  tipo: logia
+  categoria: ofensiva
+  arquetipos:
+    - Area
+    - Alcance
+    - Imobilizar
+- nome: Mori Mori no Mi
+  descricao: Permitindo que o usuário produza plantas
+  img_format: jpg
+  img: 54
+  cod_akuma: 84
+  tipo: logia
+  categoria: tatica
+  arquetipos:
+    - Area
+    - Alcance
+    - AB:def,res
+- nome: Hito Hito no Mi
+  descricao: Permite que seu usuário se transforme em um híbrido de humano e um ser humano completo à vontade.
+  img_format: jpg
+  img: 21
+  cod_akuma: 85
+  tipo: zoan
+  categoria: tatica
+  arquetipos:
+    - Dano
+    - Alcance
+    - Area

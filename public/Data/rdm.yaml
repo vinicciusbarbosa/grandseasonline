@@ -1,0 +1,2185 @@
+0:
+  id: 0
+  nome: Guardião do Calm Belt
+  img: 17
+  atk: 900
+  def: 900
+  agl: 900
+  res: 900
+  pre: 900
+  dex: 900
+  con: 900
+  vit: 900
+  hp: 2700000
+  zona: 0
+  xp: 0
+1:
+  id: 1
+  nome: Jacaré do Alto Mar
+  img: 12
+  atk: 5
+  def: 5
+  agl: 5
+  res: 5
+  pre: 5
+  dex: 5
+  con: 5
+  vit: 5
+  hp: 1890
+  zona: 3
+  xp: 260
+  loot:
+  - cod: 15
+    tipo: 15
+  - cod: 20
+    tipo: 15
+  - cod: 21
+    tipo: 15
+  - cod: 30
+    tipo: 15
+  - cod: 27
+    tipo: 15
+2:
+  id: 2
+  nome: Baleia
+  img: 16
+  atk: 10
+  def: 10
+  agl: 10
+  res: 10
+  pre: 10
+  dex: 10
+  con: 10
+  vit: 10
+  hp: 2700
+  zona: 3
+  xp: 260
+  loot:
+  - cod: 15
+    tipo: 15
+  - cod: 20
+    tipo: 15
+  - cod: 21
+    tipo: 15
+  - cod: 30
+    tipo: 15
+  - cod: 27
+    tipo: 15
+3:
+  id: 3
+  nome: Tubarão
+  img: 13
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 5400
+  zona: 3
+  xp: 260
+  loot:
+  - cod: 16
+    tipo: 15
+  - cod: 17
+    tipo: 15
+  - cod: 22
+    tipo: 15
+  - cod: 31
+    tipo: 15
+  - cod: 28
+    tipo: 15
+4:
+  id: 4
+  nome: Filhote de Tartaruga Marítima
+  img_rand_min: 5
+  img_rand_max: 7
+  atk: 20
+  def: 20
+  agl: 20
+  res: 20
+  pre: 20
+  dex: 20
+  con: 20
+  vit: 20
+  hp: 13500
+  zona: 5
+  xp: 300
+  loot:
+  - cod: 17
+    tipo: 15
+  - cod: 18
+    tipo: 15
+  - cod: 23
+    tipo: 15
+  - cod: 32
+    tipo: 15
+  - cod: 29
+    tipo: 15
+5:
+  id: 5
+  nome: Rei dos Mares
+  img_rand_min: 1
+  img_rand_max: 2
+  atk: 25
+  def: 25
+  agl: 25
+  res: 25
+  pre: 25
+  dex: 25
+  con: 25
+  vit: 25
+  hp: 18900
+  zona: 5
+  xp: 300
+  loot:
+  - cod: 17
+    tipo: 15
+  - cod: 18
+    tipo: 15
+  - cod: 23
+    tipo: 15
+  - cod: 32
+    tipo: 15
+  - cod: 29
+    tipo: 15
+6:
+  id: 6
+  nome: Rei dos Mares Gigante
+  img_rand_min: 3
+  img_rand_max: 4
+  atk: 30
+  def: 30
+  agl: 30
+  res: 30
+  pre: 30
+  dex: 30
+  con: 30
+  vit: 30
+  hp: 40500
+  zona: 5
+  xp: 400
+  loot:
+  - cod: 17
+    tipo: 15
+  - cod: 18
+    tipo: 15
+  - cod: 23
+    tipo: 15
+  - cod: 32
+    tipo: 15
+  - cod: 29
+    tipo: 15
+7:
+  id: 7
+  nome: Foca Kung-Fu Solitária 
+  img: 14
+  atk: 50
+  def: 50
+  agl: 50
+  res: 50
+  pre: 50
+  dex: 50
+  con: 50
+  vit: 50
+  hp: 54000
+  zona: 8
+  xp: 440
+  loot:
+  - cod: 19
+    tipo: 15
+  - cod: 24
+    tipo: 15
+  - cod: 33
+    tipo: 15
+  - cod: 25
+    tipo: 15
+8:
+  id: 8
+  nome: Grupo de Foca Kung-Fu
+  img: 15
+  atk: 60
+  def: 60
+  agl: 60
+  res: 60
+  pre: 60
+  dex: 60
+  con: 60
+  vit: 60
+  hp: 67500
+  zona: 8
+  xp: 500
+  loot:
+  - cod: 19
+    tipo: 15
+  - cod: 24
+    tipo: 15
+  - cod: 34
+    tipo: 15
+  - cod: 26
+    tipo: 15
+9:
+  id: 9
+  nome: Mohmoo
+  img: 19
+  atk: 100
+  def: 10
+  agl: 5
+  res: 50
+  pre: 50
+  dex: 50
+  con: 10
+  vit: 100
+  hp: 135000
+  zona: 9
+  xp: 500
+10:
+  id: 10
+  nome: Kraken Boxeador
+  img: 18
+  atk: 110
+  def: 10
+  agl: 10
+  res: 50
+  pre: 50
+  dex: 50
+  con: 10
+  vit: 100
+  hp: 162000
+  zona: 10
+  xp: 500
+11:
+  id: 11
+  nome: Coelhaço
+  img: 8
+  atk: 190
+  def: 30
+  agl: 60
+  res: 50
+  pre: 50
+  dex: 50
+  con: 10
+  vit: 100
+  hp: 2700000
+  zona: 11
+  xp: 0
+  boss: 1
+12:
+  id: 12
+  nome: Cavalo Marinho
+  img: 9
+  atk: 100
+  def: 30
+  agl: 60
+  res: 50
+  pre: 50
+  dex: 50
+  con: 10
+  vit: 100
+  hp: 270000
+  zona: 12
+  xp: 1000
+13:
+  id: 13
+  nome: Peixe Boi
+  img: 10
+  atk: 100
+  def: 30
+  agl: 60
+  res: 50
+  pre: 50
+  dex: 70
+  con: 10
+  vit: 100
+  hp: 324000
+  zona: 13
+  xp: 1000
+14:
+  id: 14
+  nome: Homem-Peixe Fugitivo
+  img: 11
+  atk: 100
+  def: 30
+  agl: 60
+  res: 50
+  pre: 50
+  dex: 70
+  con: 10
+  vit: 100
+  hp: 540000
+  zona: 14
+  xp: 1000
+15:
+  id: 15
+  nome: Tripulação pirata
+  lvl: 3
+  img: 70
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 5400
+  xp: 600
+  loot:
+  - cod: 0
+    tipo: 16
+  - cod: 0
+    tipo: 17
+  - cod: 16
+    tipo: 1
+  - cod: 18
+    tipo: 1
+  - cod: 15
+    tipo: 1
+16:
+  id: 16
+  nome: Tripulação pirata
+  lvl: 5
+  img: 73
+  atk: 30
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 5940
+  xp: 600
+  loot:
+  - cod: 0
+    tipo: 16
+  - cod: 0
+    tipo: 17
+  - cod: 16
+    tipo: 1
+  - cod: 18
+    tipo: 1
+  - cod: 1
+    tipo: 13
+17:
+  id: 17
+  nome: Tripulação pirata
+  lvl: 10
+  img: 73
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 6480
+  xp: 600
+  loot:
+  - cod: 0
+    tipo: 16
+  - cod: 0
+    tipo: 17
+  - cod: 16
+    tipo: 1
+  - cod: 18
+    tipo: 1
+  - cod: 1
+    tipo: 13
+  - cod: 56
+    tipo: 0
+  - cod: 55
+    tipo: 0
+18:
+  id: 18
+  nome: Tripulação pirata
+  lvl: 20
+  img: 83
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 6750
+  xp: 600
+  loot:
+  - cod: 0
+    tipo: 16
+  - cod: 0
+    tipo: 17
+  - cod: 16
+    tipo: 1
+  - cod: 18
+    tipo: 1
+  - cod: 1
+    tipo: 13
+  - cod: 28
+    tipo: 0
+  - cod: 32
+    tipo: 0
+  - cod: 51
+    tipo: 15
+19:
+  id: 19
+  nome: Tripulação pirata
+  lvl: 30
+  img: 85
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 7830
+  xp: 600
+  loot:
+  - cod: 0
+    tipo: 16
+  - cod: 0
+    tipo: 17
+  - cod: 16
+    tipo: 1
+  - cod: 18
+    tipo: 1
+  - cod: 1
+    tipo: 13
+  - cod: 120
+    tipo: 0
+  - cod: 110
+    tipo: 0
+  - cod: 51
+    tipo: 15
+20:
+  id: 20
+  nome: Tripulação pirata
+  lvl: 40
+  img: 30
+  atk: 15
+  def: 150
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 7830
+  xp: 600
+  loot:
+  - cod: 0
+    tipo: 16
+  - cod: 0
+    tipo: 17
+  - cod: 16
+    tipo: 1
+  - cod: 18
+    tipo: 1
+  - cod: 1
+    tipo: 13
+  - cod: 111
+    tipo: 0
+  - cod: 121
+    tipo: 0
+  - cod: 56
+    tipo: 15
+  - cod: 51
+    tipo: 15
+21:
+  id: 21
+  nome: Tripulação pirata
+  lvl: 50
+  img: 87
+  atk: 15
+  def: 150
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 7830
+  xp: 600
+  loot:
+  - cod: 0
+    tipo: 16
+  - cod: 0
+    tipo: 17
+  - cod: 16
+    tipo: 1
+  - cod: 18
+    tipo: 1
+  - cod: 1
+    tipo: 13
+  - cod: 112
+    tipo: 0
+  - cod: 122
+    tipo: 0
+  - cod: 1
+    tipo: 15
+  - cod: 3
+    tipo: 15
+  - cod: 51
+    tipo: 15
+  - cod: 56
+    tipo: 15
+22:
+  id: 22
+  nome: Higuma
+  img: 20
+  atk: 80
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 13500
+  zona: 9001
+  xp: 500
+  battle_back: 1
+23:
+  id: 23
+  nome: Capitão Morgan
+  img: 21
+  atk: 80
+  def: 8
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 24300
+  zona: 9001
+  xp: 500
+  battle_back: 12
+24:
+  id: 24
+  nome: Capitão Buggy
+  img: 22
+  atk: 85
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 27000
+  zona: 9001
+  xp: 500
+  battle_back: 12
+25:
+  id: 25
+  nome: kuro
+  img: 23
+  atk: 95
+  def: 9
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 32400
+  zona: 9001
+  xp: 500
+  battle_back: 38
+26:
+  id: 26
+  nome: Don Krieg
+  img: 24
+  atk: 95
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 37800
+  zona: 9001
+  xp: 500
+  battle_back: 30
+27:
+  id: 27
+  nome: Arlong
+  img: 25
+  atk: 100
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 43200
+  zona: 9001
+  xp: 500
+  battle_back: 14
+28:
+  id: 28
+  nome: Alvida
+  img: 27
+  atk: 100
+  def: 15
+  agl: 15
+  res: 15
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 48600
+  zona: 9001
+  xp: 500
+  battle_back: 30
+29:
+  id: 29
+  nome: Montblanc Norland
+  img: 28
+  atk: 80
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 13500
+  zona: 9001
+  xp: 500
+  battle_back: 12
+30:
+  id: 30
+  nome: Sarkies
+  img: 29
+  atk: 80
+  def: 8
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 24300
+  zona: 9001
+  xp: 500
+  battle_back: 14
+31:
+  id: 31
+  nome: Lao G
+  img: 31
+  atk: 85
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 27000
+  zona: 9001
+  xp: 500
+  battle_back: 12
+32:
+  id: 32
+  nome: Trebol
+  img: 32
+  atk: 95
+  def: 9
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 32400
+  zona: 9001
+  xp: 500
+  battle_back: 1
+33:
+  id: 33
+  nome: Psycho P
+  img: 33
+  atk: 95
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 37800
+  zona: 9001
+  xp: 500
+  battle_back: 1
+34:
+  id: 34
+  nome: Kelly Funk
+  img: 34
+  atk: 100
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 43200
+  zona: 9001
+  xp: 500
+  battle_back: 5
+35:
+  id: 35
+  nome: Vergo
+  img: 34
+  atk: 100
+  def: 15
+  agl: 15
+  res: 15
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 48600
+  zona: 9001
+  xp: 500
+  battle_back: 30
+36:
+  id: 36
+  nome: Formiga do Mar
+  img: 36
+  atk: 80
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 13500
+  zona: 9001
+  xp: 500
+  battle_back: 38
+37:
+  id: 37
+  nome: Jango
+  img: 37
+  atk: 80
+  def: 8
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 24300
+  zona: 9001
+  xp: 500
+  battle_back: 1
+38:
+  id: 38
+  nome: Fullbody
+  img: 38
+  atk: 85
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 27000
+  zona: 9001
+  xp: 500
+  battle_back: 14
+39:
+  id: 39
+  nome: Inazuma
+  img: 39
+  atk: 95
+  def: 9
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 32400
+  zona: 9001
+  xp: 500
+  battle_back: 38
+40:
+  id: 40
+  nome: Komei
+  img: 40
+  atk: 95
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 37800
+  zona: 9001
+  xp: 500
+  battle_back: 1
+41:
+  id: 41
+  nome: Musshuru
+  img: 41
+  atk: 110
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 43200
+  zona: 9001
+  xp: 500
+  battle_back: 41
+42:
+  id: 42
+  nome: Jean Ango
+  img: 42
+  atk: 100
+  def: 15
+  agl: 15
+  res: 15
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 48600
+  zona: 9001
+  xp: 500
+  battle_back: 11
+43:
+  id: 43
+  nome: Boo
+  img: 43
+  atk: 80
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 13500
+  zona: 9001
+  xp: 500
+  battle_back: 1
+44:
+  id: 44
+  nome: Clover
+  img: 44
+  atk: 80
+  def: 8
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 24300
+  zona: 9001
+  xp: 500
+  battle_back: 38
+45:
+  id: 45
+  nome: Duval
+  img: 45
+  atk: 85
+  def: 7
+  agl: 10
+  res: 15
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 140
+  hp: 27000
+  zona: 9001
+  xp: 500
+  battle_back: 22
+46:
+  id: 46
+  nome: Daz Bones
+  img: 46
+  atk: 95
+  def: 9
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 32400
+  zona: 9001
+  xp: 500
+  battle_back: 25
+47:
+  id: 47
+  nome: Mohji e Richie
+  img: 47
+  atk: 95
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 37800
+  zona: 9001
+  xp: 500
+  battle_back: 32
+48:
+  id: 48
+  nome: Hamburg
+  img: 48
+  atk: 100
+  def: 11
+  agl: 10
+  res: 20
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 43200
+  zona: 9001
+  xp: 500
+  battle_back: 25
+49:
+  id: 49
+  nome: Capone Bege
+  img: 49
+  atk: 100
+  def: 15
+  agl: 15
+  res: 15
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 48600
+  zona: 9001
+  xp: 500
+  battle_back: 35
+50:
+  id: 50
+  nome: Laboon
+  img: 50
+  atk: 100
+  def: 15
+  agl: 15
+  res: 15
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 67500
+  zona: 9001
+  xp: 500
+  battle_back: 28
+51:
+  id: 51
+  nome: Mr. 5
+  img: 51
+  atk: 50
+  def: 60
+  agl: 10
+  res: 15
+  pre: 30
+  dex: 30
+  con: 15
+  vit: 140
+  hp: 67500
+  zona: 9001
+  xp: 500
+  battle_back: 12
+52:
+  id: 52
+  nome: Dorry e Brogy
+  img: 52
+  atk: 60
+  def: 25
+  agl: 15
+  res: 15
+  pre: 50
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 135000
+  zona: 9001
+  xp: 500
+  battle_back: 21
+53:
+  id: 53
+  nome: Wapol
+  img: 54
+  atk: 60
+  def: 26
+  agl: 15
+  res: 25
+  pre: 50
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 148500
+  zona: 9001
+  xp: 500
+  battle_back: 6
+54:
+  id: 54
+  nome: Mr. 2
+  img: 55
+  atk: 100
+  def: 22
+  agl: 40
+  res: 15
+  pre: 50
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 162000
+  zona: 9001
+  xp: 500
+  battle_back: 25
+55:
+  id: 55
+  nome: Mr. 4
+  img: 56
+  atk: 100
+  def: 26
+  agl: 15
+  res: 25
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 150
+  hp: 175500
+  zona: 9001
+  xp: 500
+  battle_back: 25
+56:
+  id: 56
+  nome: Miss doublefinger
+  img: 57
+  atk: 100
+  def: 22
+  agl: 40
+  res: 25
+  pre: 50
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 189000
+  zona: 9001
+  xp: 500
+  battle_back: 25
+57:
+  id: 57
+  nome: Crocodile
+  img: 58
+  atk: 100
+  def: 60
+  agl: 30
+  res: 25
+  pre: 60
+  dex: 40
+  con: 15
+  vit: 150
+  hp: 243000
+  zona: 9001
+  xp: 500
+  battle_back: 25
+58:
+  id: 58
+  nome: Bellamy
+  img: 59
+  atk: 100
+  def: 27
+  agl: 15
+  res: 25
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 150
+  hp: 216000
+  zona: 9001
+  xp: 500
+  battle_back: 30
+59:
+  id: 59
+  nome: Montblanc Cricket
+  img: 60
+  atk: 100
+  def: 27
+  agl: 35
+  res: 25
+  pre: 50
+  dex: 20
+  con: 15
+  vit: 150
+  hp: 229500
+  zona: 9001
+  xp: 500
+  battle_back: 12
+60:
+  id: 60
+  nome: Foxy
+  img: 61
+  atk: 100
+  def: 26
+  agl: 15
+  res: 25
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 150
+  hp: 243000
+  zona: 9001
+  xp: 500
+  battle_back: 38
+61:
+  id: 61
+  nome: Gekko Moriah
+  img: 62
+  atk: 100
+  def: 34
+  agl: 15
+  res: 25
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 150
+  hp: 270000
+  zona: 9001
+  xp: 500
+  battle_back: 18
+62:
+  id: 62
+  nome: Spandam
+  img: 63
+  atk: 100
+  def: 30
+  agl: 25
+  res: 25
+  pre: 50
+  dex: 30
+  con: 15
+  vit: 150
+  hp: 270000
+  zona: 9001
+  xp: 500
+  battle_back: 30
+63:
+  id: 63
+  nome: Bartholomew Kuma
+  img: 64
+  atk: 100
+  def: 36
+  agl: 30
+  res: 30
+  pre: 60
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 297000
+  zona: 9001
+  xp: 500
+  battle_back: 38
+64:
+  id: 64
+  nome: Almirante da Frota Sengoku
+  img: 65
+  atk: 100
+  def: 40
+  agl: 30
+  res: 30
+  pre: 60
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 378000
+  zona: 9001
+  xp: 500
+  battle_back: 15
+65:
+  id: 65
+  nome: Caesar Clown
+  img: 66
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 486000
+  zona: 9001
+  xp: 500
+  battle_back: 43
+66:
+  id: 66
+  nome: Gombe, o gato
+  img: 68
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 540000
+  zona: 9001
+  xp: 500
+  battle_back: 3
+67:
+  id: 67
+  nome: Enel Raijin Form
+  img: 67
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 594000
+  zona: 9001
+  xp: 500
+  battle_back: 16
+68:
+  id: 68
+  nome: Gol D. Roger
+  img: 78
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 594000
+  zona: 9001
+  xp: 500
+  battle_back: 1
+69:
+  id: 69
+  nome: Raposa Celestial
+  img: 100
+  atk: 190
+  def: 30
+  agl: 60
+  res: 50
+  pre: 50
+  dex: 50
+  con: 10
+  vit: 100
+  hp: 2700000
+  zona: 15
+  xp: 0
+  boss: 2
+70:
+  id: 70
+  nome: Popóta
+  img: 101
+  atk: 190
+  def: 30
+  agl: 60
+  res: 50
+  pre: 50
+  dex: 50
+  con: 10
+  vit: 100
+  hp: 2700000
+  zona: 16
+  xp: 0
+  boss: 3
+71:
+  id: 71
+  nome: Espetinho
+  img: 102
+  atk: 190
+  def: 30
+  agl: 60
+  res: 50
+  pre: 50
+  dex: 50
+  con: 10
+  vit: 100
+  hp: 2700000
+  zona: 17
+  xp: 0
+  boss: 4
+72:
+  id: 72
+  nome: Berroso
+  img: 69
+  atk: 1
+  def: 200
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 2700000
+  zona: 18
+  xp: 0
+  boss: 5
+73:
+  id: 73
+  nome: Ladrões de tesouro
+  lvl: 3
+  img: 71
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 10800
+  xp: 260
+  loot:
+  - cod: 134
+    tipo: 15
+74:
+  id: 74
+  nome: Surume
+  img: 72
+  atk: 1
+  def: 200
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 2700000
+  zona: 19
+  xp: 0
+  boss: 6
+75:
+  id: 75
+  nome: Moby Dick
+  lvl: 1
+  img: 74
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 10800
+  xp: 500
+  loot:
+  - cod: 145
+    tipo: 15
+76:
+  id: 76
+  nome: Protetor do tesouro
+  img: 75
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 10800
+  xp: 1000
+  loot:
+  - cod: 134
+    tipo: 15
+77:
+  id: 77
+  nome: Protetor do tesouro
+  img: 75
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 10800
+  xp: 1000
+  loot:
+  - cod: 150
+    tipo: 15
+78:
+  id: 78
+  nome: Crocoré Faminto
+  img: 76
+  atk: 1
+  def: 200
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 2700000
+  zona: 20
+  xp: 0
+  boss: 7
+79:
+  id: 79
+  nome: Bocaj - O Medonho
+  img: 77
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  xp: 100
+80:
+  id: 80
+  nome: Hannyabal
+  img: 79
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 594000
+  xp: 500
+  battle_back: 1
+81:
+  id: 81
+  nome: Sphinx
+  img: 80
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 594000
+  xp: 500
+  battle_back: 56
+82:
+  id: 82
+  nome: Shiliew - Carcereiro-Chefe
+  img: 81
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 594000
+  xp: 500
+  battle_back: 56
+83:
+  id: 83
+  nome: Saldeath - Guarda-Chefe
+  img: 82
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 594000
+  xp: 500
+  battle_back: 57
+84:
+  id: 84
+  nome: Navio de fugitivos de Impel Down
+  lvl: 50
+  img: 83
+  atk: 100
+  def: 50
+  agl: 30
+  res: 35
+  pre: 70
+  dex: 50
+  con: 15
+  vit: 150
+  hp: 54000
+  xp: 500
+  loot:
+  - cod: 182
+    tipo: 15
+85:
+  id: 85
+  nome: Baiacão
+  img: 84
+  atk: 1
+  def: 200
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 2700000
+  zona: 21
+  xp: 0
+  boss: 8
+86:
+  id: 86
+  nome: Cocofox
+  img: 86
+  atk: 1
+  def: 200
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 2700000
+  zona: 22
+  xp: 0
+  boss: 9
+87:
+  id: 87
+  nome: Navio Fantasma
+  lvl: 3
+  img: 87
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 10800
+  xp: 260
+  loot:
+  - cod: 195
+    tipo: 15
+88:
+  id: 88
+  nome: Hildon
+  lvl: 3
+  img: 88
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 270000
+  xp: 1000
+  loot:
+  - cod: 196
+    tipo: 15
+91:
+  id: 91
+  nome: Senhor Dragonesco
+  img: 90
+  atk: 1
+  def: 200
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 2700000
+  zona: 23
+  xp: 0
+  boss: 10
+89:
+  id: 89
+  nome: Cavaleiro Sem Cabeça
+  lvl: 3
+  img: 89
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 270000
+  xp: 2000
+  loot:
+  - cod: 199
+    tipo: 15
+90:
+  id: 90
+  nome: Navio Mercador
+  lvl: 50
+  img: 30
+  atk: 100
+  def: 150
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 420
+  loot:
+  - cod: 144
+    tipo: 15
+92:
+  id: 92
+  nome: Navio da Marinha
+  img: 91
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  xp: 100
+93:
+  id: 93
+  nome: Kashi
+  img: 92
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 270000
+  xp: 100
+94:
+  id: 94
+  nome: Rudolph
+  img: 95
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+95:
+  id: 95
+  nome: Dasher
+  img: 95
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+96:
+  id: 96
+  nome: Prancer
+  img: 95
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+97:
+  id: 97
+  nome: Dancer
+  img: 94
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+98:
+  id: 98
+  nome: Vixen
+  img: 94
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+99:
+  id: 99
+  nome: Comet
+  img: 94
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+100:
+  id: 100
+  nome: Cupid
+  img: 93
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+116:
+  id: 116
+  nome: Donner
+  img: 93
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+117:
+  id: 117
+  nome: Blitzen
+  img: 93
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+101:
+  id: 101
+  nome: Monstro Marítmo
+  lvl: 3
+  img: 1
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 13500
+  zona: 101
+  xp: 300
+  mini_evento: true
+102:
+  id: 102
+  nome: Lula Gigante
+  lvl: 3
+  img: 2
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 27000
+  zona: 102
+  xp: 300
+  mini_evento: true
+103:
+  id: 103
+  nome: Lula Gigante
+  lvl: 3
+  img: 2
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  zona: 103
+  xp: 300
+  mini_evento: true
+104:
+  id: 104
+  nome: Gato Marinho Monstruoso
+  lvl: 3
+  img: 4
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 13500
+  zona: 104
+  xp: 300
+  mini_evento: true
+105:
+  id: 105
+  nome: Barão Azul
+  lvl: 3
+  img: 5
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 27000
+  zona: 105
+  xp: 300
+  mini_evento: true
+106:
+  id: 106
+  nome: Enguia Marítmica
+  lvl: 3
+  img: 6
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  zona: 106
+  xp: 300
+  mini_evento: true
+107:
+  id: 107
+  nome: Peixe Espeto
+  lvl: 3
+  img: 7
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 13500
+  zona: 107
+  xp: 300
+  mini_evento: true
+108:
+  id: 108
+  nome: Peixe Salteador Chifrudo
+  lvl: 3
+  img: 10
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 27000
+  zona: 108
+  xp: 300
+  mini_evento: true
+109:
+  id: 109
+  nome: Filhote de Kraken Boxeador
+  lvl: 3
+  img: 18
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  zona: 109
+  xp: 300
+  mini_evento: true
+110:
+  id: 110
+  nome: Coelho Marítimo Perverso
+  lvl: 3
+  img: 8
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 13500
+  zona: 110
+  xp: 300
+  mini_evento: true
+111:
+  id: 111
+  nome: Cavalo do Mar
+  lvl: 3
+  img: 9
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 27000
+  zona: 111
+  xp: 300
+  mini_evento: true
+112:
+  id: 112
+  nome: Formiga Gigante do Mar
+  lvl: 3
+  img: 36
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  zona: 112
+  xp: 300
+  mini_evento: true
+113:
+  id: 113
+  nome: Besouro Aquático
+  lvl: 3
+  img: 69
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  zona: 113
+  xp: 300
+  mini_evento: true
+114:
+  id: 114
+  nome: Jacadilo
+  lvl: 3
+  img: 76
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  zona: 114
+  xp: 300
+  mini_evento: true
+115:
+  id: 115
+  nome: Grupo de Reis dos Mares Enfraquecidos
+  lvl: 3
+  img: 17
+  atk: 15
+  def: 110
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 54000
+  zona: 115
+  xp: 300
+  mini_evento: true
+118:
+  id: 118
+  nome: Estrela Norte
+  img: 96
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+119:
+  id: 119
+  nome: Estrela Sul
+  img: 96
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+120:
+  id: 120
+  nome: Estrela Leste
+  img: 96
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+121:
+  id: 121
+  nome: Estrela Oeste
+  img: 96
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+122:
+  id: 122
+  nome: Estrela Menor
+  img: 96
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+123:
+  id: 123
+  nome: Estrela Maior
+  img: 96
+  atk: 15
+  def: 15
+  agl: 15
+  res: 15
+  pre: 15
+  dex: 15
+  con: 15
+  vit: 15
+  hp: 135000
+  xp: 100
+9998:
+  id: 9998
+  nome: Jogador Chefe da Ilha
+  img: 1
+  atk: 1
+  def: 1
+  agl: 1
+  res: 1
+  pre: 1
+  dex: 1
+  con: 1
+  vit: 1
+  hp: 2
+  zona: 9998
+  xp: 300
+9999:
+  id: 9999
+  nome: Rayleigh
+  img: 103
+  atk: 1
+  def: 1
+  agl: 1
+  res: 1
+  pre: 1
+  dex: 1
+  con: 1
+  vit: 1
+  hp: 2
+  zona: 9999
+  xp: 300
+  haki: 1

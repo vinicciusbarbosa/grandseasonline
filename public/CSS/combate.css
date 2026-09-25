@@ -1,0 +1,256 @@
+.battle-heading {
+    position: fixed;
+    width: 100%;
+    z-index: 4;
+    top: 0px;
+    text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+    padding-top: 0.5vw;
+    color: #fff;
+}
+.battle-heading-details {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.battle-heading img {
+    height: min(10vh, 40px);
+}
+
+.battle-heading .placar {
+    font-size: 5vh;
+    width: 10vw;
+}
+.battle-heading .vontade {
+    font-size: 5vh;
+    width: 8vw;
+    background: url(Imagens/Icones/vontade_new.gif);
+    background-repeat: no-repeat;
+    background-position: 50% 90%;
+}
+
+.battle-heading .battle-player {
+    width: 30vw;
+}
+
+#batalha_background,
+.batalha_background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100vw;
+    background: url("Imagens/Batalha/Background.jpg");
+}
+
+.fight-zone {
+    padding-top: min(10vh, 40px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.fight-zone .navio {
+    width: 100%;
+    position: relative;
+}
+
+.fight-zone .navio-npc {
+    height: 40vh;
+    margin: auto;
+}
+
+.fight-zone .navio-npc .progress {
+    margin-bottom: 5px;
+}
+
+.fight-zone #npc {
+    width: 100%;
+    height: 200px;
+}
+
+.fight-zone .navio-player {
+    height: 35vh;
+    margin: auto;
+    box-sizing: content-box;
+    padding: 5vh 0;
+    background-size: contain !important;
+}
+
+.table_batalha {
+    margin: auto;
+    background: transparent;
+}
+
+.table_batalha tr td {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.table_batalha .progress {
+    height: 10%;
+    margin-bottom: 0;
+}
+
+.table_batalha .progress-red {
+    background-color: red;
+}
+
+.table_batalha .tabuleiro-mira {
+    position: absolute;
+    right: 10px;
+    top: -10px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2px 7px 3px;
+    border-radius: 50%;
+}
+
+.table_batalha_selecao {
+    transform: translateY(-100%);
+    margin: auto;
+    z-index: 5;
+    background: transparent;
+}
+
+.table_batalha_selecao tr td {
+    display: inline-block;
+}
+
+.table_batalha_selecao tr td,
+.table_batalha_selecao tr td img,
+.table_batalha tr td {
+    text-align: center;
+    height: 7vh;
+    width: 4vw;
+}
+.table_batalha tr td img {
+    height: 90%;
+    width: 100%;
+}
+
+#relatorio-combate-content {
+    max-height: 400px;
+    overflow: auto;
+    display: none;
+}
+
+.personagem-aliado {
+    border: 2px solid #0000ff !important;
+    background-color: #0000ff;
+}
+
+.personagem-inimigo {
+    border: 2px solid #ff0000 !important;
+    background-color: #ff0000;
+}
+
+.personagem-aliado.efeito-estetico,
+.personagem-inimigo.efeito-estetico {
+    padding: 0.6vh;
+}
+
+.personagem-info {
+    position: absolute;
+    top: 15vh;
+    max-width: 30vw;
+    z-index: 100;
+    color: black !important;
+}
+.buff-atributo-icon {
+    background: black;
+}
+
+.personagem-info .progress {
+    margin: 0;
+}
+
+.personagem-selecionavel:hover {
+    box-shadow: 0 0 9px 3px #fff;
+    position: relative;
+    z-index: 5;
+}
+
+.special-effect-1 {
+    border: 5px solid #800;
+}
+
+.special-effect-2 {
+    border: 5px solid #060;
+}
+
+.special-effect-3 {
+    border: 5px solid #006;
+}
+
+.icon-skill-cbt {
+    width: 100px;
+    height: 120px;
+    display: inline-block;
+}
+
+.popover-skill {
+    position: absolute;
+    margin-top: 60px;
+    width: 250px;
+    background: rgba(0, 0, 0, 0.9);
+    border-radius: 5px;
+    border: 1px solid #000;
+    z-index: 5;
+    padding: 20px;
+}
+
+#menu_batalha {
+    position: fixed;
+    right: 1vw;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+#menu_batalha button,
+#botao_relatorio {
+    width: 50px;
+    margin-bottom: 5px;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+#botao_relatorio {
+    position: fixed;
+    bottom: 10vh;
+    right: 1vw;
+}
+
+#skills-area {
+    display: none;
+}
+
+#fundo .close-session {
+    display: none;
+}
+
+#fim_batalha {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.tempo-combate {
+    text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000, 1px 1px #000,
+        -1px -1px #000, 1px -1px #000, -1px 1px #000;
+    color: white;
+}
+
+.icon-skill-cbt p {
+    color: black;
+}
+
+.navio .progress {
+    color: #fff;
+}
+.td-mira {
+    display: none !important;
+}

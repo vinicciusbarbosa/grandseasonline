@@ -1,0 +1,114 @@
+8:
+  akuma: 1
+  preco: 99999
+9:
+  tipo_item: 15
+  cod_item: 51
+  quant: 50
+  preco: 1
+10:
+  tipo_item: 15
+  cod_item: 75
+  quant: 50
+  preco: 1
+11:
+  xp: 1000
+  preco: 1
+12:
+  alcunha: 87
+  preco: 1
+13:
+  alcunha: 88
+  preco: 1
+14:
+  alcunha: 89
+  preco: 1
+15:
+  alcunha: 90
+  preco: 1
+16:
+  alcunha: 32
+  preco: 1
+17:
+  alcunha: 86
+  preco: 1
+18:
+  skin: 2
+  img: 2
+  preco: 1
+19:
+  alcunha: 95
+  preco: 1
+20:
+  skin: 1
+  img: 295
+  preco: 1
+21:
+  preco: 1
+  alcunha: 101
+22:
+  preco: 1
+  skin: 3
+  img: 9
+23:
+  preco: 1
+  alcunha: 109
+24:
+  preco: 1
+  img: 4
+  skin: 5
+25:
+  preco: 1
+  alcunha: 116
+26:
+  preco: 1
+  img: 346
+  skin: 1
+27:
+  preco: 1
+  alcunha: 117
+28:
+  preco: 1
+  img: 6
+  skin: 3
+29:
+  preco: 1
+  alcunha: 120
+39:
+  preco: 1
+  alcunha: 119
+40:
+  preco: 1
+  img: 14
+  skin: 2
+41:
+  preco: 1
+  alcunha: 122
+30:
+  preco: 1
+  img: 222
+  skin: 1
+31:
+  preco: 1
+  alcunha: 123
+32:
+  preco: 1
+  img: 18
+  skin: 2
+33:
+  preco: 1
+  alcunha: 125
+35:
+  preco: 1
+  alcunha: 128
+36:
+  preco: 1
+  img: 35
+  skin: 2
+37:
+  preco: 1
+  alcunha: 129
+38:
+  preco: 1
+  img: 45
+  skin: 2

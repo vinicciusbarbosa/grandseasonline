@@ -1,0 +1,24 @@
+1:
+  tipo_item: 15
+  cod_item: 146
+  quant: 1
+  preco: 10
+  xp: 2000
+3:
+  tipo_item: 15
+  cod_item: 121
+  quant: 1
+  preco: 50
+  xp: 5000
+4:
+  tipo_item: 15
+  cod_item: 185
+  quant: 1
+  preco: 15
+  xp: 5000
+5:
+  tipo_item: 15
+  cod_item: 188
+  quant: 1
+  preco: 50
+  xp: 5000

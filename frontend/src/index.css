@@ -1,0 +1,265 @@
+@import 'tailwindcss';
+
+/*
+  Sistema visual do Sugoi Game.
+
+  A gramática vem das UIs de jogo (Genshin como referência): duas superfícies
+  apenas — painel escuro translúcido e pergaminho —, cantoneiras douradas em L,
+  losango como motivo recorrente, divisórias finas com terminadores, e seleção
+  marcada por borda luminosa em vez de preenchimento chapado.
+
+  O fundo é a carta náutica original do jogo (public/Imagens/Backgrounds), servida
+  pela API em /imagens. Usar a arte real é o que tira a cara de template.
+*/
+
+@theme {
+  /* Superfície escura: o mar à noite */
+  --color-abissal: #070a10;
+  --color-painel: #222b3d;
+  --color-painel-claro: #2f3a50;
+  --color-painel-borda: #5d6b8a;
+
+  /* Superfície clara: pergaminho */
+  --color-pergaminho: #e9e1cc;
+  --color-pergaminho-sombra: #c9bd9c;
+  --color-tinta: #332e23;
+
+  /* Ouro: ornamento, foco, destaque */
+  --color-ouro: #c9a227;
+  --color-ouro-claro: #f0d68e;
+  --color-ouro-fosco: #8a7434;
+
+  --color-creme: #e9e0c8;
+
+  /* Facções e recursos */
+  --color-pirata: #b23a36;
+  --color-marinha: #3a6d9e;
+  --color-vida: #c1453f;
+  --color-espirito: #3f7fae;
+  --color-experiencia: #c9a227;
+
+  --font-display: 'Cinzel', 'Georgia', serif;
+  --font-corpo: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Medidas. UI de jogo é maior que UI de site: botão de 46px, não de 36px. */
+  --sg-altura-botao: 46px;
+  --sg-altura-botao-compacto: 36px;
+  --sg-altura-pilula: 54px;
+  --sg-ladrilho: 92px;
+  --sg-slot: 76px;
+  --sg-slot-pequeno: 52px;
+  --sg-padding-painel: 24px;
+
+  /* Cantos quase retos: raio grande é marca de site, não de jogo. */
+  --sg-raio: 3px;
+  --sg-raio-pilula: 999px;
+
+  --sg-borda-ouro: 1px solid color-mix(in srgb, var(--color-ouro) 55%, transparent);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-corpo);
+  color: var(--color-creme);
+  background-color: var(--color-abissal);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A carta náutica do jogo, escurecida por um véu para o texto respirar. */
+.fundo-carta {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(52, 76, 116, 0.5) 0%, transparent 60%),
+    linear-gradient(rgba(8, 12, 20, 0.6), rgba(6, 9, 15, 0.82)),
+    url('/imagens/Backgrounds/conteudo2.jpg');
+  background-size: auto, auto, 1100px;
+  background-position: center top;
+}
+
+/* Vinheta: puxa o olho para o centro, como nas telas cheias dos jogos. */
+.fundo-carta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+.titulo-serif {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Números de status: tabulares e serifados, como painéis de ficha de RPG. */
+.numero-ficha {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/*
+  Textura de brilho das linhas em pílula. Nas referências, cada linha da lista
+  tem um leve degradê que clareia para a direita, com faíscas discretas.
+*/
+.pilula-brilho {
+  background-image:
+    radial-gradient(circle at 78% 50%, rgba(255, 255, 255, 0.5) 0%, transparent 34%),
+    radial-gradient(circle at 92% 46%, rgba(255, 255, 255, 0.34) 0%, transparent 24%),
+    linear-gradient(100deg, var(--color-pergaminho) 0%, var(--color-pergaminho) 54%, #f4eeda 100%);
+}
+
+/* Barra de rolagem fina e dourada, para não quebrar a ilusão. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-ouro) 45%, transparent) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-ouro) 45%, transparent);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Abertura do baú ─────────────────────────────────────────────────────────
+   A tampa gira na dobradiça, a luz escapa de dentro e a cena se dissolve no
+   inventário. Os tempos são encadeados para que a luz só apareça quando a
+   tampa já abriu o suficiente para justificá-la.                              */
+
+.bau-cena {
+  animation: bau-cena-sai 380ms ease-in 1320ms forwards;
+}
+
+.bau-conjunto {
+  animation: bau-conjunto-entra 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.bau-tampa {
+  animation: bau-tampa-abre 620ms cubic-bezier(0.34, 1.4, 0.64, 1) 380ms both;
+}
+
+.bau-raios {
+  opacity: 0;
+  background: radial-gradient(circle, rgba(255, 244, 205, 0.95) 0%, rgba(240, 195, 74, 0.45) 35%, transparent 68%);
+  animation: bau-luz 900ms ease-out 620ms both;
+}
+
+.bau-faiscas {
+  opacity: 0;
+  animation: bau-faiscas-sobem 800ms ease-out 700ms both;
+}
+
+.bau-texto {
+  animation: bau-texto-entra 500ms ease-out 900ms both;
+}
+
+@keyframes bau-conjunto-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bau-tampa-abre {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-108deg);
+  }
+}
+
+@keyframes bau-luz {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+}
+
+@keyframes bau-faiscas-sobem {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px);
+  }
+}
+
+@keyframes bau-texto-entra {
+  from {
+    opacity: 0;
+    letter-spacing: 0.5em;
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.3em;
+  }
+}
+
+@keyframes bau-cena-sai {
+  to {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+/* O conteúdo do porão entra logo atrás da cena que sai. */
+.porao-entra {
+  animation: porao-entra 480ms ease-out both;
+}
+
+@keyframes porao-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

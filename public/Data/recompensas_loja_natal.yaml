@@ -1,0 +1,37 @@
+1:
+  tipo_item: 15
+  cod_item: 146
+  quant: 1
+  preco: 10
+  xp: 2000
+3:
+  tipo_item: 15
+  cod_item: 121
+  quant: 1
+  preco: 50
+  xp: 5000
+4:
+  skin: 8
+  img: 2
+  preco: 10
+  xp: 3000
+6:
+  skin: 5
+  img: 7
+  preco: 10
+  xp: 3000
+8:
+  skin: 5
+  img: 8
+  preco: 10
+  xp: 3000
+9:
+  skin: 6
+  img: 6
+  preco: 10
+  xp: 3000
+13:
+  skin: 2
+  img: 86
+  preco: 10
+  xp: 3000
