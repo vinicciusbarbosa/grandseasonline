@@ -411,13 +411,41 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
         disparos.map((d) => ({ ox: d.origem.x, oy: d.origem.y, dx: d.destino.x, dy: d.destino.y, acerta: d.acerta, voo: d.voo, atraso: d.atraso, dano: d.dano })),
       )
     this.pararDeOuvir = rede.ouvir((m) => this.mensagemDaRede(rede, m))
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.pararDeOuvir?.())
+    const relogioDeFundo = this.manterVivoEmSegundoPlano()
+    const encerrar = () => {
+      this.pararDeOuvir?.()
+      relogioDeFundo.terminate()
+    }
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, encerrar)
+    this.events.once(Phaser.Scenes.Events.DESTROY, encerrar)
     this.rotulos = this.add
       .text(0, 0, '', { fontFamily: 'Cinzel, Georgia, serif', fontSize: '14px', fontStyle: 'bold', color: '#fff1c9', stroke: '#1b1409', strokeThickness: 4 })
       .setOrigin(0.5, 1)
       .setDepth(6)
       .setResolution(2)
     this.avisar(`Você entrou na sala como ${this.entradaMp?.nome}. Saia da zona segura para caçar o rival!`, 5000)
+  }
+
+  /**
+   * Aba em segundo plano: o navegador para a animação (requestAnimationFrame)
+   * e o jogo congelaria — o navio parava na tela do rival e os tiros dele não
+   * chegavam. Um Web Worker (que o navegador não congela) bate 20× por
+   * segundo e, só enquanto a aba está escondida, roda o passo do jogo sem
+   * desenhar: o navio segue a rota, recebe os tiros e manda a posição.
+   */
+  private manterVivoEmSegundoPlano() {
+    const codigo = 'setInterval(() => postMessage(0), 50)'
+    const url = URL.createObjectURL(new Blob([codigo], { type: 'text/javascript' }))
+    const trabalhador = new Worker(url)
+    URL.revokeObjectURL(url)
+    let anterior = performance.now()
+    trabalhador.onmessage = () => {
+      const agora = performance.now()
+      const delta = agora - anterior
+      anterior = agora
+      if (document.hidden) this.update(agora, Math.min(delta, 100))
+    }
+    return trabalhador
   }
 
   private mensagemDaRede(rede: Rede, m: MsgServidor) {
