@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import dadosMundo from './mundo/mundo.json'
+import { Rede, type EntradaMp } from './mp/Rede'
 import { Cantoneiras, Losango } from '../componentes/ui/ornamentos'
 import { CenaOceano } from './cena/CenaOceano'
 import { painelNavegacao, type RetratoNavegacao } from './painel'
@@ -15,15 +17,20 @@ import { NAVIOS, type AtributosNavegacao, type TipoNavio } from './sim/navios'
  * em React flutua por cima. Não depende da API nem de login — dá para abrir
  * direto em /navegacao.
  */
-export default function TelaNavegacao() {
+export default function TelaNavegacao({ multiplayer = false }: { multiplayer?: boolean }) {
   const alvo = useRef<HTMLDivElement>(null)
   const [cena, setCena] = useState<CenaOceano | null>(null)
   const [batalha, setBatalha] = useState<Batalha | null>(null)
+  const [sessao, setSessao] = useState<{ rede: Rede; entrada: EntradaMp } | null>(null)
   const retrato = useSyncExternalStore(painelNavegacao.assinar, painelNavegacao.obter)
+
+  // Multiplayer: a conexão é da sessão da tela; fecha ao sair.
+  useEffect(() => () => sessao?.rede.fechar(), [sessao])
 
   useEffect(() => {
     if (!alvo.current) return
-    const oceano = new CenaOceano()
+    if (multiplayer && !sessao) return
+    const oceano = new CenaOceano(sessao ?? undefined)
     const jogo = new Phaser.Game({
       type: Phaser.WEBGL,
       parent: alvo.current,
@@ -43,9 +50,12 @@ export default function TelaNavegacao() {
     })
     return () => {
       painelNavegacao.fontes = null
+      setCena(null)
       jogo.destroy(true)
     }
-  }, [])
+  }, [multiplayer, sessao])
+
+  if (multiplayer && !sessao) return <EntradaMultiplayer aoEntrar={setSessao} />
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-abissal select-none">
@@ -54,6 +64,7 @@ export default function TelaNavegacao() {
       {retrato && cena && (
         <>
           <Localizacao retrato={retrato} />
+          {retrato.multiplayer && <PainelOnline mp={retrato.multiplayer} />}
           <Minimapa retrato={retrato} aoNavegar={(x, y) => cena.navegarPara(x, y)} />
           <Instrumentos retrato={retrato} />
           <Comandos retrato={retrato} cena={cena} />
@@ -234,7 +245,7 @@ function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOcea
   return (
     <div className="pointer-events-none absolute right-4 bottom-4 flex w-80 flex-col gap-3">
       {/* Em combate o cartão do navio sai de cena para liberar a vista. */}
-      {!retrato.combate.inimigoPerto && (
+      {!retrato.combate.inimigoPerto && !retrato.multiplayer && (
         <Quadro className="p-4">
           <p className="mb-3 flex items-center gap-2 text-xs tracking-wider text-creme/55 uppercase">
             <Losango className="text-ouro" tamanho={6} /> Navio
@@ -277,6 +288,12 @@ function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOcea
       )}
 
       <Quadro className="flex flex-wrap items-center gap-2 p-3 text-xs">
+        {retrato.multiplayer ? (
+          <Link to="/navegacao" reloadDocument className="rounded-sm border border-painel-borda/40 px-2.5 py-1 text-creme/70 hover:border-pirata">
+            Sair da sala
+          </Link>
+        ) : (
+          <>
         <span className="text-creme/55">Tempo</span>
         {[1, 2, 4].map((escala) => (
           <button
@@ -289,6 +306,8 @@ function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOcea
             {escala}×
           </button>
         ))}
+          </>
+        )}
         <button
           onClick={() => cena.alternarSom()}
           className={`ml-auto rounded-sm border px-2.5 py-1 ${
@@ -318,6 +337,15 @@ function Comandos({ retrato, cena }: { retrato: RetratoNavegacao; cena: CenaOcea
         >
           Navegar até o redemoinho
         </button>
+        {!retrato.multiplayer && (
+          <Link
+            to="/multiplayer"
+            reloadDocument
+            className="w-full rounded-sm border border-ouro/60 bg-ouro/10 px-2.5 py-1 text-center text-ouro-claro hover:bg-ouro/20"
+          >
+            Multiplayer (beta) — 2 jogadores
+          </Link>
+        )}
       </Quadro>
     </div>
   )
@@ -496,6 +524,16 @@ function Minimapa({ retrato, aoNavegar }: { retrato: RetratoNavegacao; aoNavegar
       ctx.stroke()
     }
 
+    if (retrato.rival) {
+      ctx.fillStyle = '#ff3b30'
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = 0.5
+      ctx.beginPath()
+      ctx.arc(retrato.rival.x * px, retrato.rival.y * px, 2.2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+
     ctx.fillStyle = retrato.navio === 'pirata' ? '#ff8a73' : '#9cc6ff'
     ctx.beginPath()
     ctx.arc(retrato.posicao.x * px, retrato.posicao.y * px, 1.8, 0, Math.PI * 2)
@@ -527,6 +565,153 @@ function Minimapa({ retrato, aoNavegar }: { retrato: RetratoNavegacao; aoNavegar
           <span>Mar descoberto</span>
           <span className="numero-ficha text-creme/80">{(retrato.descoberto * 100).toFixed(1)}%</span>
         </p>
+      </Quadro>
+    </div>
+  )
+}
+
+// ---- Multiplayer beta ------------------------------------------------------------------------
+
+const ILHAS_DE_PARTIDA = (dadosMundo.ilhas as { nome: string }[]).map((i) => i.nome).filter((n) => n !== 'Baratie')
+
+function lerNomeSalvo() {
+  try {
+    return localStorage.getItem('sugoi.mp.nome') ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** Tela de entrada da sala: nome, navio e ilha de partida. */
+function EntradaMultiplayer({ aoEntrar }: { aoEntrar: (s: { rede: Rede; entrada: EntradaMp }) => void }) {
+  const [nome, setNome] = useState(lerNomeSalvo)
+  const [navio, setNavio] = useState<TipoNavio>('pirata')
+  const [ilha, setIlha] = useState('Ilha Dawn')
+  const [erro, setErro] = useState<string | null>(null)
+  const [conectando, setConectando] = useState(false)
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname)
+
+  const entrar = async () => {
+    const entrada = { nome: nome.trim() || 'Marujo', navio, ilha }
+    try {
+      localStorage.setItem('sugoi.mp.nome', entrada.nome)
+    } catch {
+      /* sem armazenamento: tudo bem */
+    }
+    setErro(null)
+    setConectando(true)
+    try {
+      aoEntrar({ rede: await Rede.conectar(entrada), entrada })
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e))
+      setConectando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto bg-abissal p-4">
+      <Quadro className="w-full max-w-md p-6">
+        <p className="flex items-center gap-2 text-xs tracking-wider text-creme/55 uppercase">
+          <Losango className="text-ouro" tamanho={6} /> Multiplayer · beta
+        </p>
+        <h1 className="titulo-serif mt-1 text-2xl text-ouro-claro">Duelo no East Blue</h1>
+        <p className="mt-2 text-sm leading-relaxed text-creme/70">
+          Até 2 capitães na mesma sala. Cada um sai da sua ilha e caça o outro — use o vento a seu favor e mantenha o costado virado
+          para o rival. Q/E disparam.
+        </p>
+
+        <label className="mt-5 block text-xs tracking-wider text-creme/55 uppercase" htmlFor="mp-nome">
+          Nome do capitão
+        </label>
+        <input
+          id="mp-nome"
+          value={nome}
+          maxLength={16}
+          onChange={(e) => setNome(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !conectando && entrar()}
+          placeholder="Ex.: Barba-Negra"
+          className="mt-1 w-full rounded-sm border border-painel-borda/50 bg-abissal/60 px-3 py-2 text-creme outline-none focus:border-ouro/70"
+          autoFocus
+        />
+
+        <p className="mt-4 text-xs tracking-wider text-creme/55 uppercase">Navio</p>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          {(Object.keys(NAVIOS) as TipoNavio[]).map((tipo) => (
+            <button
+              key={tipo}
+              onClick={() => setNavio(tipo)}
+              className={`rounded-sm border px-3 py-2 text-left transition-all ${
+                navio === tipo ? 'border-ouro/80 bg-painel-claro/80 shadow-[0_0_16px_-6px_var(--color-ouro)]' : 'border-painel-borda/40 hover:border-ouro/40'
+              }`}
+            >
+              <span className={`titulo-serif block text-sm ${tipo === 'pirata' ? 'text-[#e8836f]' : 'text-[#8fb8e4]'}`}>{NAVIOS[tipo].nome}</span>
+              <span className="text-[0.68rem] text-creme/55">{NAVIOS[tipo].descricao}</span>
+            </button>
+          ))}
+        </div>
+
+        <label className="mt-4 block text-xs tracking-wider text-creme/55 uppercase" htmlFor="mp-ilha">
+          Ilha de partida
+        </label>
+        <select
+          id="mp-ilha"
+          value={ilha}
+          onChange={(e) => setIlha(e.target.value)}
+          className="mt-1 w-full rounded-sm border border-painel-borda/50 bg-abissal/60 px-3 py-2 text-creme outline-none focus:border-ouro/70"
+        >
+          {ILHAS_DE_PARTIDA.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={entrar}
+          disabled={conectando}
+          className="mt-6 w-full rounded-sm border border-ouro/80 bg-ouro/15 px-4 py-2.5 titulo-serif text-lg text-ouro-claro hover:bg-ouro/25 disabled:opacity-50"
+        >
+          {conectando ? 'Entrando na sala…' : 'Zarpar!'}
+        </button>
+        {erro && <p className="mt-3 rounded-sm border border-pirata/60 bg-pirata/15 px-3 py-2 text-sm text-creme">{erro}</p>}
+
+        <div className="mt-5 border-t border-painel-borda/30 pt-3 text-xs leading-relaxed text-creme/55">
+          <p>
+            Endereço para o outro jogador: <span className="numero-ficha text-creme/85">{location.origin}/multiplayer</span>
+          </p>
+          {local && (
+            <p className="mt-1 text-pirata">
+              “localhost” só funciona neste computador. Rode com <b>npm run dev:mp</b> e passe o IP da rede (ou do Radmin/túnel) para o seu
+              amigo.
+            </p>
+          )}
+          <Link to="/navegacao" reloadDocument className="mt-2 inline-block hover:text-ouro-claro">
+            ← Voltar ao modo solo
+          </Link>
+        </div>
+      </Quadro>
+    </div>
+  )
+}
+
+/** Quem está na sala, o placar de abates e o ping. */
+function PainelOnline({ mp }: { mp: NonNullable<RetratoNavegacao['multiplayer']> }) {
+  return (
+    <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2">
+      <Quadro className="flex items-center gap-4 px-4 py-2 text-sm">
+        <span className="text-[0.65rem] tracking-wider text-creme/50 uppercase">Online</span>
+        {mp.jogadores.map((j) => (
+          <span key={j.nome + j.eu} className="flex items-center gap-1.5">
+            <span className={`size-2 rounded-full ${j.eu ? 'bg-ouro-claro' : 'bg-[#ff3b30]'}`} />
+            <span className={j.eu ? 'text-ouro-claro' : 'text-creme'}>{j.nome}</span>
+            <span className="text-[0.7rem] text-creme/50">({j.navio === 'pirata' ? 'Brave Tide' : 'Justice Crest'})</span>
+            <span className="numero-ficha text-creme" title="Navios afundados">
+              ☠ {j.abates}
+            </span>
+          </span>
+        ))}
+        {mp.jogadores.length < 2 && <span className="animate-pulse text-xs text-creme/60">esperando o rival…</span>}
+        <span className="numero-ficha text-[0.65rem] text-creme/45">{mp.ping} ms</span>
       </Quadro>
     </div>
   )

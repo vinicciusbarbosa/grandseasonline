@@ -19,6 +19,7 @@ import { criarEstadoViagem, passoNavegacao, type EstadoViagem } from '../sim/nav
 import { fisicaDoNavio, NAVIOS, type FisicaNavio, type TipoNavio } from '../sim/navios'
 import type { Balanco } from '../sim/ondas'
 import type { EstadoVento } from '../sim/vento'
+import type { EstadoMp } from '../mp/protocolo'
 import { CHAVE_PONTO, type Esteira } from './Esteira'
 import { desenharFita } from './fita'
 import { NavioVisual } from './NavioVisual'
@@ -75,6 +76,17 @@ export class CombateNaval {
   private acumulador = 0
   private readonly centroPatrulha: Vetor
 
+  // ---- Multiplayer beta: o "inimigo" é o navio do outro jogador ----------------
+  /** Sem patrulha: o único inimigo é o rival, movido pela rede. */
+  multiplayer = false
+  remotoId: string | null = null
+  private remotoNome = ''
+  private remotoFoto: { e: EstadoMp; em: number } | null = null
+  /** Quem nos acertou por último (para o placar, se afundarmos). */
+  ultimoAtirador: string | null = null
+  /** Chamado a cada salva NOSSA, para mandar pela rede. */
+  aoDisparar: ((lado: Lado, disparos: Disparo[]) => void) | null = null
+
   constructor(cena: Phaser.Scene, mundo: Mundo, plano: Phaser.GameObjects.Container, tipoJogador: TipoNavio) {
     this.cena = cena
     this.mundo = mundo
@@ -128,7 +140,81 @@ export class CombateNaval {
   }
 
   get nomeNpc() {
+    if (this.remotoId) return this.remotoNome
     return this.npcTipo === 'marinha' ? 'Patrulha da Marinha' : 'Piratas Saqueadores'
+  }
+
+  /** Liga o modo multiplayer: some a patrulha, e o inimigo passa a vir da rede. */
+  entrarMultiplayer() {
+    this.multiplayer = true
+    this.removerNpc(Infinity)
+  }
+
+  /**
+   * Novo retrato do navio rival (chega ~15× por segundo). Cria o navio na
+   * primeira vez; depois só guarda a foto — o movimento é suavizado no
+   * atualizar() (interpolação + projeção pela velocidade).
+   */
+  receberRival(id: string, nome: string, tipo: TipoNavio, e: EstadoMp) {
+    if (!this.npc || this.remotoId !== id || this.npcTipo !== tipo) {
+      this.npcVisual?.destruir()
+      this.npcTipo = tipo
+      this.npc = criarEstadoViagem({ x: e.x, y: e.y }, e.rumo)
+      this.npcFisica = fisicaDoNavio(NAVIOS[tipo].atributos)
+      this.npcCombate = criarEstadoCombate(tipo === 'marinha' ? ARTILHARIA_MARINHA : ARTILHARIA_PIRATA, e.cascoMax, e.velasMax)
+      this.npcVisual = new NavioVisual(this.cena, tipo, 21)
+      this.remotoId = id
+    }
+    this.remotoNome = nome
+    // Voltou do naufrágio para a ilha: teleporta em vez de "deslizar" até lá.
+    if (this.remotoFoto && (Math.hypot(e.x - this.npc.posicao.x, e.y - this.npc.posicao.y) > 300 || (this.npc.naufragio !== null && e.naufragio === null))) {
+      this.npc.posicao.x = e.x
+      this.npc.posicao.y = e.y
+      this.npc.rumo = e.rumo
+      if (this.npc.naufragio !== null && e.naufragio === null) {
+        // Navio novo depois do naufrágio: desenho novo (sem os destroços do anterior).
+        this.npcVisual?.destruir()
+        this.npcVisual = new NavioVisual(this.cena, tipo, 21)
+      }
+    }
+    this.remotoFoto = { e, em: performance.now() }
+    const c = this.npcCombate!
+    c.casco = e.casco
+    c.cascoMax = e.cascoMax
+    c.velas = e.velas
+    c.velasMax = e.velasMax
+    this.npc.naufragio = e.naufragio
+  }
+
+  /** Salva do rival: anima e, se acertar, o dano cai no NOSSO navio. */
+  receberSalva(id: string, lado: Lado, disparos: Disparo[]) {
+    if (!this.npc || this.remotoId !== id) return
+    this.lancar(disparos, false, lado, this.npc)
+    if (disparos.some((d) => d.acerta)) this.ultimoAtirador = id
+  }
+
+  removerRival(id: string) {
+    if (this.remotoId !== id) return
+    this.removerNpc(Infinity)
+    this.remotoId = null
+    this.remotoFoto = null
+  }
+
+  /** Posição suavizada do rival: persegue a foto projetada pela velocidade dela. */
+  private moverRival(dt: number) {
+    const npc = this.npc
+    const f = this.remotoFoto
+    if (!npc || !f) return
+    const idade = Math.min(0.35, (performance.now() - f.em) / 1000)
+    const alvo = { x: f.e.x + f.e.mx * idade, y: f.e.y + f.e.my * idade }
+    const k = 1 - Math.exp(-12 * dt)
+    npc.posicao.x += (alvo.x - npc.posicao.x) * k
+    npc.posicao.y += (alvo.y - npc.posicao.y) * k
+    const dr = Math.atan2(Math.sin(f.e.rumo - npc.rumo), Math.cos(f.e.rumo - npc.rumo))
+    npc.rumo += dr * k
+    npc.velocidade = f.e.v
+    npc.movimento = { x: f.e.mx, y: f.e.my }
+    if (npc.naufragio !== null) npc.naufragio += dt
   }
 
   /**
@@ -162,7 +248,9 @@ export class CombateNaval {
     if (naZonaSegura(this.mundo, jogador.posicao) || naZonaSegura(this.mundo, this.npc.posicao)) return 'zona-segura'
     const situacao = situacaoDaBateria(jogador, this.combateJogador, lado, this.npc.posicao)
     if (situacao !== 'pronta') return situacao
-    this.lancar(dispararSalva(jogador, this.combateJogador, lado, this.npc, meioComprimento, tempestade), true, lado, jogador)
+    const disparos = dispararSalva(jogador, this.combateJogador, lado, this.npc, meioComprimento, tempestade)
+    this.lancar(disparos, true, lado, jogador)
+    this.aoDisparar?.(lado, disparos)
     return 'ok'
   }
 
@@ -212,7 +300,9 @@ export class CombateNaval {
     let jogadorAfundou = false
     let inimigoAfundou = false
 
-    if (!this.npc) {
+    if (this.multiplayer) {
+      this.moverRival(dt)
+    } else if (!this.npc) {
       this.reaparecer -= dt
       if (this.reaparecer <= 0) this.criarNpc()
     } else if (this.npcCombate) {
@@ -253,7 +343,9 @@ export class CombateNaval {
         if (alvo && estadoAlvo && estadoAlvo.naufragio === null) {
           aplicarDano(alvo, b.dano)
           this.acerto(b.destino)
-          if (alvo.casco <= 0) {
+          // No multiplayer, quem decide o naufrágio do rival é o próprio rival
+          // (o dano que ele recebe chega pela salva); aqui é só o efeito.
+          if (alvo.casco <= 0 && !(this.multiplayer && b.deJogador)) {
             estadoAlvo.naufragio = 0
             estadoAlvo.rota = null
             if (b.deJogador) inimigoAfundou = true
@@ -454,7 +546,7 @@ export class CombateNaval {
           : null,
       inimigoPerto: distancia < 700,
       modoAtaque: this.alvoSelecionado,
-      podeAbordar: !!(npc && this.npcCombate && npc.naufragio === null && jogador.naufragio === null && podeAbordar(jogador, npc, this.npcCombate)),
+      podeAbordar: !this.multiplayer && !!(npc && this.npcCombate && npc.naufragio === null && jogador.naufragio === null && podeAbordar(jogador, npc, this.npcCombate)),
     }
   }
 

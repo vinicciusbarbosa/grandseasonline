@@ -292,6 +292,22 @@ frontend/src/navegacao/
      Three.js fica num pedaço separado do bundle e só é baixado nesse caso.
   Mudou uma ilha? Rode `gerar_mundo.py` e depois `assar_ilhas.mjs`.
 
+- **Multiplayer beta (2 jogadores)** — rota `/multiplayer`. O servidor é um
+  plugin do Vite (`frontend/servidor/multiplayer.ts`): o mesmo `npm run dev`
+  (ou `npm run multiplayer`, a versão compilada) serve o jogo e a sala, em
+  WebSocket no caminho `/mp`. Uma sala, até 2 capitães; cada um escolhe nome,
+  navio e ilha de partida. O servidor guarda o **relógio da sala** (vento e
+  ondas dependem do tempo: os dois veem o mesmo vento), repassa o estado dos
+  navios (~15/s) e as salvas, e conta os abates. Cada cliente é dono do
+  próprio navio (movimento, e o dano que recebe); quem atira decide os
+  acertos da própria salva. Sem patrulha nem abordagem no PvP. É para testar
+  se o combate e a navegação são divertidos entre duas pessoas — a versão de
+  verdade precisa ser autoritativa no servidor C#.
+  Para o segundo jogador entrar de outro computador: `npm run dev:mp` ou
+  `npm run multiplayer` (abrem para a rede) e ele acessa
+  `http://<ip>:5173/multiplayer` — na mesma rede, por uma VPN tipo Radmin, ou
+  por um túnel (`cloudflared tunnel --url http://localhost:5173`).
+
 Não coberto ainda: animação nas ilhas (pás dos moinhos, fumaça, bandeiras),
 encontros aleatórios, multiplayer, interação ao atracar,
 porte do combate de tripulação para o servidor C# (a regra em

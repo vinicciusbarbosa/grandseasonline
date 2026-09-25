@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mp": "vite --mode mp",
+    "multiplayer": "tsc -b && vite build --mode mp && vite preview --mode mp",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -23,10 +25,12 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/three": "^0.186.0",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "ws": "^8.21.3"
   }
 }

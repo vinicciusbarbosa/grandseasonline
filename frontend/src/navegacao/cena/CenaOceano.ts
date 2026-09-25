@@ -10,6 +10,8 @@ import { agitacaoEm, alturaDoMar, balancoNoMar, componentes, componentesTempesta
 import { REDEMOINHOS } from '../sim/redemoinho'
 import { intensidadeTempestade, TEMPESTADES } from '../sim/tempestade'
 import { ventoEm, type EstadoVento } from '../sim/vento'
+import type { EntradaMp, Rede } from '../mp/Rede'
+import type { DisparoMp, MsgServidor } from '../mp/protocolo'
 import { Clima } from './Clima'
 import { desempenho } from './desempenho'
 import { CombateNaval } from './CombateNaval'
@@ -17,7 +19,7 @@ import { Correntes } from './Correntes'
 import { Esteira, type EntradaEsteira } from './Esteira'
 import { Ilhas } from './Ilhas'
 import { NavioVisual } from './NavioVisual'
-import { ACHATAMENTO, ELEVACAO } from './projecao'
+import { ACHATAMENTO, ELEVACAO, projetar } from './projecao'
 import { FRAGMENTO_OCEANO } from './shaderOceano'
 import { criarTexturaRuido } from './texturaRuido'
 import { VentoVisual } from './VentoVisual'
@@ -88,8 +90,19 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   /** Onde o navio volta depois de naufragar: a última ilha em que atracou. */
   private ultimaIlha: Ilha | null = null
 
-  constructor() {
+  // ---- Multiplayer beta ---------------------------------------------------------
+  /** Conexão com a sala; null no modo solo. */
+  readonly rede: Rede | null
+  private readonly entradaMp: EntradaMp | null
+  private proximoEnvio = 0
+  private rotulos: Phaser.GameObjects.Text | null = null
+  private pararDeOuvir: (() => void) | null = null
+
+  constructor(multiplayer?: { rede: Rede; entrada: EntradaMp }) {
     super('oceano')
+    this.rede = multiplayer?.rede ?? null
+    this.entradaMp = multiplayer?.entrada ?? null
+    if (this.entradaMp) this.tipo = this.entradaMp.navio
   }
 
   preload() {
@@ -119,11 +132,13 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.combate = new CombateNaval(this, this.mundo, this.plano, this.tipo)
 
     // Começa atracado na primeira ilha do East Blue, com a proa para o mar aberto.
-    const inicial = this.mundo.ilhas.find((i) => i.nome === ILHA_INICIAL) ?? this.mundo.ilhas[0]
+    const nomeInicial = this.entradaMp?.ilha ?? ILHA_INICIAL
+    const inicial = this.mundo.ilhas.find((i) => i.nome === nomeInicial) ?? this.mundo.ilhas[0]
     this.ultimaIlha = inicial
     this.estado = criarEstadoViagem(this.mundo.posicaoDaDoca(inicial), Math.PI * 0.85)
     this.estado.atracadoEm = inicial
     this.criarNavio(this.tipo)
+    if (this.rede) this.iniciarMultiplayer(this.rede)
 
     // Em desenvolvimento, a cena fica acessível no console (e nos testes de navegador).
     if (import.meta.env.DEV) (window as unknown as { cenaOceano: CenaOceano }).cenaOceano = this
@@ -172,6 +187,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   // ---- Comandos (HUD) -----------------------------------------------------------
 
   trocarNavio(tipo: TipoNavio) {
+    if (this.rede) return // no multiplayer, o navio é o escolhido na entrada
     if (tipo === this.tipo) return
     this.tipo = tipo
     this.navio.destruir()
@@ -189,6 +205,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   }
 
   definirEscalaTempo(escala: number) {
+    if (this.rede) return // o tempo é o da sala
     this.escalaTempo = escala
   }
 
@@ -268,7 +285,8 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     // Durante a abordagem o mar congela (dt = 0) e só o React anda.
     const dt = this.abordagem ? 0 : (Math.min(deltaMs, 50) / 1000) * this.escalaTempo
     this.ajustarQualidade()
-    this.tempo += dt
+    // No multiplayer o tempo é o relógio da sala: vento e ondas iguais para os dois.
+    this.tempo = this.rede ? this.rede.relogio() : this.tempo + dt
 
     // Passo fixo: a simulação dá o mesmo resultado em 30 ou 144 fps — e é o
     // mesmo passo que um servidor autoritativo usaria.
@@ -303,7 +321,10 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     if (this.estado.atracadoEm) this.ultimaIlha = this.estado.atracadoEm
 
     const combate = this.combate.atualizar(dt, this.estado, this.vento, tormentaNavio, this.esteira)
-    if (combate.jogadorAfundou) this.motivoNaufragio = 'combate'
+    if (combate.jogadorAfundou) {
+      this.motivoNaufragio = 'combate'
+      this.rede?.afundei(this.combate.ultimoAtirador)
+    }
     if (combate.inimigoAfundou) {
       this.berries += SAQUE_AFUNDADO
       this.avisar(`${this.combate.nomeNpc} foi a pique. Só deu para pescar ${SAQUE_AFUNDADO.toLocaleString('pt-BR')} berries dos destroços.`, 5000)
@@ -354,6 +375,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     }
 
     this.atualizarCamera(dt, razao)
+    if (this.rede) this.passoMultiplayer(this.rede)
     const camera = this.cameras.main
     const centro = { x: camera.midPoint.x, y: camera.midPoint.y / ACHATAMENTO }
     const alvoTempestade = intensidadeTempestade(centro, celula)
@@ -379,6 +401,82 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
 
   // ---- Internos --------------------------------------------------------------------
 
+  // ---- Multiplayer beta ---------------------------------------------------------
+
+  private iniciarMultiplayer(rede: Rede) {
+    this.combate.entrarMultiplayer()
+    this.combate.aoDisparar = (lado, disparos) =>
+      rede.enviarSalva(
+        lado,
+        disparos.map((d) => ({ ox: d.origem.x, oy: d.origem.y, dx: d.destino.x, dy: d.destino.y, acerta: d.acerta, voo: d.voo, atraso: d.atraso, dano: d.dano })),
+      )
+    this.pararDeOuvir = rede.ouvir((m) => this.mensagemDaRede(rede, m))
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.pararDeOuvir?.())
+    this.rotulos = this.add
+      .text(0, 0, '', { fontFamily: 'Cinzel, Georgia, serif', fontSize: '14px', fontStyle: 'bold', color: '#fff1c9', stroke: '#1b1409', strokeThickness: 4 })
+      .setOrigin(0.5, 1)
+      .setDepth(6)
+      .setResolution(2)
+    this.avisar(`Você entrou na sala como ${this.entradaMp?.nome}. Saia da zona segura para caçar o rival!`, 5000)
+  }
+
+  private mensagemDaRede(rede: Rede, m: MsgServidor) {
+    const deMp = (d: DisparoMp) => ({ origem: { x: d.ox, y: d.oy }, destino: { x: d.dx, y: d.dy }, acerta: d.acerta, voo: d.voo, atraso: d.atraso, dano: d.dano })
+    switch (m.t) {
+      case 'estado': {
+        const j = rede.jogadores.find((x) => x.id === m.id)
+        if (j) this.combate.receberRival(m.id, j.nome, j.navio, m.e)
+        break
+      }
+      case 'salva':
+        this.combate.receberSalva(m.id, m.lado, m.disparos.map(deMp))
+        break
+      case 'afundou': {
+        if (m.id === rede.id) this.avisar(m.por ? `${rede.nome(m.por)} afundou você!` : 'Seu navio afundou.', 5000)
+        else if (m.por === rede.id) this.avisar(`Você afundou ${rede.nome(m.id)}! 🏴‍☠️`, 5000)
+        else this.avisar(`${rede.nome(m.id)} afundou.`, 4000)
+        break
+      }
+      case 'saiu':
+        if (m.id === '__eu__') this.avisar('A conexão com a sala caiu. Recarregue a página para voltar.', 60000)
+        else {
+          this.combate.removerRival(m.id)
+          this.avisar(`${m.nome} saiu da sala.`, 4000)
+        }
+        break
+      case 'jogadores':
+        if (rede.jogadores.length > 1 && !this.combate.remotoId) this.avisar('O rival entrou na sala!', 4000)
+        break
+    }
+  }
+
+  /** Manda nosso retrato ~15× por segundo e escreve os nomes sobre os navios. */
+  private passoMultiplayer(rede: Rede) {
+    const agora = performance.now()
+    const e = this.estado
+    const c = this.combate.combateJogador
+    if (agora >= this.proximoEnvio) {
+      this.proximoEnvio = agora + 66
+      rede.enviarEstado({
+        x: Math.round(e.posicao.x * 10) / 10,
+        y: Math.round(e.posicao.y * 10) / 10,
+        rumo: Math.round(e.rumo * 1000) / 1000,
+        v: Math.round(e.velocidade * 10) / 10,
+        mx: Math.round(e.movimento.x * 10) / 10,
+        my: Math.round(e.movimento.y * 10) / 10,
+        casco: Math.round(c.casco),
+        cascoMax: c.cascoMax,
+        velas: Math.round(c.velas),
+        velasMax: c.velasMax,
+        naufragio: e.naufragio,
+      })
+    }
+    if (this.rotulos) {
+      const topo = projetar(e.posicao.x, e.posicao.y, 105)
+      this.rotulos.setText(this.entradaMp?.nome ?? '').setPosition(topo.x, topo.y - 4).setVisible(e.naufragio === null)
+    }
+  }
+
   private criarNavio(tipo: TipoNavio) {
     this.fisica = fisicaDoNavio(NAVIOS[tipo].atributos)
     this.navio = new NavioVisual(this, tipo, tipo === 'pirata' ? 7 : 13)
@@ -399,6 +497,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     }
     this.avisar(`${causa[this.motivoNaufragio]} A tripulação recomeça em ${ilha.nome}, com o navio reparado.`, 5000)
     this.motivoNaufragio = 'redemoinho'
+    this.combate.ultimoAtirador = null
   }
 
   private clicar(p: Vetor) {
@@ -662,6 +761,13 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       grade: this.grade,
       posicao: { x: e.posicao.x, y: e.posicao.y },
       aviso: this.aviso?.texto ?? null,
+      multiplayer: this.rede
+        ? {
+            ping: this.rede.ping,
+            jogadores: this.rede.jogadores.map((j) => ({ nome: j.nome, navio: j.navio, abates: j.abates, eu: j.id === this.rede!.id })),
+          }
+        : null,
+      rival: this.rede && this.combate.npc ? { x: this.combate.npc.posicao.x, y: this.combate.npc.posicao.y } : null,
       combate: this.combate.info(this.estado),
       emAbordagem: this.abordagem !== null,
       berries: this.berries,

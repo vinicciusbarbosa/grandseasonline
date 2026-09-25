@@ -47,6 +47,15 @@ export function App() {
               }
             />
 
+            <Route
+              path="/multiplayer"
+              element={
+                <Suspense fallback={<Carregando texto="Içando as velas…" />}>
+                  <TelaNavegacao multiplayer />
+                </Suspense>
+              }
+            />
+
             <Route element={<RotaProtegida />}>
               <Route element={<LayoutJogo />}>
                 <Route path="/tripulacoes" element={<SelecionarTripulacao />} />

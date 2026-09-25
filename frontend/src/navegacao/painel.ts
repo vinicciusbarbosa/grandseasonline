@@ -39,6 +39,10 @@ export type RetratoNavegacao = {
   posicao: { x: number; y: number }
   aviso: string | null
   combate: InfoCombate
+  /** Multiplayer beta: quem está na sala (null no solo). */
+  multiplayer: { ping: number; jogadores: { nome: string; navio: TipoNavio; abates: number; eu: boolean }[] } | null
+  /** Posição do navio rival (multiplayer), para o minimapa. */
+  rival: { x: number; y: number } | null
   emAbordagem: boolean
   berries: number
 }
