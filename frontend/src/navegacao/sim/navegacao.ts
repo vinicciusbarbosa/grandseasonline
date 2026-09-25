@@ -112,7 +112,7 @@ export function passoNavegacao(
   atualizarVisualRedemoinho(estado, redemoinho, dt)
   if (redemoinho && (redemoinho.zona === 'captura' || redemoinho.zona === 'centro')) estado.capturado = true
   if (estado.capturado && redemoinho) {
-    girarNoRedemoinho(mundo, estado, redemoinho, dt)
+    girarNoRedemoinho(estado, redemoinho, dt)
     return
   }
 
@@ -198,6 +198,12 @@ export function passoNavegacao(
   }
   estado.correnteAtual.x += (alvoCorrente.x - estado.correnteAtual.x) * Math.min(1, dt * 1.5)
   estado.correnteAtual.y += (alvoCorrente.y - estado.correnteAtual.y) * Math.min(1, dt * 1.5)
+  // A água do redemoinho entra direto, sem suavizar: suavizar um vetor que
+  // gira atrasa a tangente e cria um empurrão para fora.
+  if (redemoinho) {
+    estado.correnteAtual.x = alvoCorrente.x
+    estado.correnteAtual.y = alvoCorrente.y
+  }
 
   // Atracado, o navio encosta devagar na doca e fica preso a ela.
   if (estado.atracadoEm) {
@@ -222,7 +228,6 @@ export function passoNavegacao(
  * Tudo é suavizado (sem trancos): velocidades e rumo seguem alvos.
  */
 function girarNoRedemoinho(
-  mundo: Mundo,
   estado: EstadoViagem,
   r: NonNullable<ReturnType<typeof influenciaRedemoinho>>,
   dt: number,
@@ -231,16 +236,24 @@ function girarNoRedemoinho(
   estado.indoPara = null
   estado.atracadoEm = null
 
-  const radial = { x: (r.centro.x - estado.posicao.x) / Math.max(r.distancia, 1), y: (r.centro.y - estado.posicao.y) / Math.max(r.distancia, 1) }
-  const naDirecaoDoCentro = r.correnteza.x * radial.x + r.correnteza.y * radial.y
-  const giro = { x: r.correnteza.x - radial.x * naDirecaoDoCentro, y: r.correnteza.y - radial.y * naDirecaoDoCentro }
-  // A espiral leva uns 9 s da captura ao centro.
-  const succao = 9 + 12 * r.profundidade
-  const suave = 1 - Math.exp(-2.5 * dt)
-  estado.correnteAtual.x += (giro.x - estado.correnteAtual.x) * suave
-  estado.correnteAtual.y += (giro.y - estado.correnteAtual.y) * suave
-  estado.movimento.x += (radial.x * succao - estado.movimento.x) * suave
-  estado.movimento.y += (radial.y * succao - estado.movimento.y) * suave
+  // Integra em coordenadas polares: o ângulo gira com a água e o raio só
+  // diminui. (Somar vetores de velocidade suavizados atrasava a tangente, e o
+  // atraso empurrava o navio para fora: ele orbitava para sempre.)
+  const dx = estado.posicao.x - r.centro.x
+  const dy = estado.posicao.y - r.centro.y
+  const angulo = Math.atan2(dy, dx)
+  const tangencial = Math.hypot(r.correnteza.x, r.correnteza.y) * 0.9
+  // Sentido do giro: o mesmo da correnteza.
+  const sentido = Math.sign(dx * Math.sin(r.tangente) - dy * Math.cos(r.tangente)) || 1
+  // A espiral leva uns 9 s da captura ao centro, acelerando no fim.
+  const succao = 8 + 14 * r.profundidade
+  const raio = Math.max(0, r.distancia - succao * dt)
+  const novoAngulo = angulo + (sentido * tangencial * dt) / Math.max(raio, 20)
+  const destino = { x: r.centro.x + Math.cos(novoAngulo) * raio, y: r.centro.y + Math.sin(novoAngulo) * raio }
+  estado.movimento.x = (destino.x - estado.posicao.x) / dt
+  estado.movimento.y = (destino.y - estado.posicao.y) / dt
+  estado.correnteAtual.x = 0
+  estado.correnteAtual.y = 0
 
   // Rumo: acompanha a tangente (uma volta por órbita) e ganha giro próprio
   // perto do centro — sempre seguindo o alvo com suavidade.
@@ -249,11 +262,12 @@ function girarNoRedemoinho(
   const antes = estado.rumo
   estado.rumo += diferencaAngular(estado.rumo, alvo) * Math.min(1, 2.2 * dt)
   estado.giroAtual = diferencaAngular(antes, estado.rumo) / Math.max(dt, 1e-6)
-  estado.velocidade = Math.hypot(estado.correnteAtual.x, estado.correnteAtual.y) * 0.5
+  estado.velocidade = tangencial * 0.5
 
   estado.alagamento = Math.min(1, estado.alagamento + dt / 9)
-  mover(mundo, estado, (estado.movimento.x + estado.correnteAtual.x) * dt, (estado.movimento.y + estado.correnteAtual.y) * dt)
-  if (r.zona === 'centro') estado.naufragio = 0
+  estado.posicao.x = destino.x
+  estado.posicao.y = destino.y
+  if (r.zona === 'centro' || raio < 30) estado.naufragio = 0
 }
 
 /** Funil e adernamento: o navio desce na água e se inclina para o centro. */

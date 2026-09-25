@@ -261,7 +261,12 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
 
     this.correntes.atualizar(dt, camera.worldView)
     this.visualRedemoinho.atualizar(dt, camera.worldView)
-    this.ventoVisual.atualizar(dt, this.vento, this.tempestadeNaVista, camera.worldView)
+    const rd = REDEMOINHOS[0]
+    this.ventoVisual.atualizar(dt, this.vento, this.tempestadeNaVista, camera.worldView, {
+      x: rd.cx * celula,
+      y: rd.cy * celula,
+      raio: rd.raio * celula,
+    })
     this.clima.atualizar(dt, this.tempestadeNaVista, this.vento, (x, y) => intensidadeTempestade({ x, y }, celula))
     this.ilhas.atualizar(this.estado.posicao, this.tempo)
     this.desenharRota()
@@ -462,6 +467,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       ventoIntensidade: this.vento.intensidade,
       fatorVento: e.fatorVento,
       naCorrente: Math.hypot(e.correnteAtual.x, e.correnteAtual.y) > 5,
+      velas: this.navio.estadoVelas,
       tempestade: intensidadeTempestade(e.posicao, this.mundo.celula),
       som: this.clima.somLigado,
       zonaSegura,

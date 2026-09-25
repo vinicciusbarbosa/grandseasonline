@@ -347,7 +347,7 @@ export class NavioVisual {
     // é o vento projetado na normal do pano. A favor, o pano enche para a
     // frente; de proa, vai "para trás"; paralelo ao pano, ele paneja.
     const relativo = diferencaAngular(estado.rumo, vento.direcao)
-    const regulagem = Phaser.Math.Clamp(relativo * 0.5, -0.7, 0.7)
+    const regulagem = Phaser.Math.Clamp(relativo * 0.6, -0.9, 0.9)
     const pressao = Math.cos(relativo - regulagem)
     const alvoEnchimento = vento.intensidade * pressao
     this.enchimento += (alvoEnchimento - this.enchimento) * (1 - Math.exp(-dt / 0.6))
@@ -358,7 +358,7 @@ export class NavioVisual {
     const mastros = p.mastros
       .map((m) => ({ m, x: xDe(p, m.s) }))
       .sort((a, b) => this.profundidadeDe(a.x, 0) - this.profundidadeDe(b.x, 0))
-    for (const { m, x } of mastros) this.desenharMastro(m, x, regulagem, this.enchimento * 10, vento, estado.rumo, tempo)
+    for (const { m, x } of mastros) this.desenharMastro(m, x, regulagem, this.enchimento * 17, vento, estado.rumo, tempo)
 
     this.desenharCordame()
   }
@@ -768,7 +768,7 @@ export class NavioVisual {
     const ponto = (u: number, v: number): P3 => {
       // Barriga do pano + ondulação de panejo (pano batendo quando o vento
       // corre paralelo a ele), que anda de uma ponta à outra.
-      const onda = this.panejo * 1.8 * Math.sin(u * 9 - this.tempoAtual * 15 + v * 2.5) * Math.sin(Math.PI * u)
+      const onda = this.panejo * 3.4 * Math.sin(u * 9 - this.tempoAtual * 15 + v * 2.5) * Math.sin(Math.PI * u)
       const b = barriga * Math.sin(Math.PI * u) * (0.35 + 0.65 * Math.sin(Math.PI * v)) + onda
       const a = (u - 0.5) * largura * (1 - v * 0.08)
       return { x: xm + 1.5 + eixo.x * a + normal.x * b, y: eixo.y * a + normal.y * b, z: z0 + v * (z1 - z0) }
@@ -781,7 +781,9 @@ export class NavioVisual {
         const v0 = j / linhas
         const v1 = (j + 1) / linhas
         const meio = Math.sin(Math.PI * (u0 + u1) * 0.5) * Math.sin(Math.PI * (v0 + v1) * 0.5)
-        this.preencher([ponto(u0, v0), ponto(u1, v0), ponto(u1, v1), ponto(u0, v1)], misturar(pal.vela, pal.velaBrilho, meio * 0.55))
+        // Pano cheio brilha no meio (esticado); frouxo fica opaco.
+        const brilho = meio * (0.25 + 0.6 * Math.min(1, Math.abs(this.enchimento)))
+        this.preencher([ponto(u0, v0), ponto(u1, v0), ponto(u1, v1), ponto(u0, v1)], misturar(pal.vela, pal.velaBrilho, brilho))
       }
     }
     // Borda escura do pano.
@@ -890,6 +892,14 @@ export class NavioVisual {
       x: estado.posicao.x + Math.cos(estado.rumo) * this.meioComprimento,
       y: estado.posicao.y + Math.sin(estado.rumo) * this.meioComprimento,
     }
+  }
+
+  /** Como está o pano agora, para o HUD. */
+  get estadoVelas(): 'cheias' | 'a-re' | 'panejando' | 'frouxas' {
+    if (this.panejo > 0.45) return 'panejando'
+    if (this.enchimento > 0.35) return 'cheias'
+    if (this.enchimento < -0.15) return 'a-re'
+    return 'frouxas'
   }
 
   destruir() {

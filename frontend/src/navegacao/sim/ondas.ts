@@ -47,10 +47,10 @@ export function componentes(): readonly OndaComponente[] {
  * O shader tem a mesma fórmula.
  */
 const ONDAS_TEMPESTADE: OndaComponente[] = [
-  // Dois trens de vagas longas vindos de direções a ~65° um do outro: onde
-  // as cristas se cruzam, as ondas somam e "colidem".
-  { direcao: 0.95, comprimento: 780, amplitude: 22, velocidade: 88, fase: 0.8 },
-  { direcao: -0.2, comprimento: 560, amplitude: 15, velocidade: 74, fase: 2.9 },
+  // Vaga principal longa e alta, e uma secundária de direção próxima (~35°):
+  // somam e se desencontram como mar de tempestade, sem xadrez estranho.
+  { direcao: 0.95, comprimento: 720, amplitude: 17, velocidade: 82, fase: 0.8 },
+  { direcao: 0.35, comprimento: 430, amplitude: 8, velocidade: 64, fase: 2.9 },
 ]
 
 export function componentesTempestade(): readonly OndaComponente[] {

@@ -143,7 +143,8 @@ void main() {
   // acima na tela. Uma iteração basta para as vagas "subirem" de verdade.
   float tormenta0 = tempestadeEm(p);
   float h0 = alturaEm(p, t, tormenta0, 1.0 + ${AGITACAO_TEMPESTADE.toFixed(2)} * tormenta0);
-  p.y = (pp.y + h0 * uElevacao) / uAchatamento;
+  // Na tempestade a paralaxe é parcial: inteira, as vagas altas "dobram" a imagem.
+  p.y = (pp.y + h0 * uElevacao * mix(1.0, 0.5, tormenta0)) / uAchatamento;
   vec2 vento = uVento.xy;
   float forca = uVento.z;
 
@@ -207,22 +208,57 @@ void main() {
   crista = max(crista, smoothstep(0.9, 0.99, sin(faseCruzada)) * tormenta * 0.7);
   float quebra = smoothstep(0.42, 0.6, ruidoFino(p * 0.0032 + deslize * 2.0));
   float carneiro = crista * quebra * smoothstep(0.1, 0.5, hn + 0.3);
-  // Na tempestade, as vagas grandes quebram na crista: espuma farta e revolta.
-  // A espuma anda JUNTO com a crista (ruído lido no referencial da onda):
-  // nada de espuma tremendo parada enquanto a onda passa.
-  float faseVaga0 = uVaga0.z * dot(uVaga0.xy, p) - uVaga0.w * t + uVagaFase.x;
-  float faseVaga1 = uVaga1.z * dot(uVaga1.xy, p) - uVaga1.w * t + uVagaFase.y;
-  vec2 naOnda0 = p - uVaga0.xy * (uVaga0.w / uVaga0.z) * t;
-  vec2 naOnda1 = p - uVaga1.xy * (uVaga1.w / uVaga1.z) * t;
-  float crista0 = smoothstep(0.72, 0.97, sin(faseVaga0)) * smoothstep(0.4, 0.6, ruidoFino(naOnda0 * 0.0032));
-  float crista1 = smoothstep(0.75, 0.97, sin(faseVaga1)) * smoothstep(0.42, 0.62, ruidoFino(naOnda1 * 0.0034 + 0.37));
-  // Onde as duas cristas se encontram, as ondas colidem: espuma farta.
-  float colisao = smoothstep(0.55, 0.9, sin(faseVaga0)) * smoothstep(0.55, 0.9, sin(faseVaga1));
-  float quebraVaga = max(max(crista0, crista1), colisao * smoothstep(0.3, 0.55, ruido((naOnda0 + naOnda1) * 0.0018)));
-  carneiro = max(carneiro, quebraVaga * tormenta);
-  // Lado da vaga virado para o sol claro, costas escuras: a leitura de volume.
-  agua *= 1.0 + tormenta * 0.25 * (sin(faseVaga0 + 0.9) + 0.6 * sin(faseVaga1 + 0.9));
-  agua = mix(agua, vec3(0.9, 0.95, 0.97), carneiro * (0.1 + 0.8 * tormenta) * smoothstep(20.0, 80.0, sdn));
+  agua = mix(agua, vec3(0.9, 0.95, 0.97), carneiro * 0.1 * smoothstep(20.0, 80.0, sdn));
+  // ---- Mar de tempestade ---------------------------------------------------------------
+  // Diferente do mar aberto: vagas longas + mar picado de cristas agudas por
+  // cima + faixas de espuma arrastadas pelo vento. A espuma é lida no
+  // referencial da própria onda, então anda junto com ela.
+  if (tormenta > 0.01) {
+    vec2 frente = normalize(vento + vec2(1e-4, 0.0));
+    vec2 lado = vec2(-frente.y, frente.x);
+    // Mar picado: três ondas curtas de crista pontuda mas contínua
+    // (s³, com s = (1 + sen)/2), sem as quinas que facetavam a água.
+    float pic = 0.0;
+    vec2 gp = vec2(0.0);
+    for (int i = 0; i < 3; i++) {
+      float fi = float(i);
+      vec2 d = normalize(frente + lado * (fi - 1.0) * 0.55);
+      float k = 6.2831 / (150.0 - fi * 32.0);
+      float fase = k * (dot(d, p) - (38.0 + fi * 6.0) * t) + fi * 2.1;
+      float s = 0.5 + 0.5 * sin(fase);
+      pic += s * s * s;
+      gp += 1.5 * s * s * cos(fase) * k * d;
+    }
+    pic /= 3.0;
+    g += gp * 1.4 * tormenta;
+    vec3 nT = normalize(vec3(-g * 6.0, 1.0));
+    float luzT = dot(nT, sol);
+
+    float faseVaga0 = uVaga0.z * dot(uVaga0.xy, p) - uVaga0.w * t + uVagaFase.x;
+    vec2 naOnda0 = p - uVaga0.xy * (uVaga0.w / uVaga0.z) * t;
+    float vagaAlta = smoothstep(0.35, 1.0, sin(faseVaga0));
+
+    // Cavado quase preto, encosta da vaga clara: contraste forte = mar pesado.
+    vec3 mar = mix(vec3(0.02, 0.07, 0.1), vec3(0.22, 0.36, 0.38), smoothstep(-0.7, 0.95, hn));
+    mar *= 0.7 + 0.55 * luzT;
+    mar += vec3(0.12, 0.18, 0.19) * pic * 0.8;
+
+    // Carneiros: nas cristas do mar picado e, farto, na crista da vaga.
+    float grao = ruidoFino(naOnda0 * 0.0034);
+    float carneirosT = smoothstep(0.55, 0.85, pic) * smoothstep(0.42, 0.62, grao);
+    carneirosT = max(carneirosT, smoothstep(0.75, 1.0, sin(faseVaga0)) * smoothstep(0.35, 0.6, grao));
+    // Faixas de espuma esticadas na direção do vento (espuma de ventania).
+    // Linhas finas desenhadas por fórmula (seno torcido por ruído grosso),
+    // longas no sentido do vento e interrompidas aos pedaços.
+    vec2 q = vec2(dot(p, lado), dot(p, frente) - t * 70.0);
+    float linhas = smoothstep(0.93, 1.0, sin(q.x * 0.11 + ruido(q * vec2(0.0012, 0.0004)) * 9.0));
+    float pedacos = smoothstep(0.45, 0.65, ruido(vec2(q.x * 0.002, q.y * 0.0009) + 0.5));
+    float faixa = linhas * pedacos * 0.8;
+    float espumaT = clamp(carneirosT + faixa * (0.4 + 0.6 * vagaAlta), 0.0, 1.0);
+    mar = mix(mar, vec3(0.82, 0.88, 0.9), espumaT * 0.85);
+
+    agua = mix(agua, mar, smoothstep(0.0, 0.45, tormenta) * smoothstep(20.0, 80.0, sdn));
+  }
 
   // ---- Redemoinho ------------------------------------------------------------------
   // Padrão em coordenadas polares: espirais logarítmicas que correm para dentro.

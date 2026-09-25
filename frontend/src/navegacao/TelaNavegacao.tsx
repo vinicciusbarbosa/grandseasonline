@@ -177,7 +177,7 @@ function Instrumentos({ retrato }: { retrato: RetratoNavegacao }) {
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-abissal/70">
             <div className="h-full rounded-full bg-gradient-to-r from-marinha to-ouro-claro" style={{ width: `${razao * 100}%` }} />
           </div>
-          <p className="mt-3 text-xs tracking-wider text-creme/55 uppercase">Vento</p>
+          <p className="mt-3 text-xs tracking-wider text-creme/55 uppercase">Vento · velas</p>
           <p className="text-sm text-creme/90">
             {Math.round(retrato.ventoIntensidade * 100)}% ·{' '}
             <span className={efeito >= 0 ? 'text-ouro-claro' : 'text-pirata'}>
@@ -185,10 +185,18 @@ function Instrumentos({ retrato }: { retrato: RetratoNavegacao }) {
               {efeito}% {efeito >= 2 ? 'a favor' : efeito <= -2 ? 'contra' : 'de través'}
             </span>
           </p>
+          <p className="text-xs text-creme/70">{VELAS[retrato.velas]}</p>
         </div>
       </Quadro>
     </div>
   )
+}
+
+const VELAS: Record<RetratoNavegacao['velas'], string> = {
+  cheias: 'Velas cheias',
+  'a-re': 'Velas a ré (vento de proa)',
+  panejando: 'Velas panejando',
+  frouxas: 'Velas frouxas',
 }
 
 const ROTULOS: [keyof AtributosNavegacao, string][] = [

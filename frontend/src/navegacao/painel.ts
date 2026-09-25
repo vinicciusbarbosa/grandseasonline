@@ -25,6 +25,7 @@ export type RetratoNavegacao = {
   /** Multiplicador de velocidade que o vento está dando agora. */
   fatorVento: number
   naCorrente: boolean
+  velas: 'cheias' | 'a-re' | 'panejando' | 'frouxas'
   /** 0–1: intensidade da tempestade onde o navio está. */
   tempestade: number
   som: boolean
