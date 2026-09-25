@@ -24,10 +24,10 @@ type Particula = {
   opacidade: number
 }
 
-type PontoRastro = { x: number; y: number; idade: number; intensidade: number }
+type PontoRastro = { x: number; y: number; idade: number; intensidade: number; rumo: number; largura: number }
 
 const MAX_PARTICULAS = 420
-const DURACAO_RASTRO = 3.2
+const DURACAO_RASTRO = 2.4
 export const CHAVE_PONTO = 'ponto-suave'
 
 export type EntradaEsteira = {
@@ -85,30 +85,11 @@ export class Esteira {
     const frente = { x: Math.cos(e.rumo), y: Math.sin(e.rumo) }
     const lado = { x: -frente.y, y: frente.x }
 
+    // Um ponto de rastro a cada 60 ms: é dele que saem as faixas do "V".
     this.acumulado.rastro += dt
-    if (this.acumulado.rastro > 0.08 && r > 0.03) {
+    if (this.acumulado.rastro > 0.06 && r > 0.03) {
       this.acumulado.rastro = 0
-      this.pontos.push({ x: e.popa.x, y: e.popa.y, idade: 0, intensidade: r })
-    }
-
-    // Esteira em V: pares que abrem para os dois lados.
-    this.acumulado.popa += dt * 22 * r
-    while (this.acumulado.popa >= 1) {
-      this.acumulado.popa -= 1
-      for (const sinal of [-1, 1]) {
-        const abertura = 7 + 14 * r + Math.random() * 4
-        this.adicionar({
-          x: e.popa.x + lado.x * sinal * e.meiaLargura * 0.6,
-          y: e.popa.y + lado.y * sinal * e.meiaLargura * 0.6,
-          vx: lado.x * sinal * abertura - frente.x * 4,
-          vy: lado.y * sinal * abertura - frente.y * 4,
-          vida: 0,
-          duracao: 2.4 + Math.random() * 1.2,
-          tamanhoInicial: 3 + Math.random() * 2,
-          tamanhoFinal: 11 + Math.random() * 5 + r * 5,
-          opacidade: 0.22 + 0.4 * r,
-        })
-      }
+      this.pontos.push({ x: e.popa.x, y: e.popa.y, idade: 0, intensidade: r, rumo: e.rumo, largura: e.meiaLargura })
     }
 
     // Turbulência no meio da esteira.
@@ -187,14 +168,40 @@ export class Esteira {
   }
 
   private desenhar() {
-    this.rastro.clear()
+    const g = this.rastro
+    g.clear()
+
+    // Esteira do meio: faixa larga e clara que se dissolve.
     for (let i = 1; i < this.pontos.length; i++) {
       const a = this.pontos[i - 1]
       const b = this.pontos[i]
       if (Math.hypot(b.x - a.x, b.y - a.y) > 60) continue
       const f = b.idade / DURACAO_RASTRO
-      this.rastro.lineStyle(7 + f * 22, 0xdff4ff, (1 - f) * 0.18 * b.intensidade + 0.02 * (1 - f))
-      this.rastro.lineBetween(a.x, a.y, b.x, b.y)
+      g.lineStyle(10 + f * 26, 0xc9f1f5, (1 - f) * 0.2 * b.intensidade + 0.03 * (1 - f))
+      g.lineBetween(a.x, a.y, b.x, b.y)
+    }
+
+    // As duas faixas do "V": espuma contínua que abre para os lados, engrossa
+    // e some. A ondulação leve tira a cara de linha reta.
+    for (const lado of [-1, 1]) {
+      let anterior: { x: number; y: number } | null = null
+      for (let i = this.pontos.length - 1; i >= 0; i--) {
+        const pt = this.pontos[i]
+        const f = pt.idade / DURACAO_RASTRO
+        const abre = pt.largura * 0.75 + pt.idade * (7 + 13 * pt.intensidade)
+        const ondula = Math.sin(pt.idade * 7 + i * 0.9) * (0.5 + pt.idade * 0.7)
+        const px = -Math.sin(pt.rumo)
+        const py = Math.cos(pt.rumo)
+        const atual = { x: pt.x + px * lado * (abre + ondula), y: pt.y + py * lado * (abre + ondula) }
+        if (anterior && Math.hypot(atual.x - anterior.x, atual.y - anterior.y) < 80) {
+          const alfa = Math.pow(1 - f, 1.8) * (0.3 + 0.6 * pt.intensidade)
+          g.lineStyle(3 + pt.idade * 2.4, 0xffffff, alfa * 0.55)
+          g.lineBetween(anterior.x, anterior.y, atual.x, atual.y)
+          g.lineStyle(1.3, 0xffffff, alfa)
+          g.lineBetween(anterior.x, anterior.y, atual.x, atual.y)
+        }
+        anterior = atual
+      }
     }
 
     for (let i = 0; i < this.pool.length; i++) {
