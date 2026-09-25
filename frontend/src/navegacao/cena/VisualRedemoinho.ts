@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { REDEMOINHOS } from '../sim/redemoinho'
+import { desempenho } from './desempenho'
 import { CHAVE_PONTO } from './Esteira'
 import { desenharFita } from './fita'
 import { ACHATAMENTO, ELEVACAO } from './projecao'
@@ -13,7 +14,7 @@ import { ACHATAMENTO, ELEVACAO } from './projecao'
  * - névoa e brilho: manchas grandes e suaves em volta da garganta;
  * - gotas: poucas, esticadas na direção em que voam (nada de bolinhas).
  *
- * Tudo com mistura aditiva em tons de ciano, e só quando está na vista.
+ * Tudo em tons de verde-azulado do mar da tempestade, e só quando está na vista.
  */
 
 type Lamina = { angulo: number; altura: number; vida: number; duracao: number; abertura: number }
@@ -37,13 +38,13 @@ export class VisualRedemoinho {
   constructor(cena: Phaser.Scene, celula: number) {
     this.celula = celula
     this.fitas = cena.add.graphics().setDepth(2.6).setBlendMode(Phaser.BlendModes.ADD)
-    this.brilho = cena.add.image(0, 0, CHAVE_PONTO).setDepth(2.5).setBlendMode(Phaser.BlendModes.ADD).setTint(0x5fd8ff)
-    for (let i = 0; i < 12; i++) {
-      const img = cena.add.image(0, 0, CHAVE_PONTO).setDepth(2.55).setBlendMode(Phaser.BlendModes.ADD).setTint(0xbdefff)
-      this.nevoas.push({ img, angulo: (i / 12) * Math.PI * 2, raio: 0.12 + Math.random() * 0.12, fase: Math.random() * 10 })
+    this.brilho = cena.add.image(0, 0, CHAVE_PONTO).setDepth(2.5).setBlendMode(Phaser.BlendModes.ADD).setTint(0x3f8a8a)
+    for (let i = 0; i < 6; i++) {
+      const img = cena.add.image(0, 0, CHAVE_PONTO).setDepth(2.55).setBlendMode(Phaser.BlendModes.ADD).setTint(0xb8d4d2)
+      this.nevoas.push({ img, angulo: (i / 6) * Math.PI * 2, raio: 0.12 + Math.random() * 0.12, fase: Math.random() * 10 })
     }
     for (let i = 0; i < 60; i++) {
-      this.gotasLivres.push(cena.add.image(0, 0, CHAVE_PONTO).setDepth(2.7).setVisible(false).setBlendMode(Phaser.BlendModes.ADD).setTint(0xe8faff))
+      this.gotasLivres.push(cena.add.image(0, 0, CHAVE_PONTO).setDepth(2.7).setVisible(false).setBlendMode(Phaser.BlendModes.ADD).setTint(0xe2eeee))
     }
   }
 
@@ -65,18 +66,18 @@ export class VisualRedemoinho {
 
     // Brilho pulsando na garganta.
     const c = tela(cx, cy)
-    this.brilho.setPosition(c.x, c.y).setScale((R * 0.9) / 16, (R * 0.9 * ACHATAMENTO) / 16).setAlpha(0.22 + 0.06 * Math.sin(this.tempo * 3))
+    this.brilho.setPosition(c.x, c.y).setScale((R * 0.9) / 16, (R * 0.9 * ACHATAMENTO) / 16).setAlpha(0.14 + 0.04 * Math.sin(this.tempo * 3))
 
     // Névoa girando em volta da garganta.
     for (const n of this.nevoas) {
       n.angulo += GIRO * 1.3 * dt
       const raio = R * n.raio
       const p = tela(cx + Math.cos(n.angulo) * raio, cy + Math.sin(n.angulo) * raio, 6 + 4 * Math.sin(this.tempo + n.fase))
-      n.img.setPosition(p.x, p.y).setScale(2.4 + 0.6 * Math.sin(this.tempo * 0.7 + n.fase), 1.3).setAlpha(0.1)
+      n.img.setPosition(p.x, p.y).setScale(2.4 + 0.6 * Math.sin(this.tempo * 0.7 + n.fase), 1.3).setAlpha(0.12)
     }
 
     // --- Lâminas d'água subindo da garganta -------------------------------------------
-    if (this.laminas.length < 9 && Math.random() < dt * 6) {
+    if (this.laminas.length < 9 * desempenho.efeitos && Math.random() < dt * 6) {
       this.laminas.push({ angulo: Math.random() * Math.PI * 2, altura: 30 + Math.random() * 40, vida: 0, duracao: 1.1 + Math.random() * 0.7, abertura: 0.8 + Math.random() * 0.8 })
     }
     for (const l of this.laminas) {
@@ -93,8 +94,8 @@ export class VisualRedemoinho {
         pontos.push(tela(cx + Math.cos(ang) * raio, cy + Math.sin(ang) * raio, l.altura * subida * Math.sin(Math.PI * s * 0.85)))
       }
       const alfa = 0.35 * Math.sin(Math.PI * f)
-      desenharFita(this.fitas, pontos, (t) => 11 * (1 - t) + 1.5, 0x7fd9ff, alfa * 0.6)
-      desenharFita(this.fitas, pontos, (t) => 4 * (1 - t) + 0.8, 0xeafcff, alfa)
+      desenharFita(this.fitas, pontos, (t) => 11 * (1 - t) + 1.5, 0x6fa8a6, alfa * 0.55)
+      desenharFita(this.fitas, pontos, (t) => 4 * (1 - t) + 0.8, 0xdcebea, alfa * 0.9)
       // Na queda, a ponta solta gotas.
       if (f > 0.55 && Math.random() < dt * 14) {
         const ponta = pontos[pontos.length - 2]
@@ -104,7 +105,7 @@ export class VisualRedemoinho {
     this.laminas = this.laminas.filter((l) => l.vida < l.duracao)
 
     // --- Correntezas na superfície, descendo pela espiral ---------------------------------------
-    if (this.correntes.length < 16 && Math.random() < dt * 10) {
+    if (this.correntes.length < 16 * desempenho.efeitos && Math.random() < dt * 10) {
       this.correntes.push({ angulo: Math.random() * Math.PI * 2, raio: R * (0.45 + Math.random() * 0.5), vida: 0, duracao: 1.6 + Math.random() * 1.2 })
     }
     for (const co of this.correntes) {
@@ -119,7 +120,7 @@ export class VisualRedemoinho {
         pontos.unshift(tela(cx + Math.cos(ang) * raio, cy + Math.sin(ang) * raio))
       }
       const f = co.vida / co.duracao
-      desenharFita(this.fitas, pontos, (t) => 0.6 + 3.2 * Math.sin(Math.PI * t), 0xd6f6ff, 0.3 * Math.sin(Math.PI * f))
+      desenharFita(this.fitas, pontos, (t) => 0.6 + 3.2 * Math.sin(Math.PI * t), 0xd8e8e7, 0.26 * Math.sin(Math.PI * f))
     }
     this.correntes = this.correntes.filter((co) => co.vida < co.duracao && co.raio > garganta * 1.05)
 

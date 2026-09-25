@@ -88,21 +88,58 @@ void onda(vec4 o, float a, float f, vec2 p, float t, inout float h, inout vec2 g
 
 // Vaga de tempestade (mesma fórmula de alturaVaga em sim/ondas.ts): crista
 // curva e de comprimento finito. Devolve (altura, s = crista 0..1, cos da
-// fase — negativo na face da frente —, envelope).
-vec4 infoVaga(vec4 o, float a, float f, vec2 p, float t) {
+// fase — negativo na face da frente —, envelope) e o gradiente ANALÍTICO em
+// \`gr\` (antes era diferença finita: 3× o custo).
+vec4 infoVaga(vec4 o, float a, float f, vec2 p, float t, out vec2 gr) {
   vec2 n = vec2(-o.y, o.x);
   float ao = dot(o.xy, p);
   float at = dot(n, p);
-  float curva = 0.9 * sin(at * 0.0042 + f * 1.3) + 0.45 * sin(at * 0.0097 - f);
-  float fase = o.z * ao - o.w * t + f + curva;
-  float e = sin(at * 0.0052 + ao * 0.0011 + f * 2.0 - t * 0.12);
-  float env = 0.3 + 0.7 * smoothstep(-0.5, 0.8, e);
+  float A1 = at * 0.0042 + f * 1.3;
+  float A2 = at * 0.0097 - f;
+  float fase = o.z * ao - o.w * t + f + 0.9 * sin(A1) + 0.45 * sin(A2);
+  float E = at * 0.0052 + ao * 0.0011 + f * 2.0 - t * 0.12;
+  float x = clamp((sin(E) + 0.5) / 1.3, 0.0, 1.0);
+  float env = 0.3 + 0.7 * x * x * (3.0 - 2.0 * x);
+  float sf = sin(fase);
+  float cf = cos(fase);
+  float s = 0.5 + 0.5 * sf;
+  float perfil = 2.0 * s * s - 0.7;
+  vec2 gFase = o.z * o.xy + (0.9 * 0.0042 * cos(A1) + 0.45 * 0.0097 * cos(A2)) * n;
+  vec2 gEnv = 0.7 * 6.0 * x * (1.0 - x) / 1.3 * cos(E) * (0.0052 * n + 0.0011 * o.xy);
+  gr = a * (perfil * gEnv + env * 2.0 * s * cf * gFase);
+  return vec4(a * env * perfil, s, cf, env);
+}
+
+// Só a altura da vaga (para a paralaxe): sem gradiente, mais barata.
+float alturaVaga(vec4 o, float a, float f, vec2 p, float t) {
+  vec2 n = vec2(-o.y, o.x);
+  float ao = dot(o.xy, p);
+  float at = dot(n, p);
+  float fase = o.z * ao - o.w * t + f + 0.9 * sin(at * 0.0042 + f * 1.3) + 0.45 * sin(at * 0.0097 - f);
+  float x = clamp((sin(at * 0.0052 + ao * 0.0011 + f * 2.0 - t * 0.12) + 0.5) / 1.3, 0.0, 1.0);
   float s = 0.5 + 0.5 * sin(fase);
-  return vec4(a * env * (2.0 * s * s - 0.7), s, cos(fase), env);
+  return a * (0.3 + 0.7 * x * x * (3.0 - 2.0 * x)) * (2.0 * s * s - 0.7);
 }
 
 float alturaVagas(vec2 p, float t, float tormenta) {
-  return infoVaga(uVaga0, uVagaAmp.x * tormenta, uVagaFase.x, p, t).x + infoVaga(uVaga1, uVagaAmp.y * tormenta, uVagaFase.y, p, t).x;
+  return alturaVaga(uVaga0, uVagaAmp.x * tormenta, uVagaFase.x, p, t) + alturaVaga(uVaga1, uVagaAmp.y * tormenta, uVagaFase.y, p, t);
+}
+
+// ---- Relevo do redemoinho --------------------------------------------------------------
+// Um funil de verdade (a água desce até a garganta) com as espirais como
+// ondas por cima. Entra na paralaxe como as vagas: é isso que dá a leitura de
+// profundidade — a parede do fundo do funil aparece, a da frente some.
+const float FUNDO_FUNIL = 58.0;
+float alturaRedemoinho(vec2 p, float t) {
+  vec2 rc = p - uRedemoinho.xy;
+  float rr = length(rc);
+  float rn = rr / uRedemoinho.z;
+  if (rn > 1.15) return 0.0;
+  float funil = 1.0 - smoothstep(0.0, 1.0, rn);
+  float e1 = atan(rc.y, rc.x) * 3.0 + log(rr + 8.0) * 9.0 + t * 3.0;
+  float s = 0.5 + 0.5 * sin(e1);
+  float crista = 7.0 * (1.0 - smoothstep(0.35, 1.0, rn)) * smoothstep(0.08, 0.22, rn);
+  return -FUNDO_FUNIL * funil * funil + crista * (2.0 * s * s - 0.7);
 }
 
 // Só a altura (sem gradiente), para o deslocamento de paralaxe.
@@ -142,18 +179,57 @@ vec3 corTerra(vec2 p, float dentro, float tipo) {
   return ilha * (1.0 - pVermelho - pMontanha) + rocha * pVermelho + pedra * pMontanha;
 }
 
+vec3 corDesconhecida(vec2 p, float t) {
+  return mix(vec3(0.06, 0.09, 0.15), vec3(0.15, 0.19, 0.27), ruidoB(p * 0.0004 + vec2(t * 0.001, 0.0)));
+}
+
+// Véu da borda de tela (mais fechado no topo: é o horizonte).
+vec3 veu(vec3 cor, vec2 p, vec2 pp, float t) {
+  vec2 sv = (pp - uVista.xy) / uVista.zw - 0.5;
+  float borda = length(sv * vec2(1.7, 2.0)) + max(0.0, -sv.y) * 0.35;
+  float v = smoothstep(0.62, 1.12, borda + (ruidoB(p * 0.0003 + vec2(t * 0.0015, 0.0)) - 0.5) * 0.35);
+  vec3 corVeu = mix(vec3(0.76, 0.84, 0.9), vec3(0.2, 0.24, 0.3), uTempestadeNaVista);
+  return mix(cor, corVeu, v * 0.55);
+}
+
+// Névoa de descoberta, borda do mundo e véu da borda da tela.
+vec3 acabamento(vec3 cor, vec2 p, vec2 pp, float t, float fora) {
+  float visto = texture2D(uDescoberta, coordTextura(p)).r;
+  float conhecido = smoothstep(0.08, 0.45, visto + (ruido(p * 0.0012 + t * 0.002) - 0.5) * 0.2);
+  vec3 desconhecido = corDesconhecida(p, t);
+  cor = mix(desconhecido, cor, conhecido);
+  cor = mix(cor, desconhecido * 0.8, smoothstep(0.0, 0.01, fora));
+  return veu(cor, p, pp, t);
+}
+
 void main() {
   vec2 uv = outTexCoord;
   // Ponto projetado (tela) → ponto do mundo: desfaz o achatamento vertical.
   vec2 pp = uRet.xy + vec2(uv.x, 1.0 - uv.y) * uRet.zw;
   vec2 p = vec2(pp.x, pp.y / uAchatamento);
   float t = uTempo;
+
+  // Saídas antecipadas (é aqui que se ganha desempenho de verdade):
+  // 1) mar ainda não descoberto: só a névoa, sem calcular onda nenhuma;
+  vec2 tc0 = p / uMundo;
+  float fora0 = max(max(-tc0.x, tc0.x - 1.0), max(-tc0.y, tc0.y - 1.0));
+  if (texture2D(uDescoberta, coordTextura(p)).r < 0.004 || fora0 > 0.01) {
+    gl_FragColor = vec4(veu(corDesconhecida(p, t) * (fora0 > 0.01 ? 0.8 : 1.0), p, pp, t), 1.0);
+    return;
+  }
+  // 2) miolo de ilha modelada: a imagem assada cobre tudo por cima.
+  vec4 dado0 = texture2D(uTerra, coordTextura(p));
+  if (abs(dado0.g - 40.0 / 255.0) < 0.02 && dado0.r < 0.43) {
+    gl_FragColor = vec4(0.45, 0.62, 0.4, 1.0);
+    return;
+  }
   // Paralaxe das ondas: com a câmera inclinada, a crista alta aparece mais
   // acima na tela. Uma iteração basta para as vagas "subirem" de verdade.
   float tormenta0 = tempestadeEm(p);
   float h0 = alturaEm(p, t, tormenta0, 1.0 + ${AGITACAO_TEMPESTADE.toFixed(2)} * tormenta0);
+  float hR0 = alturaRedemoinho(p, t);
   // Na tempestade a paralaxe é parcial: inteira, as vagas altas "dobram" a imagem.
-  p.y = (pp.y + h0 * uElevacao * mix(1.0, 0.5, tormenta0)) / uAchatamento;
+  p.y = (pp.y + (h0 * mix(1.0, 0.5, tormenta0) + hR0) * uElevacao) / uAchatamento;
   vec2 vento = uVento.xy;
   float forca = uVento.z;
 
@@ -176,11 +252,15 @@ void main() {
   onda(uOnda1, uAmplitudes.y * agitacao, uFases.y, p, t, h, g);
   onda(uOnda2, uAmplitudes.z * agitacao, uFases.z, p, t, h, g);
   onda(uOnda3, uAmplitudes.w * agitacao, uFases.w, p, t, h, g);
+  vec4 v0 = vec4(0.0);
+  vec4 v1 = vec4(0.0);
   if (tormenta > 0.001) {
-    // Gradiente das vagas por diferença finita (a fórmula torta não tem derivada simples).
-    float hv = alturaVagas(p, t, tormenta);
-    g += vec2(alturaVagas(p + vec2(3.0, 0.0), t, tormenta) - hv, alturaVagas(p + vec2(0.0, 3.0), t, tormenta) - hv) / 3.0;
-    h += hv;
+    vec2 gv0;
+    vec2 gv1;
+    v0 = infoVaga(uVaga0, uVagaAmp.x * tormenta, uVagaFase.x, p, t, gv0);
+    v1 = infoVaga(uVaga1, uVagaAmp.y * tormenta, uVagaFase.y, p, t, gv1);
+    h += v0.x + v1.x;
+    g += gv0 + gv1;
   }
   float amplitudeTotal = dot(uAmplitudes, vec4(1.0)) * agitacao + (uVagaAmp.x + uVagaAmp.y) * tormenta;
   float hn = h / amplitudeTotal;
@@ -231,19 +311,14 @@ void main() {
     vec2 lado = vec2(-frente.y, frente.x);
     // Picado miúdo IRREGULAR: normal tirada de duas camadas de ruído que correm
     // com o vento em velocidades diferentes. Sem senoides, sem padrão repetido.
-    vec2 u1 = p * 0.0031 + frente * t * 0.02;
-    vec2 u2 = p * 0.0062 + lado * t * 0.008 - frente * t * 0.035 + 0.37;
+    vec2 u1 = p * 0.0034 + frente * t * 0.025;
     float de = 0.002;
     // (ruído grosso: a derivada do fino vira granulado de asfalto)
     float r1 = ruido(u1);
-    float r2 = ruido(u2);
-    vec2 gn = vec2(ruido(u1 + vec2(de, 0.0)) - r1, ruido(u1 + vec2(0.0, de)) - r1)
-            + 0.5 * vec2(ruido(u2 + vec2(de, 0.0)) - r2, ruido(u2 + vec2(0.0, de)) - r2);
-    vec3 nT = normalize(vec3(-g * 5.0 - gn * (30.0 * tormenta), 1.0));
+    vec2 gn = vec2(ruido(u1 + vec2(de, 0.0)) - r1, ruido(u1 + vec2(0.0, de)) - r1);
+    vec3 nT = normalize(vec3(-g * 5.0 - gn * (38.0 * tormenta), 1.0));
     float luzT = dot(nT, sol);
 
-    vec4 v0 = infoVaga(uVaga0, uVagaAmp.x * tormenta, uVagaFase.x, p, t);
-    vec4 v1 = infoVaga(uVaga1, uVagaAmp.y * tormenta, uVagaFase.y, p, t);
     // Referencial da vaga (anda com ela), esticado ao longo da crista.
     vec2 d0 = uVaga0.xy;
     vec2 n0 = vec2(-d0.y, d0.x);
@@ -288,58 +363,64 @@ void main() {
   }
 
   // ---- Redemoinho ------------------------------------------------------------------
-  // Padrão em coordenadas polares: espirais logarítmicas que correm para dentro.
-  // Como o desenho depende só do ângulo e do log do raio, ele gira para sempre
-  // sem "enrolar" a textura.
+  // O mesmo mar da tempestade, torcido: um funil com relevo (ver
+  // alturaRedemoinho, que também entra na paralaxe) e as espirais como ondas —
+  // costas iluminadas, face da frente translúcida, lábio de espuma rendada.
+  // Espirais logarítmicas: dependem só do ângulo e do log do raio, então giram
+  // para sempre sem "enrolar".
   vec2 rc = p - uRedemoinho.xy;
   float rr = length(rc);
   float raioR = uRedemoinho.z;
-  float zonaR = 1.0 - smoothstep(raioR * 0.55, raioR * 1.15, rr);
+  float zonaR = 1.0 - smoothstep(raioR * 0.7, raioR * 1.15, rr);
   if (zonaR > 0.0) {
     float teta = atan(rc.y, rc.x);
     float lr = log(rr + 8.0);
     float rn = rr / raioR;
-    // Três camadas de espiral: braços largos, estrias médias e fios finos,
-    // cada uma mais fechada e mais rápida que a anterior.
+    vec2 radial = rc / max(rr, 1.0);
+    vec2 tangente = vec2(-radial.y, radial.x);
+
+    // Gradiente do relevo: funil (radial) + cristas das espirais.
+    float funil = 1.0 - smoothstep(0.0, 1.0, rn);
+    float xr = clamp(rn, 0.0, 1.0);
+    float dFunil = -6.0 * xr * (1.0 - xr) / raioR;
     float e1 = teta * 3.0 + lr * 9.0 + t * 3.0;
-    float e2 = teta * 7.0 + lr * 16.0 + t * 5.5;
+    float s1 = 0.5 + 0.5 * sin(e1);
+    float c1 = cos(e1);
+    float ampCrista = 7.0 * (1.0 - smoothstep(0.35, 1.0, rn)) * smoothstep(0.08, 0.22, rn);
+    vec2 gE1 = 3.0 * tangente / max(rr, 1.0) + 9.0 * radial / (rr + 8.0);
+    vec2 gR = -FUNDO_FUNIL * 2.0 * funil * dFunil * radial + ampCrista * 2.0 * s1 * c1 * gE1;
+    vec3 nR = normalize(vec3(-(g + gR) * 5.0, 1.0));
+    float luzR = dot(nR, sol);
+
+    // Corpo: paleta do mar da tempestade, escurecendo funil abaixo.
+    vec3 redemoinho = mix(vec3(0.28, 0.42, 0.46), vec3(0.02, 0.06, 0.09), pow(funil, 1.25));
+    redemoinho *= 0.62 + 0.6 * luzR;
+    // Costas da espiral mais claras; face da frente translúcida (verde-azulada).
+    float frenteR = smoothstep(0.15, -0.75, c1);
+    redemoinho *= mix(1.0, 0.78, frenteR * smoothstep(0.2, 0.8, s1));
+    float cristaForte = smoothstep(0.1, 0.5, ampCrista / 7.0);
+    redemoinho = mix(redemoinho, vec3(0.16, 0.56, 0.52), smoothstep(0.5, 0.95, s1) * frenteR * cristaForte * 0.55);
+
+    // Espuma: lábio rendado na crista de cada braço, estrias finas girando e a
+    // espuma de ventania que o mar de fora traz, esticada em volta.
+    vec2 emEspiral = vec2(e1 * 0.045 - t * 0.02, lr * 1.3);
+    float renda = smoothstep(0.32, 0.5, ruidoFino(emEspiral * vec2(1.0, 2.2)));
+    float labioR = smoothstep(0.9, 0.975, s1) * smoothstep(0.3, -0.15, c1) * cristaForte;
     float e3 = teta * 15.0 + lr * 30.0 + t * 9.0;
-    float bracos = 0.5 + 0.5 * sin(e1);
-    float estrias = 0.5 + 0.5 * sin(e2 + sin(e1) * 0.8);
-    float fios = smoothstep(0.7, 1.0, sin(e3 + sin(e2) * 0.6));
-    float fluxo = ruidoFino(vec2(e1 * 0.035 - t * 0.02, lr * 0.45));
-    float flocos = smoothstep(0.66, 0.8, ruidoFino(vec2(e2 * 0.02 - t * 0.05, lr * 0.9)));
+    float fiosR = smoothstep(0.82, 1.0, sin(e3 + sin(e1) * 0.6)) * smoothstep(0.15, 0.4, rn) * (1.0 - smoothstep(0.6, 1.0, rn));
+    float costasR = smoothstep(0.4, 0.95, s1) * smoothstep(-0.1, 0.6, c1) * cristaForte * smoothstep(0.5, 0.75, ruidoFino(emEspiral * vec2(2.0, 3.0)));
+    float espumaR = clamp(labioR * (0.5 + 0.5 * renda) + costasR * renda * 0.8 + fiosR * 0.35, 0.0, 1.0);
+    redemoinho = mix(redemoinho, vec3(0.88, 0.93, 0.95), espumaR * 0.9);
 
-    // Funil: escurece e afunda em direção ao centro, com a encosta iluminada.
-    float funil = 1.0 - smoothstep(0.0, raioR * 0.95, rr);
-    vec2 encosta = rc / max(rr, 1.0);
-    float luzFunil = dot(normalize(vec3(encosta * funil * 1.6, 1.0)), sol);
-    vec3 redemoinho = mix(vec3(0.04, 0.3, 0.42), vec3(0.01, 0.07, 0.13), pow(funil, 1.3));
-    redemoinho *= 0.65 + 0.55 * luzFunil;
-
-    // Brilho ciano nos braços (como na referência), mais forte perto da garganta.
-    vec3 ciano = vec3(0.35, 0.85, 1.0);
-    float perto = 1.0 - smoothstep(0.1, 0.9, rn);
-    redemoinho += ciano * (0.18 * bracos + 0.16 * estrias * perto) * (0.5 + 0.5 * fluxo);
-    redemoinho += vec3(0.8, 0.95, 1.0) * fios * 0.28 * perto;
-
-    // Anéis concêntricos na borda, correndo para dentro.
-    float aneis = smoothstep(0.82, 1.0, sin(rr * 0.09 + t * 3.2)) * smoothstep(0.35, 0.6, rn) * (1.0 - smoothstep(0.85, 1.1, rn));
-    redemoinho += vec3(0.6, 0.85, 0.95) * aneis * 0.22;
-
-    // Espuma nas espirais e flocos soltos girando.
-    float espumaR = smoothstep(0.6, 0.92, bracos * (0.6 + 0.6 * fluxo)) * (1.0 - smoothstep(0.3, 1.0, rn));
-    redemoinho = mix(redemoinho, vec3(0.92, 0.97, 1.0), clamp(espumaR * 0.7 + flocos * perto * 0.55, 0.0, 1.0));
-
-    // Garganta: anel branco revolto e brilhante, com a borda "fervendo".
+    // Garganta: anel branco revolto, com a borda "fervendo" e um leve brilho frio.
     float borda = 0.13 + 0.015 * sin(teta * 9.0 + t * 11.0) + 0.01 * sin(teta * 17.0 - t * 7.0);
     float garganta = exp(-pow((rn - borda) / 0.045, 2.0));
-    redemoinho = mix(redemoinho, vec3(0.95, 0.99, 1.0), clamp(garganta * (0.75 + 0.25 * fluxo), 0.0, 1.0));
-    redemoinho += ciano * exp(-pow((rn - borda) / 0.12, 2.0)) * 0.25;
+    redemoinho = mix(redemoinho, vec3(0.9, 0.95, 0.97), clamp(garganta * (0.7 + 0.3 * renda), 0.0, 1.0));
+    redemoinho += vec3(0.2, 0.5, 0.55) * exp(-pow((rn - borda) / 0.12, 2.0)) * 0.18;
 
-    // O fundo: um buraco escuro com uma espiral rápida por dentro.
+    // O fundo: escuro, com uma espiral rápida lá dentro.
     float dentro = 1.0 - smoothstep(0.04, 0.12, rn);
-    vec3 fundoR = mix(vec3(0.0, 0.02, 0.04), vec3(0.05, 0.18, 0.26), 0.5 + 0.5 * sin(teta * 4.0 + lr * 14.0 + t * 12.0));
+    vec3 fundoR = mix(vec3(0.0, 0.02, 0.03), vec3(0.04, 0.14, 0.17), 0.5 + 0.5 * sin(teta * 4.0 + lr * 14.0 + t * 12.0));
     redemoinho = mix(redemoinho, fundoR * (0.4 + 0.6 * rn / 0.12), dentro);
     agua = mix(agua, redemoinho, zonaR);
   }
@@ -408,20 +489,6 @@ void main() {
     cor = mix(cor, vec3(1.0, 0.85, 0.3), linhaChunk * 0.5);
   }
 
-  // ---- Névoa de descoberta -----------------------------------------------------------
-  float visto = texture2D(uDescoberta, coordTextura(p)).r;
-  float conhecido = smoothstep(0.08, 0.45, visto + (ruido(p * 0.0012 + t * 0.002) - 0.5) * 0.2);
-  vec3 desconhecido = mix(vec3(0.06, 0.09, 0.15), vec3(0.15, 0.19, 0.27), ruidoB(p * 0.0004 + vec2(t * 0.001, 0.0)));
-  cor = mix(desconhecido, cor, conhecido);
-  cor = mix(cor, desconhecido * 0.8, smoothstep(0.0, 0.01, fora));
-
-  // ---- Névoa de borda de tela (mais fechada no topo: é o horizonte) -------------------
-  vec2 sv = (pp - uVista.xy) / uVista.zw - 0.5;
-  float borda = length(sv * vec2(1.7, 2.0)) + max(0.0, -sv.y) * 0.35;
-  float veu = smoothstep(0.62, 1.12, borda + (ruidoB(p * 0.0003 + vec2(t * 0.0015, 0.0)) - 0.5) * 0.35);
-  vec3 corVeu = mix(vec3(0.76, 0.84, 0.9), vec3(0.2, 0.24, 0.3), uTempestadeNaVista);
-  cor = mix(cor, corVeu, veu * 0.55);
-
-  gl_FragColor = vec4(cor, 1.0);
+  gl_FragColor = vec4(acabamento(cor, p, pp, t, fora), 1.0);
 }
 `

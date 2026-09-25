@@ -34,6 +34,7 @@ export class Ilhas {
   private readonly em3d: IlhaEm3d[] = []
   /** Todas as ilhas modeladas já estão na cena (o script de assar espera por isso). */
   prontas = false
+  private ultimaVarredura = -1
 
   /** Chamado no preload: as faixas assadas ou, sem elas, os mapas de altura para assar agora. */
   static carregar(cena: Phaser.Scene) {
@@ -154,9 +155,15 @@ export class Ilhas {
       const dy = Math.sin(tempo * 0.9) * 1.6 + Math.sin(tempo * 1.7 + 1) * 0.6
       ilha.imagens.forEach((img, k) => img.setY(ilha.baseY[k] + dy))
     }
-    // Ilha modelada aparece inteira (com um fade) quando alguma parte dela é avistada.
+    // Ilha modelada aparece inteira (com um fade) quando alguma parte dela é
+    // avistada. A varredura da descoberta roda 4× por segundo, não por quadro.
+    const varrer = tempo - this.ultimaVarredura > 0.25
+    if (varrer) this.ultimaVarredura = tempo
     for (const ilha of this.em3d) {
-      if (ilha.vista < 1) {
+      if (ilha.vista > 0 && ilha.vista < 1) {
+        ilha.vista = Math.min(1, ilha.vista + 0.04)
+        for (const img of ilha.imagens) img.setAlpha(ilha.vista)
+      } else if (ilha.vista === 0 && varrer) {
         const m = ilha.meta
         let avistada = false
         for (let y = m.y; y < m.y + m.linhas * m.passo && !avistada; y += this.mundo.celula) {
@@ -168,10 +175,7 @@ export class Ilhas {
             }
           }
         }
-        if (avistada) {
-          ilha.vista = Math.min(1, ilha.vista + 0.04)
-          for (const img of ilha.imagens) img.setAlpha(ilha.vista)
-        }
+        if (avistada) ilha.vista = 0.04
       }
     }
 

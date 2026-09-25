@@ -31,6 +31,8 @@ export default function TelaNavegacao() {
       scale: { mode: Phaser.Scale.RESIZE, width: '100%', height: '100%' },
       scene: oceano,
       banner: false,
+      // Notebook com duas placas de vídeo: pede a dedicada.
+      powerPreference: 'high-performance',
     })
     jogo.events.once(Phaser.Core.Events.READY, () => {
       // O Phaser guarda a posição do canvas no boot. Em desenvolvimento o React

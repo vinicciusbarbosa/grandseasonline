@@ -217,7 +217,17 @@ frontend/src/navegacao/
   `alturaVaga` no shader e no balanço do navio), picado miúdo irregular,
   navio mais lento, chuva em sprites com respingos, raios fractais que descem
   e piscam, clarão localizado e trovão sintetizado (estalo + ronco).
-- **Redemoinho** no núcleo da tempestade (`sim/redemoinho.ts`): na borda a
+- **Desempenho** (`CenaOceano.criarOceano/ajustarQualidade`): o shader do mar
+  desenha numa textura com uma fração da resolução da tela, esticada por
+  cima. A fração cai sozinha (até 0,45) quando o FPS fica abaixo de 48 e
+  volta a subir com folga; chuva, fios de vento e lâminas do redemoinho
+  diminuem junto (`cena/desempenho.ts`). No shader: gradiente analítico das
+  vagas (antes, diferença finita), e saídas antecipadas para o mar não
+  descoberto e o miolo das ilhas modeladas. Pede a GPU dedicada
+  (`powerPreference: 'high-performance'`).
+- **Redemoinho** no núcleo da tempestade (`sim/redemoinho.ts`): um funil com
+  relevo de verdade (entra na paralaxe, como as vagas) e as espirais como
+  ondas, na paleta do mar da tempestade. Na borda a
   água segura o navio; mais perto, arrasta; na captura o jogador perde o
   controle, o navio gira para dentro e alaga; no centro ele se parte e a
   tripulação recomeça na última ilha.

@@ -11,6 +11,7 @@ import { REDEMOINHOS } from '../sim/redemoinho'
 import { intensidadeTempestade, TEMPESTADES } from '../sim/tempestade'
 import { ventoEm, type EstadoVento } from '../sim/vento'
 import { Clima } from './Clima'
+import { desempenho } from './desempenho'
 import { CombateNaval } from './CombateNaval'
 import { Correntes } from './Correntes'
 import { Esteira, type EntradaEsteira } from './Esteira'
@@ -50,6 +51,19 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   private motivoNaufragio: Naufragio = 'redemoinho'
   private berries = 0
   private oceano!: Phaser.GameObjects.Shader
+  /** A imagem que estica a textura do mar sobre a tela. */
+  private oceanoTela: Phaser.GameObjects.Image | null = null
+  /**
+   * Fração da resolução da tela em que o mar é desenhado. O shader é o que
+   * mais pesa por quadro: se o FPS cai, o mar é desenhado menor e esticado
+   * (quase não se nota — é água, não tem borda nítida) e volta a subir
+   * quando sobra folga.
+   */
+  private qualidadeMar = 1
+  private tetoQualidade = 1
+  private dimensaoMar = ''
+  private versaoMar = 0
+  private medidor = { inicio: 0, ultimo: 0, ultimaQueda: 0, bons: 0, ruins: 0 }
   private texDescoberta!: Phaser.Textures.CanvasTexture
   private rascunhoDescoberta: HTMLCanvasElement | null = null
   private rota!: Phaser.GameObjects.Graphics
@@ -92,23 +106,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     criarTexturaRuido(this, 'ruido')
     this.esteira = new Esteira(this)
 
-    this.oceano = this.add
-      .shader(
-        {
-          name: 'oceano',
-          fragmentSource: FRAGMENTO_OCEANO,
-          initialUniforms: { uTerra: 0, uDescoberta: 1, uRuido: 2, uRastro: 3 },
-          setupUniforms: (definir: (nome: string, valor: unknown) => void) => this.uniformesOceano(definir),
-        },
-        0,
-        0,
-        16,
-        16,
-        ['terra', 'descoberta', 'ruido', 'rastro-a'],
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(0)
+    this.criarOceano()
 
     this.plano = this.add.container(0, 0).setScale(1, ACHATAMENTO).setDepth(1)
     this.correntes = new Correntes(this, this.mundo, this.plano)
@@ -269,6 +267,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   update(_time: number, deltaMs: number) {
     // Durante a abordagem o mar congela (dt = 0) e só o React anda.
     const dt = this.abordagem ? 0 : (Math.min(deltaMs, 50) / 1000) * this.escalaTempo
+    this.ajustarQualidade()
     this.tempo += dt
 
     // Passo fixo: a simulação dá o mesmo resultado em 30 ou 144 fps — e é o
@@ -440,13 +439,92 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
 
     // O oceano é preso à tela (scrollFactor 0) e cobre exatamente a vista: o
     // zoom da câmera escala em torno do centro, então o tamanho é tela / zoom.
-    this.oceano.setPosition(camera.width / 2, camera.height / 2)
-    // setSize não recalcula a origem de exibição; setOrigin sim.
+    this.criarOceano()
+    this.oceanoTela!.setPosition(camera.width / 2, camera.height / 2)
+    // O mar é desenhado numa textura (ver criarOceano) e esticado aqui.
     // A sobra cobre o tremor de tela dos trovões.
-    this.oceano.setSize(camera.width / camera.zoom + 80, camera.height / camera.zoom + 80).setOrigin(0.5)
+    this.oceanoTela!.setDisplaySize(camera.width / camera.zoom + 80, camera.height / camera.zoom + 80)
+  }
+
+  /** (Re)cria o shader do mar renderizando numa textura do tamanho certo. */
+  private criarOceano() {
+    desempenho.efeitos = 0.5 + 0.5 * Math.min(1, Math.max(0, (this.qualidadeMar - 0.45) / 0.55))
+    const camera = this.cameras.main
+    const w = Math.max(64, Math.round((camera.width + 100) * this.qualidadeMar))
+    const h = Math.max(64, Math.round((camera.height + 100) * this.qualidadeMar))
+    const dimensao = `${w}x${h}`
+    if (dimensao === this.dimensaoMar) return
+    this.dimensaoMar = dimensao
+    const anterior = this.oceano
+    const chaveAnterior = `oceano-rt-${this.versaoMar}`
+    this.versaoMar++
+    const chave = `oceano-rt-${this.versaoMar}`
+    this.oceano = this.add
+      .shader(
+        {
+          name: 'oceano',
+          fragmentSource: FRAGMENTO_OCEANO,
+          initialUniforms: { uTerra: 0, uDescoberta: 1, uRuido: 2, uRastro: 3 },
+          setupUniforms: (definir: (nome: string, valor: unknown) => void) => this.uniformesOceano(definir),
+        },
+        0,
+        0,
+        w,
+        h,
+        ['terra', 'descoberta', 'ruido', this.esteira.chave],
+      )
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(-1)
+      .setRenderToTexture(chave)
+    if (this.oceanoTela) this.oceanoTela.setTexture(chave)
+    else this.oceanoTela = this.add.image(0, 0, chave).setScrollFactor(0).setDepth(0)
+    if (anterior) {
+      anterior.destroy()
+      if (this.textures.exists(chaveAnterior)) this.textures.remove(chaveAnterior)
+    }
+  }
+
+  /** Mede o FPS a cada segundo (relógio real) e ajusta a resolução do mar. */
+  private ajustarQualidade() {
+    const m = this.medidor
+    const agora = performance.now()
+    if (m.inicio === 0) m.inicio = m.ultimo = m.ultimaQueda = agora
+    // Os primeiros segundos (carregando) não contam.
+    if (agora - m.ultimo < 1000 || agora - m.inicio < 3000) return
+    m.ultimo = agora
+    const fps = this.game.loop.actualFps
+    if (fps < 48) {
+      m.ruins++
+      m.bons = 0
+    } else if (fps > 57) {
+      m.bons++
+      m.ruins = 0
+    } else {
+      m.bons = 0
+      m.ruins = 0
+    }
+    if (m.ruins >= 2 && this.qualidadeMar > 0.45) {
+      this.tetoQualidade = Math.max(0.45, this.qualidadeMar - 0.05)
+      this.qualidadeMar = Math.max(0.45, this.qualidadeMar - (fps < 30 ? 0.25 : 0.15))
+      m.ruins = 0
+      m.ultimaQueda = agora
+      this.criarOceano()
+    } else if (m.bons >= 5 && this.qualidadeMar < this.tetoQualidade) {
+      this.qualidadeMar = Math.min(this.tetoQualidade, this.qualidadeMar + 0.1)
+      m.bons = 0
+      this.criarOceano()
+    }
+    // Depois de um bom tempo estável, volta a permitir tentar mais qualidade.
+    if (agora - m.ultimaQueda > 30000 && this.tetoQualidade < 1) {
+      this.tetoQualidade = Math.min(1, this.tetoQualidade + 0.1)
+      m.ultimaQueda = agora
+    }
   }
 
   private uniformesOceano(definir: (nome: string, valor: unknown) => void) {
+    // O setRenderToTexture desenha uma vez na criação, antes do resto da cena existir.
+    if (!this.clima) return
     const camera = this.cameras.main
     const v = camera.worldView
     const celula = this.mundo.celula

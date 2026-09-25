@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { desempenho } from './desempenho'
 import type { EstadoVento } from '../sim/vento'
 import { ACHATAMENTO } from './projecao'
 
@@ -96,7 +97,7 @@ export class Clima {
   }
 
   private atualizarChuva(dt: number, tempestade: number, vento: EstadoVento, camera: Phaser.Cameras.Scene2D.Camera) {
-    const ativas = Math.round(MAX_GOTAS * Math.max(0, (tempestade - 0.08) / 0.92))
+    const ativas = Math.round(MAX_GOTAS * desempenho.efeitos * Math.max(0, (tempestade - 0.08) / 0.92))
     const w = camera.width
     const h = camera.height
     const inclinacao = Math.cos(vento.direcao) * 0.4 * vento.intensidade

@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import type { EstadoVento } from '../sim/vento'
+import { desempenho } from './desempenho'
 import { desenharFita } from './fita'
 import { ACHATAMENTO } from './projecao'
 
@@ -42,12 +43,12 @@ export class VentoVisual {
 
   atualizar(dt: number, vento: EstadoVento, tempestade: number, vista: Phaser.Geom.Rectangle, vendaval: CentroVendaval | null) {
     const comuns = this.fios.filter((f) => !f.orbita).length
-    const alvo = Math.round(1 + 4 * vento.intensidade + 7 * tempestade)
+    const alvo = Math.round((1 + 4 * vento.intensidade + 7 * tempestade) * desempenho.efeitos)
     if (comuns < alvo && Math.random() < dt * (1.2 + tempestade * 3)) this.fios.push(this.nascer(vento, tempestade, vista))
 
     if (vendaval && this.naVista(vendaval, vista)) {
       const orbitando = this.fios.length - comuns
-      if (orbitando < 22 && Math.random() < dt * 16) this.fios.push(this.nascerNaOrbita(vendaval))
+      if (orbitando < 22 * desempenho.efeitos && Math.random() < dt * 16) this.fios.push(this.nascerNaOrbita(vendaval))
     }
 
     for (const f of this.fios) {
