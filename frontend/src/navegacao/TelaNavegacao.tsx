@@ -1,7 +1,6 @@
 import Phaser from 'phaser'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import dadosMundo from './mundo/mundo.json'
 import { Rede, type EntradaMp } from './mp/Rede'
 import { Cantoneiras, Losango } from '../componentes/ui/ornamentos'
 import { CenaOceano } from './cena/CenaOceano'
@@ -572,7 +571,8 @@ function Minimapa({ retrato, aoNavegar }: { retrato: RetratoNavegacao; aoNavegar
 
 // ---- Multiplayer beta ------------------------------------------------------------------------
 
-const ILHAS_DE_PARTIDA = (dadosMundo.ilhas as { nome: string }[]).map((i) => i.nome).filter((n) => n !== 'Baratie')
+/** Onde cada lado aparece: ilhas vizinhas, para o duelo começar logo. */
+const ILHA_DO_LADO: Record<TipoNavio, string> = { pirata: 'Ilha Dawn', marinha: 'Shells Town' }
 
 function lerNomeSalvo() {
   try {
@@ -582,17 +582,15 @@ function lerNomeSalvo() {
   }
 }
 
-/** Tela de entrada da sala: nome, navio e ilha de partida. */
+/** Entrada da sala: o nick e o lado (pirata ou marinha). */
 function EntradaMultiplayer({ aoEntrar }: { aoEntrar: (s: { rede: Rede; entrada: EntradaMp }) => void }) {
   const [nome, setNome] = useState(lerNomeSalvo)
   const [navio, setNavio] = useState<TipoNavio>('pirata')
-  const [ilha, setIlha] = useState('Ilha Dawn')
   const [erro, setErro] = useState<string | null>(null)
   const [conectando, setConectando] = useState(false)
-  const local = ['localhost', '127.0.0.1'].includes(location.hostname)
 
   const entrar = async () => {
-    const entrada = { nome: nome.trim() || 'Marujo', navio, ilha }
+    const entrada = { nome: nome.trim() || 'Marujo', navio, ilha: ILHA_DO_LADO[navio] }
     try {
       localStorage.setItem('sugoi.mp.nome', entrada.nome)
     } catch {
@@ -609,86 +607,39 @@ function EntradaMultiplayer({ aoEntrar }: { aoEntrar: (s: { rede: Rede; entrada:
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto bg-abissal p-4">
-      <Quadro className="w-full max-w-md p-6">
-        <p className="flex items-center gap-2 text-xs tracking-wider text-creme/55 uppercase">
-          <Losango className="text-ouro" tamanho={6} /> Multiplayer · beta
-        </p>
-        <h1 className="titulo-serif mt-1 text-2xl text-ouro-claro">Duelo no East Blue</h1>
-        <p className="mt-2 text-sm leading-relaxed text-creme/70">
-          Até 2 capitães na mesma sala. Cada um sai da sua ilha e caça o outro — use o vento a seu favor e mantenha o costado virado
-          para o rival. Q/E disparam.
-        </p>
-
-        <label className="mt-5 block text-xs tracking-wider text-creme/55 uppercase" htmlFor="mp-nome">
-          Nome do capitão
-        </label>
+    <div className="fixed inset-0 flex items-center justify-center bg-abissal p-4">
+      <Quadro className="w-full max-w-xs p-5">
         <input
-          id="mp-nome"
           value={nome}
           maxLength={16}
           onChange={(e) => setNome(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !conectando && entrar()}
-          placeholder="Ex.: Barba-Negra"
-          className="mt-1 w-full rounded-sm border border-painel-borda/50 bg-abissal/60 px-3 py-2 text-creme outline-none focus:border-ouro/70"
+          placeholder="Insira seu nick"
+          aria-label="Nick"
+          className="w-full rounded-sm border border-painel-borda/50 bg-abissal/60 px-3 py-2 text-creme outline-none focus:border-ouro/70"
           autoFocus
         />
-
-        <p className="mt-4 text-xs tracking-wider text-creme/55 uppercase">Navio</p>
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          {(Object.keys(NAVIOS) as TipoNavio[]).map((tipo) => (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {(['pirata', 'marinha'] as const).map((lado) => (
             <button
-              key={tipo}
-              onClick={() => setNavio(tipo)}
-              className={`rounded-sm border px-3 py-2 text-left transition-all ${
-                navio === tipo ? 'border-ouro/80 bg-painel-claro/80 shadow-[0_0_16px_-6px_var(--color-ouro)]' : 'border-painel-borda/40 hover:border-ouro/40'
+              key={lado}
+              onClick={() => setNavio(lado)}
+              className={`rounded-sm border px-3 py-2 titulo-serif transition-all ${
+                navio === lado ? 'border-ouro/80 bg-painel-claro/80 text-ouro-claro' : 'border-painel-borda/40 text-creme/70 hover:border-ouro/40'
               }`}
             >
-              <span className={`titulo-serif block text-sm ${tipo === 'pirata' ? 'text-[#e8836f]' : 'text-[#8fb8e4]'}`}>{NAVIOS[tipo].nome}</span>
-              <span className="text-[0.68rem] text-creme/55">{NAVIOS[tipo].descricao}</span>
+              {lado === 'pirata' ? 'Pirata' : 'Marinha'}
             </button>
           ))}
         </div>
-
-        <label className="mt-4 block text-xs tracking-wider text-creme/55 uppercase" htmlFor="mp-ilha">
-          Ilha de partida
-        </label>
-        <select
-          id="mp-ilha"
-          value={ilha}
-          onChange={(e) => setIlha(e.target.value)}
-          className="mt-1 w-full rounded-sm border border-painel-borda/50 bg-abissal/60 px-3 py-2 text-creme outline-none focus:border-ouro/70"
-        >
-          {ILHAS_DE_PARTIDA.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-
         <button
           onClick={entrar}
           disabled={conectando}
-          className="mt-6 w-full rounded-sm border border-ouro/80 bg-ouro/15 px-4 py-2.5 titulo-serif text-lg text-ouro-claro hover:bg-ouro/25 disabled:opacity-50"
+          className="mt-3 w-full rounded-sm border border-ouro/80 bg-ouro/15 px-4 py-2 titulo-serif text-ouro-claro hover:bg-ouro/25 disabled:opacity-50"
         >
-          {conectando ? 'Entrando na sala…' : 'Zarpar!'}
+          {conectando ? 'Entrando…' : 'Zarpar'}
         </button>
-        {erro && <p className="mt-3 rounded-sm border border-pirata/60 bg-pirata/15 px-3 py-2 text-sm text-creme">{erro}</p>}
-
-        <div className="mt-5 border-t border-painel-borda/30 pt-3 text-xs leading-relaxed text-creme/55">
-          <p>
-            Endereço para o outro jogador: <span className="numero-ficha text-creme/85">{location.origin}/multiplayer</span>
-          </p>
-          {local && (
-            <p className="mt-1 text-pirata">
-              “localhost” só funciona neste computador. Rode com <b>npm run dev:mp</b> e passe o IP da rede (ou do Radmin/túnel) para o seu
-              amigo.
-            </p>
-          )}
-          <Link to="/navegacao" reloadDocument className="mt-2 inline-block hover:text-ouro-claro">
-            ← Voltar ao modo solo
-          </Link>
-        </div>
+        {erro && <p className="mt-3 text-sm text-pirata">{erro}</p>}
       </Quadro>
     </div>
   )

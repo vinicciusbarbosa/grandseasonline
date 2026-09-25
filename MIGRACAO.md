@@ -295,8 +295,8 @@ frontend/src/navegacao/
 - **Multiplayer beta (2 jogadores)** — rota `/multiplayer`. O servidor é um
   plugin do Vite (`frontend/servidor/multiplayer.ts`): o mesmo `npm run dev`
   (ou `npm run multiplayer`, a versão compilada) serve o jogo e a sala, em
-  WebSocket no caminho `/mp`. Uma sala, até 2 capitães; cada um escolhe nome,
-  navio e ilha de partida. O servidor guarda o **relógio da sala** (vento e
+  WebSocket no caminho `/mp`. Uma sala, até 2 capitães; cada um digita o nick
+  e escolhe pirata (sai da Ilha Dawn) ou marinha (sai de Shells Town). O servidor guarda o **relógio da sala** (vento e
   ondas dependem do tempo: os dois veem o mesmo vento), repassa o estado dos
   navios (~15/s) e as salvas, e conta os abates. Cada cliente é dono do
   próprio navio (movimento, e o dano que recebe); quem atira decide os
