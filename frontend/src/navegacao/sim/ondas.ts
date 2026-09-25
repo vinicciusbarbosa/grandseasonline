@@ -49,25 +49,49 @@ export function componentes(): readonly OndaComponente[] {
 const ONDAS_TEMPESTADE: OndaComponente[] = [
   // Vaga principal longa e alta, e uma secundária de direção próxima (~35°):
   // somam e se desencontram como mar de tempestade, sem xadrez estranho.
-  { direcao: 0.95, comprimento: 720, amplitude: 17, velocidade: 82, fase: 0.8 },
-  { direcao: 0.35, comprimento: 430, amplitude: 8, velocidade: 64, fase: 2.9 },
+  { direcao: 0.95, comprimento: 470, amplitude: 15, velocidade: 70, fase: 0.8 },
+  { direcao: 0.4, comprimento: 310, amplitude: 7, velocidade: 56, fase: 2.9 },
 ]
 
 export function componentesTempestade(): readonly OndaComponente[] {
   return ONDAS_TEMPESTADE
 }
 
-/** Quanto a tempestade multiplica as ondas comuns no núcleo (o shader usa o mesmo número). */
-export const AGITACAO_TEMPESTADE = 2.2
+/**
+ * Quanto a tempestade multiplica as ondas comuns no núcleo (o shader usa o
+ * mesmo número). Baixo de propósito: quem manda no mar bravo são as vagas;
+ * as senoides regulares, muito ampliadas, formavam uma grade feia.
+ */
+export const AGITACAO_TEMPESTADE = 1.1
 
 /** Agitação do mar num ponto: 1 no mar normal, até 3,2× no núcleo da tempestade. */
 export function agitacaoEm(p: Vetor, celula: number) {
   return 1 + AGITACAO_TEMPESTADE * intensidadeTempestade(p, celula)
 }
 
-/** Crista pontuda: sobe rápido, desce devagar — é o que faz a vaga parecer brava. */
+/** Crista pontuda e cavado largo: o perfil de uma vaga de verdade. */
 export function perfilVaga(seno: number) {
-  return 2 * Math.pow((seno + 1) / 2, 1.5) - 0.8
+  return 2 * Math.pow((seno + 1) / 2, 2) - 0.7
+}
+
+/**
+ * Uma vaga de tempestade com forma de onda: a crista CURVA (a fase é torta ao
+ * longo dela) e tem COMPRIMENTO FINITO (a altura cresce e some em trechos —
+ * as "séries" de ondas), em vez de uma faixa reta infinita. Mesma fórmula no
+ * shader (alturaVaga em shaderOceano.ts).
+ */
+export function alturaVaga(o: OndaComponente, p: Vetor, t: number) {
+  const dx = Math.cos(o.direcao)
+  const dy = Math.sin(o.direcao)
+  const ao = dx * p.x + dy * p.y
+  const at = -dy * p.x + dx * p.y
+  const k = (Math.PI * 2) / o.comprimento
+  const curva = 0.9 * Math.sin(at * 0.0042 + o.fase * 1.3) + 0.45 * Math.sin(at * 0.0097 - o.fase)
+  const fase = k * (ao - o.velocidade * t) + o.fase + curva
+  const e = Math.sin(at * 0.0052 + ao * 0.0011 + o.fase * 2 - t * 0.12)
+  const x = Math.max(0, Math.min(1, (e + 0.5) / 1.3))
+  const envelope = 0.3 + 0.7 * x * x * (3 - 2 * x)
+  return o.amplitude * envelope * perfilVaga(Math.sin(fase))
 }
 
 export function alturaDoMar(ondas: readonly OndaComponente[], p: Vetor, t: number, agitacao: number, tormenta = 0) {
@@ -79,11 +103,7 @@ export function alturaDoMar(ondas: readonly OndaComponente[], p: Vetor, t: numbe
   }
   h *= agitacao
   if (tormenta > 0) {
-    for (const o of ONDAS_TEMPESTADE) {
-      const k = (Math.PI * 2) / o.comprimento
-      const d = Math.cos(o.direcao) * p.x + Math.sin(o.direcao) * p.y
-      h += o.amplitude * tormenta * perfilVaga(Math.sin(k * (d - o.velocidade * t) + o.fase))
-    }
+    for (const o of ONDAS_TEMPESTADE) h += tormenta * alturaVaga(o, p, t)
   }
   return h
 }

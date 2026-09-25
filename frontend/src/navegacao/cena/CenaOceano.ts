@@ -162,6 +162,10 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     })
     this.input.keyboard?.on('keydown-Q', () => this.disparar('bombordo'))
     this.input.keyboard?.on('keydown-E', () => this.disparar('boreste'))
+    this.input.keyboard?.on('keydown-ESC', () => {
+      this.combate.sairModoAtaque()
+      this.publicarRetrato()
+    })
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
       this.zoomUsuario = Phaser.Math.Clamp(this.zoomUsuario * (dy > 0 ? 0.9 : 1.1), 0.4, 2)
     })
@@ -221,6 +225,11 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     else if (r === 'recarregando') this.avisar(`${nome}: recarregando…`)
     else if (r === 'zona-segura') this.avisar('Não se dispara canhões na zona segura de uma ilha.')
     else if (r === 'sem-alvo') this.avisar('Nenhum navio inimigo à vista.')
+  }
+
+  alternarModoAtaque() {
+    this.combate.alternarModoAtaque(this.estado)
+    this.publicarRetrato()
   }
 
   /** Encosta no inimigo avariado: a cena congela e começa a luta de tripulações. */

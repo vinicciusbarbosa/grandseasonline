@@ -66,7 +66,7 @@ export default function TelaNavegacao() {
               retrato.combate.inimigoPerto ? 'hidden' : 'hidden xl:block'
             }`}
           >
-            Clique no mar para navegar · numa ilha para atracar · no navio inimigo para ver a área de ataque · Q/E: canhões · roda do mouse: zoom
+            Clique no mar para navegar · numa ilha para atracar · no navio inimigo para ver a área de ataque (Esc sai) · Q/E: canhões · roda do mouse: zoom
           </p>
           {batalha && (
             <TelaAbordagem
@@ -359,6 +359,29 @@ function PainelCombate({ retrato, cena, aoAbordar }: { retrato: RetratoNavegacao
           <Barra rotulo="Velas" valor={c.velas} max={c.velasMax} cor="bg-creme/80" />
         </div>
         <Bateria lado="boreste" info={c.baterias.boreste} aoDisparar={() => cena.disparar('boreste')} />
+        {c.inimigoPerto && (
+          <button
+            onClick={() => cena.alternarModoAtaque()}
+            title={c.modoAtaque ? 'Esconde a área de ataque (Esc)' : 'Mostra os arcos e o alcance dos canhões'}
+            className={`ml-1 rounded-sm border px-2.5 py-1.5 text-[0.7rem] leading-tight transition-colors ${
+              c.modoAtaque ? 'border-pirata/80 bg-pirata/25 text-creme hover:bg-pirata/40' : 'border-painel-borda/50 text-creme/70 hover:border-ouro/60'
+            }`}
+          >
+            {c.modoAtaque ? (
+              <>
+                ✕ Sair do
+                <br />
+                modo ataque
+              </>
+            ) : (
+              <>
+                Modo
+                <br />
+                ataque
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   )

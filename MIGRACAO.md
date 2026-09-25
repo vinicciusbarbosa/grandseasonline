@@ -212,7 +212,9 @@ frontend/src/navegacao/
   ruído 256×256 gerada no navegador) e as partículas da esteira são sprites
   em lote.
 - **Tempestade** no sul do East Blue (`sim/tempestade.ts`): vento em ciclone,
-  vagas altas de crista pontuda (as mesmas no shader e no balanço do navio),
+  vagas com forma de onda — crista curva e de comprimento finito, face da
+  frente translúcida, lábio de espuma e rastro nas costas (a mesma fórmula
+  `alturaVaga` no shader e no balanço do navio), picado miúdo irregular,
   navio mais lento, chuva em sprites com respingos, raios fractais que descem
   e piscam, clarão localizado e trovão sintetizado (estalo + ronco).
 - **Redemoinho** no núcleo da tempestade (`sim/redemoinho.ts`): na borda a
@@ -253,7 +255,9 @@ frontend/src/navegacao/
 - **HUD de combate compacto**: uma faixa no pé da tela com as baterias Q/E
   (anel de recarga) e casco/velas do nosso navio; o estado do inimigo fica
   sobre o navio dele. Q/E miram sozinhos no inimigo dentro do arco — clicar
-  no inimigo só liga/desliga a área de ataque (arcos e alcance).
+  no inimigo (ou no botão "Modo ataque") só liga/desliga a área de ataque
+  (arcos e alcance); Esc sai, e ela se desfaz sozinha se o inimigo some,
+  afunda, se afasta ou se o jogador entra numa zona segura.
 - **Ilhas do East Blue em 3D** (`scripts/ilhas/`, `cena/ilhas3d/`): Dawn,
   Shells Town, Orange Town, Vila Syrup, Baratie, Cocoyashi e Loguetown,
   maiores e modeladas a partir do anime e da arte do Sugoi (Goa murada com

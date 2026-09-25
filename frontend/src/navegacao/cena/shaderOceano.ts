@@ -86,12 +86,23 @@ void onda(vec4 o, float a, float f, vec2 p, float t, inout float h, inout vec2 g
   g += a * o.z * cos(fase) * o.xy;
 }
 
-// Vaga de tempestade: crista pontuda (sobe rápido, desce devagar).
-void vaga(vec4 o, float a, float f, vec2 p, float t, inout float h, inout vec2 g) {
-  float fase = o.z * dot(o.xy, p) - o.w * t + f;
-  float s = (sin(fase) + 1.0) * 0.5;
-  h += a * (2.0 * pow(s, 1.5) - 0.8);
-  g += a * o.z * 1.5 * pow(s, 0.5) * cos(fase) * o.xy;
+// Vaga de tempestade (mesma fórmula de alturaVaga em sim/ondas.ts): crista
+// curva e de comprimento finito. Devolve (altura, s = crista 0..1, cos da
+// fase — negativo na face da frente —, envelope).
+vec4 infoVaga(vec4 o, float a, float f, vec2 p, float t) {
+  vec2 n = vec2(-o.y, o.x);
+  float ao = dot(o.xy, p);
+  float at = dot(n, p);
+  float curva = 0.9 * sin(at * 0.0042 + f * 1.3) + 0.45 * sin(at * 0.0097 - f);
+  float fase = o.z * ao - o.w * t + f + curva;
+  float e = sin(at * 0.0052 + ao * 0.0011 + f * 2.0 - t * 0.12);
+  float env = 0.3 + 0.7 * smoothstep(-0.5, 0.8, e);
+  float s = 0.5 + 0.5 * sin(fase);
+  return vec4(a * env * (2.0 * s * s - 0.7), s, cos(fase), env);
+}
+
+float alturaVagas(vec2 p, float t, float tormenta) {
+  return infoVaga(uVaga0, uVagaAmp.x * tormenta, uVagaFase.x, p, t).x + infoVaga(uVaga1, uVagaAmp.y * tormenta, uVagaFase.y, p, t).x;
 }
 
 // Só a altura (sem gradiente), para o deslocamento de paralaxe.
@@ -102,9 +113,7 @@ float alturaEm(vec2 p, float t, float tormenta, float agitacao) {
   h += uAmplitudes.z * sin(uOnda2.z * dot(uOnda2.xy, p) - uOnda2.w * t + uFases.z);
   h += uAmplitudes.w * sin(uOnda3.z * dot(uOnda3.xy, p) - uOnda3.w * t + uFases.w);
   h *= agitacao;
-  float s0 = (sin(uVaga0.z * dot(uVaga0.xy, p) - uVaga0.w * t + uVagaFase.x) + 1.0) * 0.5;
-  float s1 = (sin(uVaga1.z * dot(uVaga1.xy, p) - uVaga1.w * t + uVagaFase.y) + 1.0) * 0.5;
-  h += tormenta * (uVagaAmp.x * (2.0 * pow(s0, 1.5) - 0.8) + uVagaAmp.y * (2.0 * pow(s1, 1.5) - 0.8));
+  if (tormenta > 0.001) h += alturaVagas(p, t, tormenta);
   return h;
 }
 
@@ -167,8 +176,12 @@ void main() {
   onda(uOnda1, uAmplitudes.y * agitacao, uFases.y, p, t, h, g);
   onda(uOnda2, uAmplitudes.z * agitacao, uFases.z, p, t, h, g);
   onda(uOnda3, uAmplitudes.w * agitacao, uFases.w, p, t, h, g);
-  vaga(uVaga0, uVagaAmp.x * tormenta, uVagaFase.x, p, t, h, g);
-  vaga(uVaga1, uVagaAmp.y * tormenta, uVagaFase.y, p, t, h, g);
+  if (tormenta > 0.001) {
+    // Gradiente das vagas por diferença finita (a fórmula torta não tem derivada simples).
+    float hv = alturaVagas(p, t, tormenta);
+    g += vec2(alturaVagas(p + vec2(3.0, 0.0), t, tormenta) - hv, alturaVagas(p + vec2(0.0, 3.0), t, tormenta) - hv) / 3.0;
+    h += hv;
+  }
   float amplitudeTotal = dot(uAmplitudes, vec4(1.0)) * agitacao + (uVagaAmp.x + uVagaAmp.y) * tormenta;
   float hn = h / amplitudeTotal;
 
@@ -216,46 +229,60 @@ void main() {
   if (tormenta > 0.01) {
     vec2 frente = normalize(vento + vec2(1e-4, 0.0));
     vec2 lado = vec2(-frente.y, frente.x);
-    // Mar picado: três ondas curtas de crista pontuda mas contínua
-    // (s³, com s = (1 + sen)/2), sem as quinas que facetavam a água.
-    float pic = 0.0;
-    vec2 gp = vec2(0.0);
-    for (int i = 0; i < 3; i++) {
-      float fi = float(i);
-      vec2 d = normalize(frente + lado * (fi - 1.0) * 0.55);
-      float k = 6.2831 / (150.0 - fi * 32.0);
-      float fase = k * (dot(d, p) - (38.0 + fi * 6.0) * t) + fi * 2.1;
-      float s = 0.5 + 0.5 * sin(fase);
-      pic += s * s * s;
-      gp += 1.5 * s * s * cos(fase) * k * d;
-    }
-    pic /= 3.0;
-    g += gp * 1.4 * tormenta;
-    vec3 nT = normalize(vec3(-g * 6.0, 1.0));
+    // Picado miúdo IRREGULAR: normal tirada de duas camadas de ruído que correm
+    // com o vento em velocidades diferentes. Sem senoides, sem padrão repetido.
+    vec2 u1 = p * 0.0031 + frente * t * 0.02;
+    vec2 u2 = p * 0.0062 + lado * t * 0.008 - frente * t * 0.035 + 0.37;
+    float de = 0.002;
+    // (ruído grosso: a derivada do fino vira granulado de asfalto)
+    float r1 = ruido(u1);
+    float r2 = ruido(u2);
+    vec2 gn = vec2(ruido(u1 + vec2(de, 0.0)) - r1, ruido(u1 + vec2(0.0, de)) - r1)
+            + 0.5 * vec2(ruido(u2 + vec2(de, 0.0)) - r2, ruido(u2 + vec2(0.0, de)) - r2);
+    vec3 nT = normalize(vec3(-g * 5.0 - gn * (30.0 * tormenta), 1.0));
     float luzT = dot(nT, sol);
 
-    float faseVaga0 = uVaga0.z * dot(uVaga0.xy, p) - uVaga0.w * t + uVagaFase.x;
-    vec2 naOnda0 = p - uVaga0.xy * (uVaga0.w / uVaga0.z) * t;
-    float vagaAlta = smoothstep(0.35, 1.0, sin(faseVaga0));
+    vec4 v0 = infoVaga(uVaga0, uVagaAmp.x * tormenta, uVagaFase.x, p, t);
+    vec4 v1 = infoVaga(uVaga1, uVagaAmp.y * tormenta, uVagaFase.y, p, t);
+    // Referencial da vaga (anda com ela), esticado ao longo da crista.
+    vec2 d0 = uVaga0.xy;
+    vec2 n0 = vec2(-d0.y, d0.x);
+    vec2 naOnda0 = p - d0 * (uVaga0.w / uVaga0.z) * t;
+    vec2 aoLongo = vec2(dot(naOnda0, n0) * 0.0035, dot(naOnda0, d0) * 0.011);
 
-    // Cavado quase preto, encosta da vaga clara: contraste forte = mar pesado.
-    vec3 mar = mix(vec3(0.02, 0.07, 0.1), vec3(0.22, 0.36, 0.38), smoothstep(-0.7, 0.95, hn));
-    mar *= 0.7 + 0.55 * luzT;
-    mar += vec3(0.12, 0.18, 0.19) * pic * 0.8;
+    // Corpo da onda: cavado escuro, costas cinza-chumbo iluminadas pelo céu, e
+    // a FACE DA FRENTE perto da crista translúcida (a luz atravessando a água).
+    float alto = clamp(h / ((uVagaAmp.x + uVagaAmp.y) * 0.8 + 1.0), -1.0, 1.0);
+    vec3 mar = mix(vec3(0.03, 0.09, 0.12), vec3(0.3, 0.44, 0.47), smoothstep(-0.8, 0.95, alto));
+    float frente0 = smoothstep(0.15, -0.75, v0.z);
+    float frente1 = smoothstep(0.15, -0.75, v1.z);
+    // A face da frente fica na sombra; as costas pegam a luz.
+    mar *= mix(1.08, 0.72, frente0 * smoothstep(0.2, 0.8, v0.y));
+    mar *= 0.72 + 0.5 * luzT;
+    float translucida = smoothstep(0.5, 0.95, v0.y) * frente0 * v0.w + 0.6 * smoothstep(0.55, 0.95, v1.y) * frente1 * v1.w;
+    mar = mix(mar, vec3(0.16, 0.56, 0.52), clamp(translucida, 0.0, 1.0) * 0.6);
 
-    // Carneiros: nas cristas do mar picado e, farto, na crista da vaga.
-    float grao = ruidoFino(naOnda0 * 0.0034);
-    float carneirosT = smoothstep(0.55, 0.85, pic) * smoothstep(0.42, 0.62, grao);
-    carneirosT = max(carneirosT, smoothstep(0.75, 1.0, sin(faseVaga0)) * smoothstep(0.35, 0.6, grao));
-    // Faixas de espuma esticadas na direção do vento (espuma de ventania).
-    // Linhas finas desenhadas por fórmula (seno torcido por ruído grosso),
-    // longas no sentido do vento e interrompidas aos pedaços.
+    // Espuma: o lábio branco CONTÍNUO na crista (mais forte onde a vaga é
+    // alta — o envelope), o rastro em estrias nas costas, e fios de ventania.
+    float falha = ruido(aoLongo * vec2(1.0, 0.4) + 0.2);
+    // Lábio: borda de ataque da crista (logo depois do topo, na face da frente).
+    float bordo0 = smoothstep(0.91, 0.975, v0.y) * smoothstep(0.3, -0.15, v0.z);
+    float bordo1 = smoothstep(0.93, 0.985, v1.y) * smoothstep(0.3, -0.15, v1.z);
+    float labio0 = bordo0 * smoothstep(0.32, 0.6, v0.w) * (0.45 + 0.55 * smoothstep(0.3, 0.6, falha));
+    float labio1 = bordo1 * smoothstep(0.4, 0.8, v1.w) * 0.65;
+    // Rastro: a espuma que a crista deixa para trás escorre em estrias pelas costas.
+    float estria = smoothstep(0.45, 0.75, ruidoFino(aoLongo)) * smoothstep(0.3, 0.6, ruido(aoLongo * 0.5 + 0.7));
+    float costas = smoothstep(0.35, 0.95, v0.y) * smoothstep(-0.1, 0.6, v0.z) * smoothstep(0.3, 0.7, v0.w);
+    float rastro = costas * estria * 0.85;
     vec2 q = vec2(dot(p, lado), dot(p, frente) - t * 70.0);
-    float linhas = smoothstep(0.93, 1.0, sin(q.x * 0.11 + ruido(q * vec2(0.0012, 0.0004)) * 9.0));
+    float linhas = smoothstep(0.94, 1.0, sin(q.x * 0.11 + ruido(q * vec2(0.0012, 0.0004)) * 9.0));
     float pedacos = smoothstep(0.45, 0.65, ruido(vec2(q.x * 0.002, q.y * 0.0009) + 0.5));
-    float faixa = linhas * pedacos * 0.8;
-    float espumaT = clamp(carneirosT + faixa * (0.4 + 0.6 * vagaAlta), 0.0, 1.0);
-    mar = mix(mar, vec3(0.82, 0.88, 0.9), espumaT * 0.85);
+    float fios = linhas * pedacos * 0.4;
+    // Renda: a espuma é furada pelo ruído (bolhas), não uma mancha lisa.
+    float renda = smoothstep(0.32, 0.5, ruidoFino(naOnda0 * 0.011 + 0.3));
+    float labio = max(labio0, labio1);
+    float espumaT = clamp(labio * (0.55 + 0.45 * renda) + rastro * renda + fios, 0.0, 1.0);
+    mar = mix(mar, vec3(0.88, 0.93, 0.95), espumaT * 0.92);
 
     agua = mix(agua, mar, smoothstep(0.0, 0.45, tormenta) * smoothstep(20.0, 80.0, sdn));
   }

@@ -36,6 +36,8 @@ type Lasca = { x: number; y: number; z: number; vx: number; vy: number; vz: numb
 type Coluna = { x: number; y: number; idade: number; altura: number }
 
 const PASSO = 1 / 60
+/** Mais longe que isso, o modo de ataque desliga sozinho. */
+const DISTANCIA_MODO_ATAQUE = 900
 
 export type InfoCombate = {
   casco: number
@@ -46,6 +48,8 @@ export type InfoCombate = {
   alvo: { nome: string; casco: number; cascoMax: number; velas: number; velasMax: number; distancia: number } | null
   inimigoPerto: boolean
   podeAbordar: boolean
+  /** Área de ataque (arcos e alcance) à mostra. */
+  modoAtaque: boolean
 }
 
 export class CombateNaval {
@@ -138,6 +142,20 @@ export class CombateNaval {
     return true
   }
 
+  /** Liga/desliga a área de ataque pelo HUD (só com inimigo por perto). */
+  alternarModoAtaque(jogador: EstadoViagem) {
+    if (this.alvoSelecionado) this.alvoSelecionado = false
+    else if (this.npc && this.npc.naufragio === null && this.distanciaAoNpc(jogador) < DISTANCIA_MODO_ATAQUE) this.alvoSelecionado = true
+  }
+
+  sairModoAtaque() {
+    this.alvoSelecionado = false
+  }
+
+  private distanciaAoNpc(jogador: EstadoViagem) {
+    return this.npc ? Math.hypot(this.npc.posicao.x - jogador.posicao.x, this.npc.posicao.y - jogador.posicao.y) : Infinity
+  }
+
   /** Disparo do jogador. Devolve o motivo se não saiu. */
   disparar(jogador: EstadoViagem, lado: Lado, meioComprimento: number, tempestade: number) {
     if (!this.npc || this.npc.naufragio !== null || jogador.naufragio !== null) return 'sem-alvo'
@@ -180,6 +198,17 @@ export class CombateNaval {
     esteira: Esteira,
   ): { jogadorAfundou: boolean; inimigoAfundou: boolean } {
     recarregar(this.combateJogador, dt)
+    // O modo de ataque se desfaz sozinho: inimigo sumiu, afundou, foi longe
+    // demais, ou nós entramos numa zona segura (ou afundamos).
+    if (
+      this.alvoSelecionado &&
+      (!this.npc ||
+        this.npc.naufragio !== null ||
+        jogador.naufragio !== null ||
+        this.distanciaAoNpc(jogador) > DISTANCIA_MODO_ATAQUE ||
+        naZonaSegura(this.mundo, jogador.posicao))
+    )
+      this.alvoSelecionado = false
     let jogadorAfundou = false
     let inimigoAfundou = false
 
@@ -424,6 +453,7 @@ export class CombateNaval {
           ? { nome: this.nomeNpc, casco: this.npcCombate.casco, cascoMax: this.npcCombate.cascoMax, velas: this.npcCombate.velas, velasMax: this.npcCombate.velasMax, distancia }
           : null,
       inimigoPerto: distancia < 700,
+      modoAtaque: this.alvoSelecionado,
       podeAbordar: !!(npc && this.npcCombate && npc.naufragio === null && jogador.naufragio === null && podeAbordar(jogador, npc, this.npcCombate)),
     }
   }

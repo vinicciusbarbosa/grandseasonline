@@ -53,6 +53,7 @@ export interface ControleNavegacao {
   navegarPara(x: number, y: number): void
   esquecerDescoberta(): void
   disparar(lado: Lado): void
+  alternarModoAtaque(): void
   abordar(): Batalha | null
   terminarAbordagem(): void
 }
