@@ -4,7 +4,7 @@ import { painelNavegacao, type ControleNavegacao, type SituacaoNavio } from '../
 import { Descoberta } from '../sim/descoberta'
 import { criarEstadoViagem, navegarPara, passoNavegacao, type EstadoViagem } from '../sim/navegacao'
 import { fisicaDoNavio, NAVIOS, type FisicaNavio, type TipoNavio } from '../sim/navios'
-import { agitacaoEm, balancoNoMar, componentes, componentesTempestade } from '../sim/ondas'
+import { agitacaoEm, alturaDoMar, balancoNoMar, componentes, componentesTempestade } from '../sim/ondas'
 import { REDEMOINHOS } from '../sim/redemoinho'
 import { intensidadeTempestade, TEMPESTADES } from '../sim/tempestade'
 import { ventoEm, type EstadoVento } from '../sim/vento'
@@ -13,10 +13,11 @@ import { Correntes } from './Correntes'
 import { Esteira } from './Esteira'
 import { Ilhas } from './Ilhas'
 import { NavioVisual } from './NavioVisual'
-import { ACHATAMENTO } from './projecao'
+import { ACHATAMENTO, ELEVACAO } from './projecao'
 import { FRAGMENTO_OCEANO } from './shaderOceano'
 import { criarTexturaRuido } from './texturaRuido'
 import { VentoVisual } from './VentoVisual'
+import { VisualRedemoinho } from './VisualRedemoinho'
 
 const PASSO_FIXO = 1 / 60
 const PX_POR_NO = 9
@@ -34,6 +35,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
   private ilhas!: Ilhas
   private ventoVisual!: VentoVisual
   private clima!: Clima
+  private visualRedemoinho!: VisualRedemoinho
   private oceano!: Phaser.GameObjects.Shader
   private texDescoberta!: Phaser.Textures.CanvasTexture
   private rascunhoDescoberta: HTMLCanvasElement | null = null
@@ -101,6 +103,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.plano.add(this.rota)
     this.ventoVisual = new VentoVisual(this, this.plano)
     this.clima = new Clima(this)
+    this.visualRedemoinho = new VisualRedemoinho(this, this.mundo.celula)
 
     // Começa atracado na primeira ilha do East Blue, com a proa para o mar aberto.
     const inicial = this.mundo.ilhas.find((i) => i.nome === ILHA_INICIAL) ?? this.mundo.ilhas[0]
@@ -217,7 +220,11 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
       this.fisica.sensibilidadeOnda,
       tormentaNavio,
     )
-    this.navio.atualizar(this.estado, this.fisica, this.vento, balanco, this.tempo, dt)
+    const alturaMar = (x: number, y: number) => {
+      const ponto = { x, y }
+      return alturaDoMar(componentes(), ponto, this.tempo, agitacaoEm(ponto, celula), intensidadeTempestade(ponto, celula))
+    }
+    this.navio.atualizar(this.estado, this.fisica, this.vento, balanco, this.tempo, dt, alturaMar)
     if (this.estado.atracadoEm) this.ultimaIlha = this.estado.atracadoEm
     if (this.estado.naufragio !== null && this.estado.naufragio > 5) this.voltarAoPorto()
 
@@ -253,6 +260,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     this.tempestadeNaVista += (alvoTempestade - this.tempestadeNaVista) * Math.min(1, dt * 1.5)
 
     this.correntes.atualizar(dt, camera.worldView)
+    this.visualRedemoinho.atualizar(dt, camera.worldView)
     this.ventoVisual.atualizar(dt, this.vento, this.tempestadeNaVista, camera.worldView)
     this.clima.atualizar(dt, this.tempestadeNaVista, this.vento, (x, y) => intensidadeTempestade({ x, y }, celula))
     this.ilhas.atualizar(this.estado.posicao, this.tempo)
@@ -339,6 +347,7 @@ export class CenaOceano extends Phaser.Scene implements ControleNavegacao {
     definir('uGrade', this.grade ? 1 : 0)
     definir('uCelula', celula)
     definir('uAchatamento', ACHATAMENTO)
+    definir('uElevacao', ELEVACAO)
 
     const ondas = componentes()
     ondas.forEach((o, i) => {

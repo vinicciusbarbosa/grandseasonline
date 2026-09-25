@@ -39,6 +39,12 @@ export type EstadoViagem = {
   alagamento: number
   /** Segundos desde que o navio se partiu; null enquanto inteiro. */
   naufragio: number | null
+  /** 0–1: quanto o navio já desceu no funil do redemoinho (visual). */
+  funil: number
+  /** Adernamento para dentro da curva do redemoinho, em radianos (visual). */
+  adernaRedemoinho: number
+  /** Giro próprio acumulado dentro do redemoinho. */
+  rodopio: number
 }
 
 export function criarEstadoViagem(posicao: Vetor, rumo = 0): EstadoViagem {
@@ -58,6 +64,9 @@ export function criarEstadoViagem(posicao: Vetor, rumo = 0): EstadoViagem {
     capturado: false,
     alagamento: 0,
     naufragio: null,
+    funil: 0,
+    adernaRedemoinho: 0,
+    rodopio: 0,
   }
 }
 
@@ -100,6 +109,7 @@ export function passoNavegacao(
 
   const redemoinho = influenciaRedemoinho(posicao, mundo.celula)
   estado.zonaRedemoinho = redemoinho?.zona ?? 'fora'
+  atualizarVisualRedemoinho(estado, redemoinho, dt)
   if (redemoinho && (redemoinho.zona === 'captura' || redemoinho.zona === 'centro')) estado.capturado = true
   if (estado.capturado && redemoinho) {
     girarNoRedemoinho(mundo, estado, redemoinho, dt)
@@ -133,8 +143,8 @@ export function passoNavegacao(
     const freio = Math.sqrt(2 * fisica.desaceleracao * Math.max(0, restante - 4))
     // Mar grosso freia: o casco bate nas ondas em vez de deslizar.
     const mar = 1 - intensidadeTempestade(posicao, mundo.celula) * fisica.perdaNoMar
-    // Na borda do redemoinho a água segura o casco: o leme e o pano rendem pouco.
-    const segura = redemoinho ? 1 - 0.65 * Math.min(1, redemoinho.profundidade * 1.6) : 1
+    // Na borda do redemoinho a água segura o casco: o pano rende quase nada.
+    const segura = redemoinho ? 1 - 0.85 * Math.min(1, redemoinho.profundidade * 2.2) : 1
     velocidadeAlvo = Math.min(fisica.velocidadeMax * estado.fatorVento * fatorCurva * mar * segura, freio + 5)
 
     const noFim = estado.pontoAtual === rota.length - 1
@@ -152,10 +162,15 @@ export function passoNavegacao(
   // --- Rumo -------------------------------------------------------------------
   // O leme morde mais com o navio andando; parado, ele ainda gira, mas devagar.
   let autoridade = 0.35 + 0.65 * Math.min(1, estado.velocidade / (fisica.velocidadeMax * 0.5))
-  if (redemoinho) autoridade *= 1 - 0.6 * Math.min(1, redemoinho.profundidade * 1.6)
+  if (redemoinho) autoridade *= 1 - 0.9 * Math.min(1, redemoinho.profundidade * 2.2)
   const rumoAntes = estado.rumo
   estado.rumo = Math.atan2(Math.sin(estado.rumo), Math.cos(estado.rumo))
   estado.rumo = girarPara(estado.rumo, rumoAlvo, fisica.giro * autoridade * dt)
+  // A correnteza vira o casco: ele tende a se alinhar com a água, como uma folha.
+  if (redemoinho) {
+    const forca = Math.min(1, redemoinho.profundidade * 2.5)
+    estado.rumo += diferencaAngular(estado.rumo, redemoinho.tangente + 0.25) * forca * 1.4 * dt
+  }
   const giro = diferencaAngular(rumoAntes, estado.rumo) / Math.max(dt, 1e-6)
   estado.giroAtual += (giro - estado.giroAtual) * Math.min(1, dt * 4)
 
@@ -201,8 +216,10 @@ export function passoNavegacao(
 }
 
 /**
- * Preso: o navio orbita para dentro, girando em torno de si cada vez mais
- * rápido, enquanto a água entra. No centro, ele se parte.
+ * Preso: o navio vai na água como uma folha. Orbita o centro com a
+ * correnteza, desce devagar pela espiral, gira em torno de si cada vez mais
+ * rápido e afunda no funil enquanto alaga. No centro, ele se parte.
+ * Tudo é suavizado (sem trancos): velocidades e rumo seguem alvos.
  */
 function girarNoRedemoinho(
   mundo: Mundo,
@@ -214,27 +231,45 @@ function girarNoRedemoinho(
   estado.indoPara = null
   estado.atracadoEm = null
 
-  // Separa a correnteza em giro (mantido) e sucção (mais lenta aqui dentro):
-  // a espiral leva uns 9 s da captura até o centro, tempo de ver a água entrar.
   const radial = { x: (r.centro.x - estado.posicao.x) / Math.max(r.distancia, 1), y: (r.centro.y - estado.posicao.y) / Math.max(r.distancia, 1) }
   const naDirecaoDoCentro = r.correnteza.x * radial.x + r.correnteza.y * radial.y
   const giro = { x: r.correnteza.x - radial.x * naDirecaoDoCentro, y: r.correnteza.y - radial.y * naDirecaoDoCentro }
+  // A espiral leva uns 9 s da captura ao centro.
   const succao = 9 + 12 * r.profundidade
-  estado.correnteAtual.x = giro.x
-  estado.correnteAtual.y = giro.y
-  estado.movimento.x = radial.x * succao
-  estado.movimento.y = radial.y * succao
+  const suave = 1 - Math.exp(-2.5 * dt)
+  estado.correnteAtual.x += (giro.x - estado.correnteAtual.x) * suave
+  estado.correnteAtual.y += (giro.y - estado.correnteAtual.y) * suave
+  estado.movimento.x += (radial.x * succao - estado.movimento.x) * suave
+  estado.movimento.y += (radial.y * succao - estado.movimento.y) * suave
 
-  // Gira em torno de si: a proa acompanha a correnteza e ainda rodopia.
-  const rodopio = 0.6 + 3.2 * Math.pow(r.profundidade, 2)
+  // Rumo: acompanha a tangente (uma volta por órbita) e ganha giro próprio
+  // perto do centro — sempre seguindo o alvo com suavidade.
+  estado.rodopio += (0.2 + 2.4 * Math.pow(r.profundidade, 2.5)) * dt
+  const alvo = r.tangente + 0.35 + estado.rodopio
   const antes = estado.rumo
-  estado.rumo = girarPara(estado.rumo, r.tangente, 1.2 * dt) + rodopio * dt * -1
+  estado.rumo += diferencaAngular(estado.rumo, alvo) * Math.min(1, 2.2 * dt)
   estado.giroAtual = diferencaAngular(antes, estado.rumo) / Math.max(dt, 1e-6)
-  estado.velocidade = Math.hypot(r.correnteza.x, r.correnteza.y) * 0.6
+  estado.velocidade = Math.hypot(estado.correnteAtual.x, estado.correnteAtual.y) * 0.5
 
   estado.alagamento = Math.min(1, estado.alagamento + dt / 9)
   mover(mundo, estado, (estado.movimento.x + estado.correnteAtual.x) * dt, (estado.movimento.y + estado.correnteAtual.y) * dt)
   if (r.zona === 'centro') estado.naufragio = 0
+}
+
+/** Funil e adernamento: o navio desce na água e se inclina para o centro. */
+function atualizarVisualRedemoinho(estado: EstadoViagem, r: ReturnType<typeof influenciaRedemoinho>, dt: number) {
+  let funilAlvo = 0
+  let adernaAlvo = 0
+  if (r) {
+    funilAlvo = Math.pow(r.profundidade, 2)
+    // Centro a boreste ou a bombordo? O casco aderna para o lado do centro.
+    const paraCentro = Math.atan2(r.centro.y - estado.posicao.y, r.centro.x - estado.posicao.x)
+    const lado = Math.sin(diferencaAngular(estado.rumo, paraCentro))
+    adernaAlvo = lado * 0.35 * Math.pow(r.profundidade, 1.2)
+  }
+  const suave = 1 - Math.exp(-2 * dt)
+  estado.funil += (funilAlvo - estado.funil) * suave
+  estado.adernaRedemoinho += (adernaAlvo - estado.adernaRedemoinho) * suave
 }
 
 /** Move com colisão contra terra: desliza pela costa em vez de atravessar. */

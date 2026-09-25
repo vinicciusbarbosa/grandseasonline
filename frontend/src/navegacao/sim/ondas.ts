@@ -47,8 +47,10 @@ export function componentes(): readonly OndaComponente[] {
  * O shader tem a mesma fórmula.
  */
 const ONDAS_TEMPESTADE: OndaComponente[] = [
-  { direcao: 0.95, comprimento: 430, amplitude: 9, velocidade: 64, fase: 0.8 },
-  { direcao: -0.35, comprimento: 290, amplitude: 6, velocidade: 55, fase: 2.9 },
+  // Dois trens de vagas longas vindos de direções a ~65° um do outro: onde
+  // as cristas se cruzam, as ondas somam e "colidem".
+  { direcao: 0.95, comprimento: 780, amplitude: 22, velocidade: 88, fase: 0.8 },
+  { direcao: -0.2, comprimento: 560, amplitude: 15, velocidade: 74, fase: 2.9 },
 ]
 
 export function componentesTempestade(): readonly OndaComponente[] {
@@ -65,7 +67,7 @@ export function agitacaoEm(p: Vetor, celula: number) {
 
 /** Crista pontuda: sobe rápido, desce devagar — é o que faz a vaga parecer brava. */
 export function perfilVaga(seno: number) {
-  return 2 * Math.pow((seno + 1) / 2, 2.2) - 0.62
+  return 2 * Math.pow((seno + 1) / 2, 1.5) - 0.8
 }
 
 export function alturaDoMar(ondas: readonly OndaComponente[], p: Vetor, t: number, agitacao: number, tormenta = 0) {
@@ -133,7 +135,7 @@ export function balancoNoMar(
   // boreste, ela muda conforme o rumo em relação às ondas — de través o navio
   // joga de lado, de proa ele arfa.
   const altura = ((proa + popa + bombordo + boreste) / 4) * sensibilidade * 1.4
-  const arfagem = limite(Math.atan2(proa - popa, meioComprimento * 2) * 3 * sensibilidade, 0.38)
-  const rolagem = limite(Math.atan2(bombordo - boreste, meiaLargura * 3.2) * 3.2 * sensibilidade, 0.45)
+  const arfagem = limite(Math.atan2(proa - popa, meioComprimento * 2) * 3 * sensibilidade, 0.3)
+  const rolagem = limite(Math.atan2(bombordo - boreste, meiaLargura * 3.2) * 3.2 * sensibilidade, 0.32)
   return { altura, rolagem, arfagem }
 }

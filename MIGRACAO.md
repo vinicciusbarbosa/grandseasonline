@@ -219,6 +219,10 @@ frontend/src/navegacao/
   água segura o navio; mais perto, arrasta; na captura o jogador perde o
   controle, o navio gira para dentro e alaga; no centro ele se parte e a
   tripulação recomeça na última ilha.
+- **Água no casco** (`NavioVisual.desenharLaminaDagua`): a superfície do mar
+  em volta do costado segue as ondas reais; quando o navio desce ou aderna a
+  água sobe pelo casco, e se passar da amurada entra no convés e escorre.
+  Velas enchem pela pressão do vento na normal do pano e panejam de través.
 - **Rastro no próprio shader** (`cena/Esteira.ts`): uma textura que acompanha
   o navio guarda a água mexida (popa, proa cortando a água, braços do "V") e
   o shader a pinta com o mesmo estilo do mar.

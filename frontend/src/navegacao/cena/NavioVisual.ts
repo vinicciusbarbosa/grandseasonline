@@ -120,7 +120,6 @@ export const PROJETOS: Record<TipoNavio, Projeto> = {
 }
 
 type P3 = { x: number; y: number; z: number }
-type Respingo = { x: number; y: number; z: number; vx: number; vy: number; vz: number; vida: number; duracao: number; tamanho: number }
 type Destroco = P3 & { vx: number; vy: number; vz: number; giro: number; angulo: number; comprimento: number; cor: number }
 type P2 = { x: number; y: number; profundidade: number }
 
@@ -186,8 +185,12 @@ export class NavioVisual {
   private altura = 0
   /** Transformação extra aplicada antes de tudo (pedaços do naufrágio). */
   private preTransformar: ((l: P3) => P3) | null = null
-  private respingos: Respingo[] = []
   private destrocos: Destroco[] = []
+  /** Água que entrou pela amurada e ainda está escorrendo (0–1). */
+  private aguaConves = 0
+  private enchimento = 0
+  private panejo = 0
+  private tempoAtual = 0
 
   constructor(cena: Phaser.Scene, tipo: TipoNavio, semente: number) {
     this.tipo = tipo
@@ -290,7 +293,19 @@ export class NavioVisual {
 
   // ---- Quadro ----------------------------------------------------------------------
 
-  atualizar(estado: EstadoViagem, fisica: FisicaNavio, vento: EstadoVento, balanco: Balanco, tempo: number, dt: number) {
+  /**
+   * `alturaMar(x, y)` devolve a altura da água num ponto do mundo agora — a
+   * mesma função que move o casco e que o shader desenha.
+   */
+  atualizar(
+    estado: EstadoViagem,
+    fisica: FisicaNavio,
+    vento: EstadoVento,
+    balanco: Balanco,
+    tempo: number,
+    dt: number,
+    alturaMar: (x: number, y: number) => number,
+  ) {
     const p = this.projeto
     this.g.clear()
 
@@ -299,7 +314,7 @@ export class NavioVisual {
     const adernar = -estado.giroAtual * (0.12 + fisica.sensibilidadeOnda * 0.08) * (0.3 + razao)
     // Alagado, ele fica pesado e jogado de um lado para o outro.
     const agua = estado.alagamento
-    const rolagem = balanco.rolagem + adernar + Math.sin(tempo * 2.3) * 0.12 * agua
+    const rolagem = balanco.rolagem + adernar + Math.sin(tempo * 2.3) * 0.12 * agua + estado.adernaRedemoinho
     const arfagem = balanco.arfagem + razao * 0.03
 
     this.cx = estado.posicao.x
@@ -310,8 +325,10 @@ export class NavioVisual {
     this.sinRol = Math.sin(rolagem)
     this.cosArf = Math.cos(arfagem)
     this.sinArf = Math.sin(arfagem)
-    this.altura = balanco.altura - agua * 7
+    // Alagado ele assenta; no funil do redemoinho ele desce com a água.
+    this.altura = balanco.altura - agua * 7 - estado.funil * 26
     this.g.setDepth(3 + this.cy * 1e-5)
+    this.tempoAtual = tempo
 
     if (estado.naufragio !== null) {
       this.desenharNaufragio(estado.naufragio, dt)
@@ -319,33 +336,94 @@ export class NavioVisual {
     }
 
     this.desenharSombra()
-    this.desenharCasco()
+    this.desenharCasco(() => this.desenharLaminaDagua(razao, dt, alturaMar))
     // O castelo faz parte do casco: sempre antes dos mastros, senão o mastro
     // de mezena (que nasce nele) some dentro dele conforme o rumo.
     this.desenharCastelo()
-    if (agua > 0.02) this.desenharAguaNoConves(agua, tempo)
+    const aguaNoConves = Math.max(agua, this.aguaConves)
+    if (aguaNoConves > 0.02) this.desenharAguaNoConves(aguaNoConves, tempo)
 
+    // Velas: os marinheiros bracejam as vergas para pegar o vento; a pressão
+    // é o vento projetado na normal do pano. A favor, o pano enche para a
+    // frente; de proa, vai "para trás"; paralelo ao pano, ele paneja.
     const relativo = diferencaAngular(estado.rumo, vento.direcao)
-    const alinhamento = Math.cos(relativo)
-    const regulagem = Phaser.Math.Clamp(relativo * 0.45, -0.6, 0.6)
-    let enchimento = (0.35 + 0.65 * vento.intensidade) * (0.45 + 0.55 * Math.abs(alinhamento))
-    // Vento de proa: pano panejando, barriga para trás.
-    if (alinhamento < -0.3) enchimento *= -0.55
-    const tremor = ruidoSuave(tempo * 7, this.semente) * 0.12 * (1.2 - vento.intensidade)
+    const regulagem = Phaser.Math.Clamp(relativo * 0.5, -0.7, 0.7)
+    const pressao = Math.cos(relativo - regulagem)
+    const alvoEnchimento = vento.intensidade * pressao
+    this.enchimento += (alvoEnchimento - this.enchimento) * (1 - Math.exp(-dt / 0.6))
+    const panejo = (1 - Math.abs(pressao)) * vento.intensidade + (1 - vento.intensidade) * 0.25
+    this.panejo += (panejo - this.panejo) * (1 - Math.exp(-dt / 0.4))
 
     // Mastros do fundo para a frente.
     const mastros = p.mastros
       .map((m) => ({ m, x: xDe(p, m.s) }))
       .sort((a, b) => this.profundidadeDe(a.x, 0) - this.profundidadeDe(b.x, 0))
-    for (const { m, x } of mastros) this.desenharMastro(m, x, regulagem, (enchimento + tremor) * 7, vento, estado.rumo, tempo)
+    for (const { m, x } of mastros) this.desenharMastro(m, x, regulagem, this.enchimento * 10, vento, estado.rumo, tempo)
 
     this.desenharCordame()
-    this.atualizarRespingos(dt, razao, agua, balanco)
   }
 
   /** Sombra do casco na água (o resto da água em volta é do shader). */
   private desenharSombra() {
     this.preencher(contorno(this.projeto, 0, 1.05).map((l) => ({ ...l, x: l.x + 3, y: l.y + 5 })), 0x001018, 0.25, true)
+  }
+
+  /** Altura (no mundo) de um ponto local do navio, com o balanço atual. */
+  private mundoDe(l: P3) {
+    const y1 = l.y * this.cosRol - l.z * this.sinRol
+    const z1 = l.y * this.sinRol + l.z * this.cosRol
+    const x2 = l.x * this.cosArf - z1 * this.sinArf
+    const z2 = l.x * this.sinArf + z1 * this.cosArf
+    return { x: this.cx + x2 * this.cosR - y1 * this.sinR, y: this.cy + x2 * this.sinR + y1 * this.cosR, z: z2 + this.altura }
+  }
+
+  /**
+   * A água batendo no casco. Em volta do costado, a superfície do mar fica
+   * onde as ondas estão de verdade: quando o navio desce ou aderna, a água
+   * sobe pelo casco; quando ele sobe, ela escorre. Na proa, em movimento, a
+   * água se acumula (é o casco cortando o mar). Se a água passa da amurada,
+   * entra no convés — e depois escorre de volta.
+   */
+  private desenharLaminaDagua(razao: number, dt: number, alturaMar: (x: number, y: number) => number) {
+    const p = this.projeto
+    const topoAmurada = p.alturaDeck + 3
+    const n = 24
+    const topo: P3[][] = [[], []]
+    const base: P3[][] = [[], []]
+    let transborda = 0
+
+    for (const [k, lado] of [[0, -1], [1, 1]] as const) {
+      for (let i = 0; i <= n; i++) {
+        const s = i / n
+        const w = meiaLarguraEm(p, s) * 0.82
+        const casco = { x: xDe(p, s), y: lado * w, z: 0 }
+        const mundo = this.mundoDe(casco)
+        // A proa empurra a água para cima; o meio do casco fica num leve cavado.
+        const empurrao = razao * (7 * Math.exp(-Math.pow((1 - s) / 0.13, 2)) - 1.2 * Math.exp(-Math.pow((s - 0.55) / 0.2, 2)))
+        const agua = alturaMar(mundo.x, mundo.y) - mundo.z + empurrao + 1.2
+        base[k].push({ x: casco.x, y: lado * (w + 0.4), z: -1 })
+        topo[k].push({ x: casco.x, y: lado * (w + 0.9), z: Math.max(0.2, Math.min(topoAmurada + 1, agua)) })
+
+        const amurada = this.mundoDe({ x: casco.x, y: lado * meiaLarguraEm(p, s), z: topoAmurada })
+        transborda = Math.max(transborda, alturaMar(amurada.x, amurada.y) + empurrao - amurada.z)
+      }
+    }
+
+    // Água no costado virado para a câmera: faixa translúcida com a borda de espuma.
+    for (const [k, lado] of [[0, -1], [1, 1]] as const) {
+      if (this.voltadoParaCamera(0, lado) < -0.35) continue
+      for (let i = 0; i < n; i++) {
+        this.preencher([base[k][i], base[k][i + 1], topo[k][i + 1], topo[k][i]], 0x3fb3c4, 0.72)
+      }
+      this.tracar(topo[k], 2.2, 0xe8fbff, 0.8, false)
+      this.tracar(topo[k].map((l) => ({ ...l, z: l.z - 1.2 })), 1, 0xffffff, 0.35, false)
+    }
+    // Proa: a crista de água que o casco levanta, unindo os dois lados.
+    this.tracar([topo[0][n - 2], topo[0][n], topo[1][n], topo[1][n - 2]], 2.6, 0xffffff, 0.55 + 0.35 * razao, false)
+
+    // Água passando por cima da amurada: enche o convés; depois escorre.
+    if (transborda > 0) this.aguaConves = Math.min(1, this.aguaConves + transborda * dt * 0.25)
+    this.aguaConves = Math.max(0, this.aguaConves - dt * 0.35)
   }
 
   /** Água no convés: sobe com o alagamento e escorre para o lado que aderna. */
@@ -356,55 +434,6 @@ export class NavioVisual {
     const lamina = contorno(p, nivel, 1, 3.4, p.castelo * 0.9, 1).map((l) => ({ ...l, y: l.y * (0.75 + 0.25 * agua) + balanco }))
     this.preencher(lamina, 0x3a8fb0, 0.25 + 0.45 * agua)
     this.tracar(lamina, 1.2, 0xd9f4ff, 0.35 * agua)
-  }
-
-  /**
-   * Borrifos em 3D: a proa cortando a água em velocidade, as ondas batendo no
-   * casco no mar grosso e, alagando, água passando por cima da amurada.
-   */
-  private atualizarRespingos(dt: number, razao: number, agua: number, balanco: Balanco) {
-    const p = this.projeto
-    const proa = xDe(p, 1)
-    const emitir = (qtd: number, fonte: () => P3, v: () => { vx: number; vy: number; vz: number }) => {
-      let n = qtd
-      while (n > 0 && this.respingos.length < 160) {
-        if (n < 1 && Math.random() > n) break
-        n -= 1
-        this.respingos.push({ ...fonte(), ...v(), vida: 0, duracao: 0.5 + Math.random() * 0.4, tamanho: 0.8 + Math.random() * 1.2 })
-      }
-    }
-    // Proa cortando a água: leque dos dois lados.
-    const corte = Math.max(0, razao - 0.3) * 1.4 + Math.max(0, -balanco.arfagem) * 3
-    emitir(dt * 60 * corte, () => ({ x: proa - 6 - Math.random() * 8, y: (Math.random() - 0.5) * 6, z: 1 }), () => {
-      const lado = Math.random() < 0.5 ? -1 : 1
-      return { vx: 10 + Math.random() * 20, vy: lado * (18 + Math.random() * 26), vz: 22 + Math.random() * 30 }
-    })
-    // Alagando: jatos entrando por cima da amurada.
-    if (agua > 0) {
-      emitir(dt * 30 * agua, () => {
-        const s = 0.25 + Math.random() * 0.7
-        const lado = Math.random() < 0.5 ? -1 : 1
-        return { x: xDe(p, s), y: lado * (meiaLarguraEm(p, s) + 2), z: p.alturaDeck + 3 }
-      }, () => ({ vx: (Math.random() - 0.5) * 10, vy: 0, vz: 28 + Math.random() * 18 }))
-    }
-
-    const g = this.g
-    for (const r of this.respingos) {
-      r.vida += dt
-      r.x += r.vx * dt
-      r.y += r.vy * dt
-      r.z += r.vz * dt
-      r.vz -= 140 * dt
-      // Jatos da amurada caem para dentro do convés.
-      if (agua > 0 && Math.abs(r.y) > 1) r.y -= Math.sign(r.y) * 22 * dt
-    }
-    this.respingos = this.respingos.filter((r) => r.vida < r.duracao && r.z > -2)
-    for (const r of this.respingos) {
-      const s = this.projetar(r)
-      const f = r.vida / r.duracao
-      g.fillStyle(0xffffff, 0.85 * (1 - f))
-      g.fillCircle(s.x, s.y, r.tamanho * (1 + f * 0.6))
-    }
   }
 
   /**
@@ -480,7 +509,8 @@ export class NavioVisual {
     }
   }
 
-  private desenharCasco() {
+  /** `aguaNoCostado` desenha a água batendo no casco, antes do convés. */
+  private desenharCasco(aguaNoCostado: () => void) {
     const p = this.projeto
     const pal = p.paleta
     const topoAmurada = p.alturaDeck + 3
@@ -512,6 +542,7 @@ export class NavioVisual {
     // e o cano de bronze saindo na direção da normal.
     for (const s of p.canhoes) this.desenharCanhao(s, 1)
     for (const s of p.canhoes) this.desenharCanhao(s, -1)
+    aguaNoCostado()
 
     // Convés com tábuas.
     const conves = contorno(p, p.alturaDeck + 0.3, 1, 3.2, p.castelo * 0.9, 1)
@@ -735,7 +766,10 @@ export class NavioVisual {
     const linhas = 4
 
     const ponto = (u: number, v: number): P3 => {
-      const b = barriga * Math.sin(Math.PI * u) * (0.35 + 0.65 * Math.sin(Math.PI * v))
+      // Barriga do pano + ondulação de panejo (pano batendo quando o vento
+      // corre paralelo a ele), que anda de uma ponta à outra.
+      const onda = this.panejo * 1.8 * Math.sin(u * 9 - this.tempoAtual * 15 + v * 2.5) * Math.sin(Math.PI * u)
+      const b = barriga * Math.sin(Math.PI * u) * (0.35 + 0.65 * Math.sin(Math.PI * v)) + onda
       const a = (u - 0.5) * largura * (1 - v * 0.08)
       return { x: xm + 1.5 + eixo.x * a + normal.x * b, y: eixo.y * a + normal.y * b, z: z0 + v * (z1 - z0) }
     }

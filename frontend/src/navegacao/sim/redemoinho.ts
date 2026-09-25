@@ -58,8 +58,11 @@ export function influenciaRedemoinho(p: Vetor, celula: number): Influencia | nul
     // Giro mais rápido perto do centro; sucção cresce devagar e depois dispara.
     const radial = { x: -dx / Math.max(d, 1), y: -dy / Math.max(d, 1) }
     const tangencial = { x: -radial.y * SENTIDO, y: radial.x * SENTIDO }
-    const giro = 18 + 110 * Math.pow(profundidade, 1.6)
-    const succao = 4 + 55 * Math.pow(profundidade, 2.4)
+    // Já na borda a água puxa de verdade; perto do centro, gira muito rápido.
+    // A força entra suave na borda de fora (sem degrau).
+    const entrada = Math.min(1, profundidade / 0.15)
+    const giro = (30 + 120 * Math.pow(profundidade, 1.4)) * entrada
+    const succao = (14 + 60 * Math.pow(profundidade, 1.6)) * entrada
     return {
       zona,
       distancia: d,

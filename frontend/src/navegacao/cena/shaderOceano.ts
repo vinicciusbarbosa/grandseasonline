@@ -35,6 +35,7 @@ uniform vec3 uVento;
 uniform float uGrade;
 uniform float uCelula;
 uniform float uAchatamento;
+uniform float uElevacao;
 // Cada onda: direção (xy), número de onda k, frequência angular ω.
 uniform vec4 uOnda0;
 uniform vec4 uOnda1;
@@ -89,8 +90,22 @@ void onda(vec4 o, float a, float f, vec2 p, float t, inout float h, inout vec2 g
 void vaga(vec4 o, float a, float f, vec2 p, float t, inout float h, inout vec2 g) {
   float fase = o.z * dot(o.xy, p) - o.w * t + f;
   float s = (sin(fase) + 1.0) * 0.5;
-  h += a * (2.0 * pow(s, 2.2) - 0.62);
-  g += a * o.z * 2.2 * pow(s, 1.2) * cos(fase) * o.xy;
+  h += a * (2.0 * pow(s, 1.5) - 0.8);
+  g += a * o.z * 1.5 * pow(s, 0.5) * cos(fase) * o.xy;
+}
+
+// Só a altura (sem gradiente), para o deslocamento de paralaxe.
+float alturaEm(vec2 p, float t, float tormenta, float agitacao) {
+  float h = 0.0;
+  h += uAmplitudes.x * sin(uOnda0.z * dot(uOnda0.xy, p) - uOnda0.w * t + uFases.x);
+  h += uAmplitudes.y * sin(uOnda1.z * dot(uOnda1.xy, p) - uOnda1.w * t + uFases.y);
+  h += uAmplitudes.z * sin(uOnda2.z * dot(uOnda2.xy, p) - uOnda2.w * t + uFases.z);
+  h += uAmplitudes.w * sin(uOnda3.z * dot(uOnda3.xy, p) - uOnda3.w * t + uFases.w);
+  h *= agitacao;
+  float s0 = (sin(uVaga0.z * dot(uVaga0.xy, p) - uVaga0.w * t + uVagaFase.x) + 1.0) * 0.5;
+  float s1 = (sin(uVaga1.z * dot(uVaga1.xy, p) - uVaga1.w * t + uVagaFase.y) + 1.0) * 0.5;
+  h += tormenta * (uVagaAmp.x * (2.0 * pow(s0, 1.5) - 0.8) + uVagaAmp.y * (2.0 * pow(s1, 1.5) - 0.8));
+  return h;
 }
 
 vec3 corTerra(vec2 p, float dentro, float tipo) {
@@ -124,6 +139,11 @@ void main() {
   vec2 pp = uRet.xy + vec2(uv.x, 1.0 - uv.y) * uRet.zw;
   vec2 p = vec2(pp.x, pp.y / uAchatamento);
   float t = uTempo;
+  // Paralaxe das ondas: com a câmera inclinada, a crista alta aparece mais
+  // acima na tela. Uma iteração basta para as vagas "subirem" de verdade.
+  float tormenta0 = tempestadeEm(p);
+  float h0 = alturaEm(p, t, tormenta0, 1.0 + ${AGITACAO_TEMPESTADE.toFixed(2)} * tormenta0);
+  p.y = (pp.y + h0 * uElevacao) / uAchatamento;
   vec2 vento = uVento.xy;
   float forca = uVento.z;
 
@@ -188,9 +208,20 @@ void main() {
   float quebra = smoothstep(0.42, 0.6, ruidoFino(p * 0.0032 + deslize * 2.0));
   float carneiro = crista * quebra * smoothstep(0.1, 0.5, hn + 0.3);
   // Na tempestade, as vagas grandes quebram na crista: espuma farta e revolta.
-  float faseVaga = uVaga0.z * dot(uVaga0.xy, p) - uVaga0.w * t + uVagaFase.x;
-  float quebraVaga = smoothstep(0.78, 0.98, sin(faseVaga)) * smoothstep(0.45, 0.62, ruidoFino(p * 0.0035 - deslize * 3.0));
+  // A espuma anda JUNTO com a crista (ruído lido no referencial da onda):
+  // nada de espuma tremendo parada enquanto a onda passa.
+  float faseVaga0 = uVaga0.z * dot(uVaga0.xy, p) - uVaga0.w * t + uVagaFase.x;
+  float faseVaga1 = uVaga1.z * dot(uVaga1.xy, p) - uVaga1.w * t + uVagaFase.y;
+  vec2 naOnda0 = p - uVaga0.xy * (uVaga0.w / uVaga0.z) * t;
+  vec2 naOnda1 = p - uVaga1.xy * (uVaga1.w / uVaga1.z) * t;
+  float crista0 = smoothstep(0.72, 0.97, sin(faseVaga0)) * smoothstep(0.4, 0.6, ruidoFino(naOnda0 * 0.0032));
+  float crista1 = smoothstep(0.75, 0.97, sin(faseVaga1)) * smoothstep(0.42, 0.62, ruidoFino(naOnda1 * 0.0034 + 0.37));
+  // Onde as duas cristas se encontram, as ondas colidem: espuma farta.
+  float colisao = smoothstep(0.55, 0.9, sin(faseVaga0)) * smoothstep(0.55, 0.9, sin(faseVaga1));
+  float quebraVaga = max(max(crista0, crista1), colisao * smoothstep(0.3, 0.55, ruido((naOnda0 + naOnda1) * 0.0018)));
   carneiro = max(carneiro, quebraVaga * tormenta);
+  // Lado da vaga virado para o sol claro, costas escuras: a leitura de volume.
+  agua *= 1.0 + tormenta * 0.25 * (sin(faseVaga0 + 0.9) + 0.6 * sin(faseVaga1 + 0.9));
   agua = mix(agua, vec3(0.9, 0.95, 0.97), carneiro * (0.1 + 0.8 * tormenta) * smoothstep(20.0, 80.0, sdn));
 
   // ---- Redemoinho ------------------------------------------------------------------
@@ -204,22 +235,49 @@ void main() {
   if (zonaR > 0.0) {
     float teta = atan(rc.y, rc.x);
     float lr = log(rr + 8.0);
-    float espiral = teta * 3.0 + lr * 9.0 + t * 3.2;
-    float bracos = 0.5 + 0.5 * sin(espiral);
-    float fluxo = ruidoFino(vec2(espiral * 0.035 - t * 0.02, lr * 0.45));
+    float rn = rr / raioR;
+    // Três camadas de espiral: braços largos, estrias médias e fios finos,
+    // cada uma mais fechada e mais rápida que a anterior.
+    float e1 = teta * 3.0 + lr * 9.0 + t * 3.0;
+    float e2 = teta * 7.0 + lr * 16.0 + t * 5.5;
+    float e3 = teta * 15.0 + lr * 30.0 + t * 9.0;
+    float bracos = 0.5 + 0.5 * sin(e1);
+    float estrias = 0.5 + 0.5 * sin(e2 + sin(e1) * 0.8);
+    float fios = smoothstep(0.7, 1.0, sin(e3 + sin(e2) * 0.6));
+    float fluxo = ruidoFino(vec2(e1 * 0.035 - t * 0.02, lr * 0.45));
+    float flocos = smoothstep(0.66, 0.8, ruidoFino(vec2(e2 * 0.02 - t * 0.05, lr * 0.9)));
+
     // Funil: escurece e afunda em direção ao centro, com a encosta iluminada.
     float funil = 1.0 - smoothstep(0.0, raioR * 0.95, rr);
     vec2 encosta = rc / max(rr, 1.0);
     float luzFunil = dot(normalize(vec3(encosta * funil * 1.6, 1.0)), sol);
-    vec3 redemoinho = mix(vec3(0.05, 0.33, 0.45), vec3(0.01, 0.08, 0.14), pow(funil, 1.3));
-    redemoinho *= 0.7 + 0.5 * luzFunil;
-    redemoinho += vec3(0.25, 0.4, 0.45) * bracos * (0.35 + 0.4 * fluxo) * (1.0 - funil * 0.4);
-    // Espuma nas espirais e o anel branco revolto na garganta.
-    float espumaR = smoothstep(0.62, 0.92, bracos * (0.6 + 0.6 * fluxo)) * (1.0 - smoothstep(raioR * 0.3, raioR * 1.0, rr));
-    float garganta = exp(-pow((rr - raioR * 0.13) / (raioR * 0.06), 2.0)) * (0.7 + 0.3 * sin(teta * 7.0 + t * 9.0));
-    redemoinho = mix(redemoinho, vec3(0.92, 0.97, 1.0), clamp(espumaR * 0.8 + garganta * 0.9, 0.0, 1.0));
-    // O fundo: um buraco escuro.
-    redemoinho = mix(redemoinho, vec3(0.0, 0.02, 0.04), 1.0 - smoothstep(raioR * 0.04, raioR * 0.11, rr));
+    vec3 redemoinho = mix(vec3(0.04, 0.3, 0.42), vec3(0.01, 0.07, 0.13), pow(funil, 1.3));
+    redemoinho *= 0.65 + 0.55 * luzFunil;
+
+    // Brilho ciano nos braços (como na referência), mais forte perto da garganta.
+    vec3 ciano = vec3(0.35, 0.85, 1.0);
+    float perto = 1.0 - smoothstep(0.1, 0.9, rn);
+    redemoinho += ciano * (0.18 * bracos + 0.16 * estrias * perto) * (0.5 + 0.5 * fluxo);
+    redemoinho += vec3(0.8, 0.95, 1.0) * fios * 0.28 * perto;
+
+    // Anéis concêntricos na borda, correndo para dentro.
+    float aneis = smoothstep(0.82, 1.0, sin(rr * 0.09 + t * 3.2)) * smoothstep(0.35, 0.6, rn) * (1.0 - smoothstep(0.85, 1.1, rn));
+    redemoinho += vec3(0.6, 0.85, 0.95) * aneis * 0.22;
+
+    // Espuma nas espirais e flocos soltos girando.
+    float espumaR = smoothstep(0.6, 0.92, bracos * (0.6 + 0.6 * fluxo)) * (1.0 - smoothstep(0.3, 1.0, rn));
+    redemoinho = mix(redemoinho, vec3(0.92, 0.97, 1.0), clamp(espumaR * 0.7 + flocos * perto * 0.55, 0.0, 1.0));
+
+    // Garganta: anel branco revolto e brilhante, com a borda "fervendo".
+    float borda = 0.13 + 0.015 * sin(teta * 9.0 + t * 11.0) + 0.01 * sin(teta * 17.0 - t * 7.0);
+    float garganta = exp(-pow((rn - borda) / 0.045, 2.0));
+    redemoinho = mix(redemoinho, vec3(0.95, 0.99, 1.0), clamp(garganta * (0.75 + 0.25 * fluxo), 0.0, 1.0));
+    redemoinho += ciano * exp(-pow((rn - borda) / 0.12, 2.0)) * 0.25;
+
+    // O fundo: um buraco escuro com uma espiral rápida por dentro.
+    float dentro = 1.0 - smoothstep(0.04, 0.12, rn);
+    vec3 fundoR = mix(vec3(0.0, 0.02, 0.04), vec3(0.05, 0.18, 0.26), 0.5 + 0.5 * sin(teta * 4.0 + lr * 14.0 + t * 12.0));
+    redemoinho = mix(redemoinho, fundoR * (0.4 + 0.6 * rn / 0.12), dentro);
     agua = mix(agua, redemoinho, zonaR);
   }
 
