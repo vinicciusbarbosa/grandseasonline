@@ -794,18 +794,12 @@ export class NavioVisual {
     for (let j = 6; j >= 0; j--) borda.push(ponto(0, j / 6))
     this.tracar(borda, 1.1, 0x000000, 0.55)
 
-    // Emblema da Marinha no pano (gaivota).
+    // Símbolo da Marinha pintado no pano da vela: as formas passam pela
+    // mesma curvatura (barriga) e perspectiva que ela.
     if (this.tipo === 'marinha') {
-      const c = this.projetar(ponto(0.5, 0.55))
-      const k = Math.abs(this.cosR * eixo.x - this.sinR * eixo.y) * 0.9 + 0.1
-      this.g.lineStyle(2, AZUL_MARINHA, 0.9)
-      this.g.beginPath()
-      this.g.moveTo(c.x - 7 * k, c.y - 2)
-      this.g.lineTo(c.x - 2 * k, c.y - 4)
-      this.g.lineTo(c.x, c.y)
-      this.g.lineTo(c.x + 2 * k, c.y - 4)
-      this.g.lineTo(c.x + 7 * k, c.y - 2)
-      this.g.strokePath()
+      for (const forma of [arco(-1), arco(1), barra(0, -1.1, 0, 2.2, 1)]) {
+        this.preencher(forma.map(([dx, dy]) => ponto(0.5 + dx * 0.02, 0.52 + dy * 0.03)), AZUL_MARINHA)
+      }
     }
 
     // Vergas em cima e embaixo, com amarras brancas.
@@ -961,16 +955,16 @@ const AZUL_MARINHA = 0x2a5fb0
 /** Traço de letra (uma barra fina). */
 const traco = (ax: number, ay: number, bx: number, by: number): [Forma, number] => [barra(ax, ay, bx, by, 0.75), AZUL_MARINHA]
 
-/** Letras de "MARINE" em traços, a partir do canto (x, topo), com 2,2 × 3 de tamanho. */
+/** Letras de "MARINE" em traços, a partir do canto (x, topo), com 2,4 × 3,4 de tamanho. */
 function letra(l: string, x: number, t: number): [Forma, number][] {
-  const w = 2.2
-  const b = t + 3
-  const m = t + 1.5
+  const w = 2.4
+  const b = t + 3.4
+  const m = t + 1.7
   switch (l) {
     case 'M':
-      return [traco(x, b, x, t), traco(x, t, x + w / 2, m + 0.4), traco(x + w / 2, m + 0.4, x + w, t), traco(x + w, t, x + w, b)]
+      return [traco(x, b, x, t), traco(x, t, x + w / 2, m + 0.5), traco(x + w / 2, m + 0.5, x + w, t), traco(x + w, t, x + w, b)]
     case 'A':
-      return [traco(x, b, x + w / 2, t), traco(x + w / 2, t, x + w, b), traco(x + 0.45, m + 0.4, x + w - 0.45, m + 0.4)]
+      return [traco(x, b, x + w / 2, t), traco(x + w / 2, t, x + w, b), traco(x + 0.5, m + 0.5, x + w - 0.5, m + 0.5)]
     case 'R':
       return [traco(x, b, x, t), traco(x, t, x + w - 0.3, t), traco(x + w - 0.3, t, x + w - 0.3, m), traco(x + w - 0.3, m, x, m), traco(x + 0.5, m, x + w, b)]
     case 'I':
@@ -983,22 +977,50 @@ function letra(l: string, x: number, t: number): [Forma, number][] {
 }
 
 /**
- * Emblema da Marinha (One Piece): a gaivota azul em perfil — bico para a
- * esquerda, as duas asas erguidas em penas, cauda em leque — e, embaixo,
- * "MARINE" em letras de forma. Tudo sobre o pano branco.
+ * Um dos dois arcos do símbolo: meia elipse grossa no meio e fina nas
+ * pontas, com a ponta de dentro (a que encontra a outra no centro) mais alta
+ * que a de fora. `lado` = −1 para o da esquerda, +1 para o da direita.
+ */
+function arco(lado: number): Forma {
+  const cx = lado * 5.1
+  const rx = 5.1
+  const ry = 7
+  const cy = 0.2
+  const ponto = (a: number, r: number): [number, number] => {
+    // a = 0 na ponta de dentro (centro do símbolo), π na de fora
+    const x = cx - lado * Math.cos(a) * rx * r
+    const y = cy - Math.sin(a) * ry * r
+    return [x, y + ((lado * (x - cx)) / rx) * 1.1]
+  }
+  const fora: [number, number][] = []
+  const dentro: [number, number][] = []
+  const n = 22
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI
+    const espessura = 0.13 + 0.22 * Math.pow(Math.sin(a), 0.7)
+    fora.push(ponto(a, 1 + espessura / 2))
+    dentro.push(ponto(a, 1 - espessura / 2))
+  }
+  return [...fora, ...dentro.reverse()]
+}
+
+/** Aneizinho azul (argola) na ponta da barra. */
+const argola = (x: number, y: number): [Forma, number][] => [
+  [elipse(x, y, 1.05, 1.05, 14), AZUL_MARINHA],
+  [elipse(x, y, 0.5, 0.5, 10), 0xf6f7f9],
+]
+
+/**
+ * Símbolo da Marinha (One Piece): dois arcos grandes que se encontram no
+ * centro, a haste vertical e a barra horizontal com uma argola em cada
+ * ponta, e "MARINE" embaixo — azul sobre o pano branco.
  */
 const MARINHA: [Forma, number][] = [
-  // asa de trás (mais clara, por trás do corpo)
-  [[[0.6, -1.6], [1.8, -6.6], [2.8, -5.5], [3.9, -7.6], [4.5, -5.3], [6.6, -6.4], [5.2, -3.6], [3.4, -1.4]], 0x4f86cf],
-  // corpo, cabeça, bico e cauda
-  [elipse(0.3, -0.6, 5.2, 1.7), AZUL_MARINHA],
-  [elipse(-4.9, -1.5, 1.8, 1.6, 12), AZUL_MARINHA],
-  [[[-6.4, -1.9], [-8.9, -1.0], [-6.3, -0.8]], 0xe8b340],
-  [[[4.8, -0.9], [8.6, -2.6], [7.8, -0.6], [8.8, 0.9], [4.6, 0.3]], AZUL_MARINHA],
-  // asa da frente, com as pontas das penas
-  [[[-3.2, -1.9], [-6.6, -6.9], [-4.9, -6.3], [-4.6, -7.9], [-2.9, -6.1], [-2.0, -7.2], [-0.7, -4.3], [-0.2, -1.8]], AZUL_MARINHA],
-  // olho
-  [elipse(-5.3, -1.8, 0.45, 0.45, 8), 0xf6f7f9],
-  // MARINE
-  ...[...'MARINE'].flatMap((l, i) => letra(l, -8.4 + i * 2.9, 2.6)),
+  [arco(-1), AZUL_MARINHA],
+  [arco(1), AZUL_MARINHA],
+  traco(0, -1.1, 0, 2.2),
+  traco(-3.8, 0.9, 3.8, 0.9),
+  ...argola(-4.7, 0.9),
+  ...argola(4.7, 0.9),
+  ...[...'MARINE'].flatMap((l, i) => letra(l, -8.7 + i * 3.0, 3.4)),
 ]
