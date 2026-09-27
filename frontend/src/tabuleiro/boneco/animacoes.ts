@@ -1,7 +1,7 @@
 import type * as THREE from 'three'
 import type { NomeOsso, ParamPano } from './boneco'
 
-/** Qualquer esqueleto com os ossos do boneco (o boneco em si ou o proxy do VRM). */
+/** Qualquer esqueleto com os ossos do boneco. */
 export type Posavel = { raiz: THREE.Object3D; ossos: Record<NomeOsso, THREE.Object3D> }
 
 /**

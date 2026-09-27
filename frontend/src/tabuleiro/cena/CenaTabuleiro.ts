@@ -2,9 +2,10 @@ import * as THREE from 'three'
 import { alcance, casaEm, centroCasa, mesmaCasa, vizinhos, COLUNAS, METADE, VAO, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
 import { montarNavios } from './navio'
-import { carregarVrm, PersonagemVrm } from '../anime/personagemVrm'
-import { VisualVrm } from '../anime/visualVrm'
+import { Assador } from '../boneco/assador'
+import { CAPITAES } from '../boneco/boneco'
 import { Personagem } from './personagem'
+import { VisualSprite } from './visualSprite'
 import { Poeira } from './poeira'
 import { texturaMoldura } from './texturas'
 
@@ -25,7 +26,6 @@ export type EstadoTela = {
 }
 
 const PASSOS = 4
-const MODELO = '/modelos/pirata-teste.vrm'
 const DANO = [14, 22]
 
 export class CenaTabuleiro {
@@ -63,7 +63,7 @@ export class CenaTabuleiro {
 
   constructor(hospedeiro: HTMLElement) {
     this.hospedeiro = hospedeiro
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' })
     this.renderer.setPixelRatio(1)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.BasicShadowMap
@@ -71,6 +71,7 @@ export class CenaTabuleiro {
     const cv = this.renderer.domElement
     cv.style.width = '100%'
     cv.style.height = '100%'
+    cv.style.imageRendering = 'pixelated'
     cv.style.display = 'block'
     hospedeiro.appendChild(cv)
 
@@ -114,13 +115,12 @@ export class CenaTabuleiro {
     this.cena.add(this.marcas)
 
     // os dois capitães da arte de referência, um em cada navio
-    // personagens de anime (modelos VRoid); entram quando terminam de carregar
-    const vir = async (id: string, nome: string, casa: Casa, dir: 'SE' | 'NW', cores: [number, number, number]) => {
-      const vrm = await carregarVrm(MODELO)
-      this.adicionar(new Personagem(id, nome, casa, 120, new VisualVrm(new PersonagemVrm(vrm), cores, dir), dir))
-    }
-    void vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE', [0xfff2c0, 0xff9a30, 0xd8401c])
-    void vir('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 'NW', [0xf0fbff, 0x8cd0ff, 0x2a6ae0])
+    // os bonecos são "fotografados" em pixel art aqui mesmo, na placa de vídeo
+    const assador = new Assador(this.renderer)
+    const vir = (id: string, nome: string, casa: Casa, dir: 'SE' | 'NW') =>
+      this.adicionar(new Personagem(id, nome, casa, 120, new VisualSprite(assador.assar(CAPITAES[id])), dir))
+    vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE')
+    vir('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 'NW')
 
     this.estado = this.montarEstado()
     this.redimensionar()
@@ -187,10 +187,10 @@ export class CenaTabuleiro {
   private redimensionar = () => {
     const r = this.hospedeiro.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
-    // resolução cheia (até 2× em telas densas): personagens de anime nítidos
-    this.escala = Math.min(2, dpr)
-    this.largura = Math.max(320, Math.floor(r.width * this.escala))
-    this.altura = Math.max(180, Math.floor(r.height * this.escala))
+    // um pixel da cena = `escala` pixels do aparelho (inteiro sempre que dá)
+    this.escala = Math.max(1, Math.round((r.height * dpr) / 900))
+    this.largura = Math.max(320, Math.floor((r.width * dpr) / this.escala))
+    this.altura = Math.max(180, Math.floor((r.height * dpr) / this.escala))
     this.renderer.setSize(this.largura, this.altura, false)
     this.camera.aspect = this.largura / this.altura
     this.enquadrar()
@@ -262,7 +262,7 @@ export class CenaTabuleiro {
       }
     }
     for (const po of this.poeiras) {
-      po.atualizar(dt, this.camera, this.largura, this.altura, 2 * this.escala)
+      po.atualizar(dt, this.camera, this.largura, this.altura)
       if (!po.vivo) this.cena.remove(po.sprite)
     }
     this.poeiras = this.poeiras.filter((po) => po.vivo)

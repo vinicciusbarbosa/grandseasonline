@@ -45,10 +45,6 @@ velas. Abordagem quando o inimigo está avariado, perto e devagar.
   cima inclinada como na referência. Andar 1 casa = caminhada; mais de 1 =
   corrida, que termina freando (pé arrastando, tranco e poeira). Ataque com
   preparação, brilho na lâmina e rastro do corte.
-- **Personagens de anime (VRoid)**: modelos `.vrm` feitos no VRoid Studio
-  (`frontend/public/modelos/`), com sombreamento de anime (MToon) e física
-  de cabelo/roupa, animados com as mesmas poses do combate. É o visual atual
-  do tabuleiro; `/teste-anime` mostra um modelo sozinho com cada animação.
 - **Personagens modulares** (`/teste-boneco`, o provador): boneco 3D com
   corpo base + encaixes (cabelo, barba, chapéu, camisa, casaca, capa,
   cintura, calça, botas, arma), "fotografado" em pixel art em 8 direções

@@ -4,15 +4,15 @@ import { centroCasa, cruzaVao, type Casa } from '../tabuleiro'
 /**
  * Um personagem no tabuleiro: estado, movimento e tempo das animações. Anda
  * uma casa caminhando; mais de uma, corre — e no fim freia arrastando o pé,
- * com poeira. O desenho fica com o `Visual` (sprite em pixel art ou modelo
- * de anime), que só recebe "qual animação, em que ponto, para onde olha".
+ * com poeira. O desenho fica com o `Visual` (hoje, o sprite em pixel art),
+ * que só recebe "qual animação, em que ponto, para onde olha".
  */
 
 export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'atacar' | 'dano'
 export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 
 
-/** Tempo e marcas de uma animação (o mesmo para sprite e modelo). */
+/** Tempo e marcas de uma animação. */
 export type InfoAnim = { quadros: number; fps: number; laco: boolean; impacto?: number; poeira: ('E' | 'D' | undefined)[] }
 
 export type EstadoVisual = { anim: NomeAnim; tAnim: number; dir: Direcao; clarao: number; pos: THREE.Vector3; dt: number }

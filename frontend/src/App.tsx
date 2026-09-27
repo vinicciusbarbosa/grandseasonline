@@ -16,7 +16,6 @@ import { Carregando } from './componentes/ui/controles'
 const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
 const TelaTabuleiro = lazy(() => import('./tabuleiro/TelaTabuleiro'))
 const TelaBoneco = lazy(() => import('./tabuleiro/TelaBoneco'))
-const TelaAnime = lazy(() => import('./tabuleiro/TelaAnime'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,15 +73,6 @@ export function App() {
               element={
                 <Suspense fallback={<Carregando texto="Costurando as roupas…" />}>
                   <TelaBoneco />
-                </Suspense>
-              }
-            />
-
-            <Route
-              path="/teste-anime"
-              element={
-                <Suspense fallback={<Carregando texto="Chamando o capitão…" />}>
-                  <TelaAnime />
                 </Suspense>
               }
             />
