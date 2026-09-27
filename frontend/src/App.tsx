@@ -14,6 +14,7 @@ import { Carregando } from './componentes/ui/controles'
 
 // O Phaser pesa ~1 MB: só baixa quem abrir a navegação.
 const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
+const TelaTabuleiro = lazy(() => import('./tabuleiro/TelaTabuleiro'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,16 @@ export function App() {
               element={
                 <Suspense fallback={<Carregando texto="Içando as velas…" />}>
                   <TelaNavegacao multiplayer />
+                </Suspense>
+              }
+            />
+
+            {/* Teste do combate em tabuleiro (pixel art), também sem login. */}
+            <Route
+              path="/teste-tabuleiro"
+              element={
+                <Suspense fallback={<Carregando texto="Preparando o convés…" />}>
+                  <TelaTabuleiro />
                 </Suspense>
               }
             />
