@@ -1,4 +1,8 @@
-import type { Boneco, NomeOsso, ParamPano } from './boneco'
+import type * as THREE from 'three'
+import type { NomeOsso, ParamPano } from './boneco'
+
+/** Qualquer esqueleto com os ossos do boneco (o boneco em si ou o proxy do VRM). */
+export type Posavel = { raiz: THREE.Object3D; ossos: Record<NomeOsso, THREE.Object3D> }
 
 /**
  * Animações dos capitães, quadro a quadro. Cada uma é uma função da fase
@@ -26,7 +30,7 @@ export type Animacao = {
   laco: boolean
   /** quadro em que o golpe acerta (ataque) */
   impacto?: number
-  pose: (b: Boneco, t: number) => Extra
+  pose: (b: Posavel, t: number) => Extra
 }
 
 const TAU = Math.PI * 2
@@ -36,7 +40,7 @@ const clamp01 = (t: number) => Math.max(0, Math.min(1, t))
 
 type Pose = Partial<Record<NomeOsso, [number, number, number]>> & { y?: number; frente?: number }
 
-function aplicar(b: Boneco, p: Pose) {
+function aplicar(b: Posavel, p: Pose) {
   for (const [nome, v] of Object.entries(p)) {
     if (nome === 'y') b.ossos.quadril.position.y += v as number
     else if (nome === 'frente') b.raiz.translateZ(v as number)

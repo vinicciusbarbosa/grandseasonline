@@ -1,19 +1,30 @@
 import * as THREE from 'three'
-import { DIRECOES, PE_X, PE_Y, QUADRO_A, QUADRO_L, type Folhas } from '../boneco/assador'
 import { centroCasa, cruzaVao, type Casa } from '../tabuleiro'
-import { posicionarPixel, texturaPixel } from './pixel'
-import { texturaSombra } from './texturas'
 
 /**
- * Um personagem no tabuleiro, desenhado com as folhas de pixel art assadas do
- * boneco (8 direções: 5 assadas + 3 espelhadas). Anda uma casa caminhando;
- * mais de uma, corre — e no fim freia arrastando o pé, com poeira.
+ * Um personagem no tabuleiro: estado, movimento e tempo das animações. Anda
+ * uma casa caminhando; mais de uma, corre — e no fim freia arrastando o pé,
+ * com poeira. O desenho fica com o `Visual` (sprite em pixel art ou modelo
+ * de anime), que só recebe "qual animação, em que ponto, para onde olha".
  */
 
 export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'atacar' | 'dano'
 export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 
-const ESPELHO: Partial<Record<Direcao, Direcao>> = { SW: 'SE', W: 'E', NW: 'NE' }
+
+/** Tempo e marcas de uma animação (o mesmo para sprite e modelo). */
+export type InfoAnim = { quadros: number; fps: number; laco: boolean; impacto?: number; poeira: ('E' | 'D' | undefined)[] }
+
+export type EstadoVisual = { anim: NomeAnim; tAnim: number; dir: Direcao; clarao: number; pos: THREE.Vector3; dt: number }
+
+export interface Visual {
+  readonly info: Record<NomeAnim, InfoAnim>
+  /** o que vai para a cena */
+  readonly objetos: THREE.Object3D[]
+  /** altura do topo da cabeça (unidades do mundo) */
+  readonly altura: number
+  mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number): void
+}
 const VEL_ANDAR = 1.25 // casas/s: um ciclo de passos por casa
 const VEL_CORRER = 4.4
 const FREIO = 0.55 // distância (casas) em que começa a frear
@@ -27,13 +38,10 @@ export function direcaoDe(dl: number, dc: number): Direcao {
   return mapa[String(setor)]
 }
 
-let texSombra: THREE.Texture | null = null
-
 type Trecho = { de: THREE.Vector3; para: THREE.Vector3; t: number; dur: number; pulo: boolean; ultimo: boolean }
 
 export class Personagem {
-  readonly sprite: THREE.Sprite
-  readonly sombra: THREE.Mesh
+  readonly visual: Visual
   readonly id: string
   readonly nome: string
   casa: Casa
@@ -46,8 +54,7 @@ export class Personagem {
   private anim: NomeAnim = 'parado'
   private tAnim = 0
   private ultimoQuadro = -1
-  private readonly folhas: Folhas
-  private readonly texturas = new Map<string, THREE.Texture>()
+  private readonly info: Record<NomeAnim, InfoAnim>
   private caminho: Casa[] = []
   private correndo = false
   private trecho: Trecho | null = null
@@ -56,27 +63,16 @@ export class Personagem {
   private aoGolpe: (() => void) | null = null
   private golpeDado = false
   private clarao = 0
+  private dtUltimo = 0
 
-  constructor(id: string, nome: string, casa: Casa, vida: number, folhas: Folhas, dir: Direcao) {
+  constructor(id: string, nome: string, casa: Casa, vida: number, visual: Visual, dir: Direcao) {
     this.id = id
     this.nome = nome
     this.casa = casa
     this.vida = this.vidaMax = vida
-    this.folhas = folhas
+    this.visual = visual
+    this.info = visual.info
     this.dir = dir
-    for (const [n, f] of Object.entries(folhas)) {
-      const t = texturaPixel(f.canvas)
-      t.repeat.set(1 / f.quadros, 1 / DIRECOES.length)
-      this.texturas.set(n, t)
-    }
-    this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.texturas.get('parado')!, alphaTest: 0.5 }))
-    this.sprite.userData.personagem = this
-    texSombra ??= texturaSombra()
-    this.sombra = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.8, 0.38),
-      new THREE.MeshBasicMaterial({ map: texSombra, transparent: true, depthWrite: false }),
-    )
-    this.sombra.rotation.x = -Math.PI / 2
     const c = centroCasa(casa.l, casa.c)
     this.pos.set(c.x, 0, c.z)
     this.tAnim = Math.random() * 1.5
@@ -87,13 +83,11 @@ export class Personagem {
   }
 
   private tocar(anim: NomeAnim) {
-    if (this.anim === anim && this.folhas[anim].laco) return
+    if (this.anim === anim && this.info[anim].laco) return
     this.anim = anim
     this.tAnim = 0
     this.ultimoQuadro = -1
     this.golpeDado = false
-    this.sprite.material.map = this.texturas.get(anim)!
-    this.sprite.material.needsUpdate = true
   }
 
   /** Segue o caminho: uma casa andando, mais de uma correndo. */
@@ -170,8 +164,9 @@ export class Personagem {
         this.proximoTrecho()
       }
     }
-    const f = this.folhas[this.anim]
+    const f = this.info[this.anim]
     this.tAnim += dt
+    this.dtUltimo = dt
     const dur = f.quadros / f.fps
     if (this.freio) {
       // desliza até o centro da casa perdendo velocidade
@@ -209,25 +204,11 @@ export class Personagem {
   }
 
   posicionar(camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
-    const f = this.folhas[this.anim]
-    const q = Math.min(f.quadros - 1, Math.floor(this.tAnim * f.fps))
-    const base = ESPELHO[this.dir] ?? this.dir
-    const linha = DIRECOES.indexOf(base as (typeof DIRECOES)[number])
-    const espelha = this.dir in ESPELHO
-    this.sprite.material.map!.offset.set(q / f.quadros, 1 - (linha + 1) / DIRECOES.length)
-    const cx = PE_X / QUADRO_L
-    this.sprite.center.set(espelha ? 1 - cx : cx, 1 - PE_Y / QUADRO_A)
-    // clarão branco ao levar o golpe
-    const k = this.clarao > 0 ? 3.2 : 1
-    this.sprite.material.color.setRGB(k, k, k)
-    posicionarPixel(this.sprite, this.pos, QUADRO_L, QUADRO_A, camera, telaL, telaA, espelha)
-    this.sombra.position.set(this.pos.x, 0.012, this.pos.z)
-    const s = 1 - Math.min(0.5, this.pos.y * 0.6)
-    this.sombra.scale.set(s, s, 1)
+    this.visual.mostrar({ anim: this.anim, tAnim: this.tAnim, dir: this.dir, clarao: this.clarao, pos: this.pos, dt: this.dtUltimo }, camera, telaL, telaA)
   }
 
-  /** Altura (px da cena) do topo da cabeça acima do pé. */
-  get alturaPx() {
-    return 118
+  /** Ponto no mundo logo acima da cabeça (barra de vida, números). */
+  topo(extra = 0) {
+    return this.pos.clone().setY(this.pos.y + this.visual.altura + extra)
   }
 }

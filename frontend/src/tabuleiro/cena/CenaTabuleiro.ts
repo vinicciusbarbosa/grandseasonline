@@ -2,8 +2,8 @@ import * as THREE from 'three'
 import { alcance, casaEm, centroCasa, mesmaCasa, vizinhos, COLUNAS, METADE, VAO, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
 import { montarNavios } from './navio'
-import { Assador } from '../boneco/assador'
-import { CAPITAES } from '../boneco/boneco'
+import { carregarVrm, PersonagemVrm } from '../anime/personagemVrm'
+import { VisualVrm } from '../anime/visualVrm'
 import { Personagem } from './personagem'
 import { Poeira } from './poeira'
 import { texturaMoldura } from './texturas'
@@ -25,6 +25,7 @@ export type EstadoTela = {
 }
 
 const PASSOS = 4
+const MODELO = '/modelos/pirata-teste.vrm'
 const DANO = [14, 22]
 
 export class CenaTabuleiro {
@@ -62,7 +63,7 @@ export class CenaTabuleiro {
 
   constructor(hospedeiro: HTMLElement) {
     this.hospedeiro = hospedeiro
-    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' })
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
     this.renderer.setPixelRatio(1)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.BasicShadowMap
@@ -70,7 +71,6 @@ export class CenaTabuleiro {
     const cv = this.renderer.domElement
     cv.style.width = '100%'
     cv.style.height = '100%'
-    cv.style.imageRendering = 'pixelated'
     cv.style.display = 'block'
     hospedeiro.appendChild(cv)
 
@@ -114,10 +114,13 @@ export class CenaTabuleiro {
     this.cena.add(this.marcas)
 
     // os dois capitães da arte de referência, um em cada navio
-    // os bonecos são "fotografados" em pixel art aqui mesmo, na placa de vídeo
-    const assador = new Assador(this.renderer)
-    this.adicionar(new Personagem('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 120, assador.assar(CAPITAES['capitao-vermelho']), 'SE'))
-    this.adicionar(new Personagem('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 120, assador.assar(CAPITAES['capitao-negro']), 'NW'))
+    // personagens de anime (modelos VRoid); entram quando terminam de carregar
+    const vir = async (id: string, nome: string, casa: Casa, dir: 'SE' | 'NW', cores: [number, number, number]) => {
+      const vrm = await carregarVrm(MODELO)
+      this.adicionar(new Personagem(id, nome, casa, 120, new VisualVrm(new PersonagemVrm(vrm), cores, dir), dir))
+    }
+    void vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE', [0xfff2c0, 0xff9a30, 0xd8401c])
+    void vir('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 'NW', [0xf0fbff, 0x8cd0ff, 0x2a6ae0])
 
     this.estado = this.montarEstado()
     this.redimensionar()
@@ -132,7 +135,7 @@ export class CenaTabuleiro {
 
   private adicionar(p: Personagem) {
     this.personagens.push(p)
-    this.cena.add(p.sprite, p.sombra)
+    this.cena.add(...p.visual.objetos)
   }
 
   destruir() {
@@ -157,7 +160,7 @@ export class CenaTabuleiro {
   private montarEstado(): EstadoTela {
     return {
       personagens: this.personagens.map((p) => {
-        const s = this.naTela(p.pos, p.alturaPx + 10)
+        const s = this.naTela(p.topo(0.25))
         return { id: p.id, nome: p.nome, vida: p.vida, vidaMax: p.vidaMax, x: s.x, y: s.y, selecionado: p === this.selecionado }
       }),
       flutuantes: this.flutuantes,
@@ -168,13 +171,10 @@ export class CenaTabuleiro {
   }
 
   /** Posição em pixels CSS de um ponto do mundo, subindo `acimaPx` pixels da cena. */
-  private naTela(p: THREE.Vector3, acimaPx = 0) {
+  private naTela(p: THREE.Vector3) {
     const n = p.clone().project(this.camera)
     const r = this.renderer.domElement.getBoundingClientRect()
-    return {
-      x: ((n.x + 1) / 2) * r.width,
-      y: ((1 - n.y) / 2) * r.height - (acimaPx * r.height) / this.altura,
-    }
+    return { x: ((n.x + 1) / 2) * r.width, y: ((1 - n.y) / 2) * r.height }
   }
 
   /** Centro de uma casa em pixels CSS (usado pelos testes automáticos). */
@@ -187,10 +187,10 @@ export class CenaTabuleiro {
   private redimensionar = () => {
     const r = this.hospedeiro.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
-    // um pixel da cena = `escala` pixels do aparelho (inteiro sempre que dá)
-    this.escala = Math.max(1, Math.round((r.height * dpr) / 900))
-    this.largura = Math.max(320, Math.floor((r.width * dpr) / this.escala))
-    this.altura = Math.max(180, Math.floor((r.height * dpr) / this.escala))
+    // resolução cheia (até 2× em telas densas): personagens de anime nítidos
+    this.escala = Math.min(2, dpr)
+    this.largura = Math.max(320, Math.floor(r.width * this.escala))
+    this.altura = Math.max(180, Math.floor(r.height * this.escala))
     this.renderer.setSize(this.largura, this.altura, false)
     this.camera.aspect = this.largura / this.altura
     this.enquadrar()
@@ -262,7 +262,7 @@ export class CenaTabuleiro {
       }
     }
     for (const po of this.poeiras) {
-      po.atualizar(dt, this.camera, this.largura, this.altura)
+      po.atualizar(dt, this.camera, this.largura, this.altura, 2 * this.escala)
       if (!po.vivo) this.cena.remove(po.sprite)
     }
     this.poeiras = this.poeiras.filter((po) => po.vivo)
@@ -310,7 +310,9 @@ export class CenaTabuleiro {
     const n = p.pos.clone().project(this.camera)
     const x = ((n.x + 1) / 2) * this.largura
     const y = ((1 - n.y) / 2) * this.altura
-    return { x0: x - 28, x1: x + 28, y0: y - p.alturaPx + 8, y1: y + 2 }
+    const topo = ((1 - p.topo().project(this.camera).y) / 2) * this.altura
+    const meia = (y - topo) * 0.28
+    return { x0: x - meia, x1: x + meia, y0: topo, y1: y + 2 }
   }
 
   private aoMover = (ev: PointerEvent) => {
@@ -369,7 +371,7 @@ export class CenaTabuleiro {
         const dano = DANO[0] + Math.floor(Math.random() * (DANO[1] - DANO[0] + 1))
         alvo.sofrer(dano, atacante)
         if (alvo.vida <= 0) alvo.vida = alvo.vidaMax // teste: volta a vida cheia
-        const s = this.naTela(alvo.pos, alvo.alturaPx * 0.7)
+        const s = this.naTela(alvo.topo(-0.35))
         this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: `-${dano}`, x: s.x, y: s.y, t: 0, cor: '#ffe27a' }]
       })
       this.selecionar(null)

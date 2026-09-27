@@ -65,7 +65,7 @@ export class Poeira {
     this.pos = pos.clone()
   }
 
-  atualizar(dt: number, camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
+  atualizar(dt: number, camera: THREE.PerspectiveCamera, telaL: number, telaA: number, escala = 1) {
     this.t += dt
     const q = Math.floor(this.t * FPS)
     if (q >= QUADROS) {
@@ -73,6 +73,6 @@ export class Poeira {
       return
     }
     this.sprite.material.map!.offset.set(q / QUADROS, 0)
-    posicionarPixel(this.sprite, this.pos, L, A, camera, telaL, telaA, false, 0.7)
+    posicionarPixel(this.sprite, this.pos, L * escala, A * escala, camera, telaL, telaA, false, 0.7)
   }
 }
