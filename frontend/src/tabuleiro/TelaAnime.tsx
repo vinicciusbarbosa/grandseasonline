@@ -23,8 +23,10 @@ export default function TelaAnime() {
   const [erro, setErro] = useState('')
   const [pronto, setPronto] = useState(false)
   const estado = useRef({ anim: 'parado' as NomeAnimVrm, giro: 0, vel: 1, t: 0 })
-  estado.current.giro = giro
-  estado.current.vel = vel
+  useEffect(() => {
+    estado.current.giro = giro
+    estado.current.vel = vel
+  }, [giro, vel])
 
   useEffect(() => {
     estado.current.anim = anim
