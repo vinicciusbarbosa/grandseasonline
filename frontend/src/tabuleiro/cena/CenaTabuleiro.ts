@@ -2,7 +2,10 @@ import * as THREE from 'three'
 import { alcance, casaEm, centroCasa, mesmaCasa, vizinhos, COLUNAS, METADE, VAO, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
 import { montarNavios } from './navio'
+import { Assador } from '../boneco/assador'
+import { CAPITAES } from '../boneco/boneco'
 import { Personagem } from './personagem'
+import { Poeira } from './poeira'
 import { texturaMoldura } from './texturas'
 
 /**
@@ -29,6 +32,7 @@ export class CenaTabuleiro {
   private readonly cena = new THREE.Scene()
   private readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 1, 200)
   private readonly personagens: Personagem[] = []
+  private poeiras: Poeira[] = []
   private readonly marcas = new THREE.Group()
   private readonly moldura: THREE.Mesh
   private readonly hover: THREE.Mesh
@@ -110,8 +114,10 @@ export class CenaTabuleiro {
     this.cena.add(this.marcas)
 
     // os dois capitães da arte de referência, um em cada navio
-    this.adicionar(new Personagem('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 120))
-    this.adicionar(new Personagem('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 120))
+    // os bonecos são "fotografados" em pixel art aqui mesmo, na placa de vídeo
+    const assador = new Assador(this.renderer)
+    this.adicionar(new Personagem('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 120, assador.assar(CAPITAES['capitao-vermelho']), 'SE'))
+    this.adicionar(new Personagem('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 120, assador.assar(CAPITAES['capitao-negro']), 'NW'))
 
     this.estado = this.montarEstado()
     this.redimensionar()
@@ -151,7 +157,7 @@ export class CenaTabuleiro {
   private montarEstado(): EstadoTela {
     return {
       personagens: this.personagens.map((p) => {
-        const s = this.naTela(p.pos, p.topo().alturaPx + 10)
+        const s = this.naTela(p.pos, p.alturaPx + 10)
         return { id: p.id, nome: p.nome, vida: p.vida, vidaMax: p.vidaMax, x: s.x, y: s.y, selecionado: p === this.selecionado }
       }),
       flutuantes: this.flutuantes,
@@ -247,7 +253,19 @@ export class CenaTabuleiro {
       ;(this.moldura.material as THREE.MeshBasicMaterial).opacity = 0.75 + 0.25 * Math.sin(this.tempo * 5)
     } else this.moldura.visible = false
     this.camera.updateMatrixWorld()
-    for (const p of this.personagens) p.posicionar(this.camera, this.largura, this.altura)
+    for (const p of this.personagens) {
+      p.posicionar(this.camera, this.largura, this.altura)
+      for (const pos of p.poeiras.splice(0)) {
+        const po = new Poeira(pos)
+        this.poeiras.push(po)
+        this.cena.add(po.sprite)
+      }
+    }
+    for (const po of this.poeiras) {
+      po.atualizar(dt, this.camera, this.largura, this.altura)
+      if (!po.vivo) this.cena.remove(po.sprite)
+    }
+    this.poeiras = this.poeiras.filter((po) => po.vivo)
     this.flutuantes = this.flutuantes.map((f) => ({ ...f, t: f.t + dtReal })).filter((f) => f.t < 1.2)
     this.renderer.render(this.cena, this.camera)
     this.estado = this.montarEstado()
@@ -292,7 +310,7 @@ export class CenaTabuleiro {
     const n = p.pos.clone().project(this.camera)
     const x = ((n.x + 1) / 2) * this.largura
     const y = ((1 - n.y) / 2) * this.altura
-    return { x0: x - 28, x1: x + 28, y0: y - p.topo().alturaPx + 8, y1: y + 2 }
+    return { x0: x - 28, x1: x + 28, y0: y - p.alturaPx + 8, y1: y + 2 }
   }
 
   private aoMover = (ev: PointerEvent) => {
@@ -349,10 +367,9 @@ export class CenaTabuleiro {
       this.dica = `${atacante.nome} ataca!`
       atacante.atacar(alvo, () => {
         const dano = DANO[0] + Math.floor(Math.random() * (DANO[1] - DANO[0] + 1))
-        const lado = alvo.casa.c === atacante.casa.c ? 0 : alvo.casa.c > atacante.casa.c ? 1 : -1
-        alvo.sofrer(dano, -lado || -atacante.olhar)
+        alvo.sofrer(dano, atacante)
         if (alvo.vida <= 0) alvo.vida = alvo.vidaMax // teste: volta a vida cheia
-        const s = this.naTela(alvo.pos, alvo.topo().alturaPx * 0.7)
+        const s = this.naTela(alvo.pos, alvo.alturaPx * 0.7)
         this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: `-${dano}`, x: s.x, y: s.y, t: 0, cor: '#ffe27a' }]
       })
       this.selecionar(null)

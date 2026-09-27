@@ -1,122 +1,111 @@
 import * as THREE from 'three'
-import metaPersonagens from '../personagens.json'
+import { DIRECOES, PE_X, PE_Y, QUADRO_A, QUADRO_L, type Folhas } from '../boneco/assador'
 import { centroCasa, cruzaVao, type Casa } from '../tabuleiro'
+import { posicionarPixel, texturaPixel } from './pixel'
 import { texturaSombra } from './texturas'
 
 /**
- * Um personagem em pixel art no tabuleiro. As animações vêm prontas, quadro a
- * quadro a 60 fps (scripts/personagens/assar_personagens.py); aqui só se
- * escolhe o quadro, anda de casa em casa e desenha o sprite com um texel =
- * um pixel da tela, sempre alinhado à grade de pixels (nada de borrão).
+ * Um personagem no tabuleiro, desenhado com as folhas de pixel art assadas do
+ * boneco (8 direções: 5 assadas + 3 espelhadas). Anda uma casa caminhando;
+ * mais de uma, corre — e no fim freia arrastando o pé, com poeira.
  */
 
-export type NomeAnim = 'parado' | 'andar' | 'atacar' | 'dano'
+export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'atacar' | 'dano'
+export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 
-type InfoAnim = {
-  arquivo: string
-  quadros: number
-  colunas: number
-  largura: number
-  altura: number
-  peX: number
-  peY: number
-  laco: boolean
-}
+const ESPELHO: Partial<Record<Direcao, Direcao>> = { SW: 'SE', W: 'E', NW: 'NE' }
+const VEL_ANDAR = 1.25 // casas/s: um ciclo de passos por casa
+const VEL_CORRER = 4.4
+const FREIO = 0.55 // distância (casas) em que começa a frear
+const PASSO_DIR: Record<Direcao, [number, number]> = { S: [1, 0], SE: [1, 1], E: [0, 1], NE: [-1, 1], N: [-1, 0], NW: [-1, -1], W: [0, -1], SW: [1, -1] }
 
-type Meta = Record<string, { olha: number; fps: number; anims: Record<NomeAnim, InfoAnim> }>
-const META = metaPersonagens as unknown as Meta
-
-const VELOCIDADE = 2.8 // casas por segundo
-/** Momento do golpe dentro da animação de ataque (fração). */
-export const IMPACTO = 0.39
-
-const carregador = new THREE.TextureLoader()
-const cacheTex = new Map<string, THREE.Texture>()
-function tex(arquivo: string) {
-  let t = cacheTex.get(arquivo)
-  if (!t) {
-    t = carregador.load(`/tabuleiro/personagens/${arquivo}`)
-    t.magFilter = THREE.NearestFilter
-    t.minFilter = THREE.NearestFilter
-    t.generateMipmaps = false
-    t.colorSpace = THREE.SRGBColorSpace
-    cacheTex.set(arquivo, t)
-  }
-  return t
+/** Direção (8) a partir de um deslocamento no tabuleiro (linhas, colunas). */
+export function direcaoDe(dl: number, dc: number): Direcao {
+  if (dl === 0 && dc === 0) return 'S'
+  const setor = Math.round(Math.atan2(dc, dl) / (Math.PI / 4)) // 0 = baixo (S), 2 = direita (E)
+  const mapa: Record<string, Direcao> = { '0': 'S', '1': 'SE', '2': 'E', '3': 'NE', '4': 'N', '-4': 'N', '-3': 'NW', '-2': 'W', '-1': 'SW' }
+  return mapa[String(setor)]
 }
 
 let texSombra: THREE.Texture | null = null
 
+type Trecho = { de: THREE.Vector3; para: THREE.Vector3; t: number; dur: number; pulo: boolean; ultimo: boolean }
+
 export class Personagem {
   readonly sprite: THREE.Sprite
   readonly sombra: THREE.Mesh
+  readonly id: string
+  readonly nome: string
   casa: Casa
-  /** 1 = olhando para a direita */
-  olhar: number
+  dir: Direcao
   vida: number
   readonly vidaMax: number
+  /** pedidos de poeira para a cena (posição do pé) */
+  readonly poeiras: THREE.Vector3[] = []
+  readonly pos = new THREE.Vector3()
   private anim: NomeAnim = 'parado'
   private tAnim = 0
-  private readonly texturas = new Map<NomeAnim, THREE.Texture>()
-  private readonly info: Meta[string]
-  /** posição no convés (x, z) e altura (pulo) */
-  readonly pos = new THREE.Vector3()
+  private ultimoQuadro = -1
+  private readonly folhas: Folhas
+  private readonly texturas = new Map<string, THREE.Texture>()
   private caminho: Casa[] = []
-  private trecho: { de: THREE.Vector3; para: THREE.Vector3; t: number; dur: number; pulo: boolean } | null = null
+  private correndo = false
+  private trecho: Trecho | null = null
+  private freio: { de: THREE.Vector3; para: THREE.Vector3 } | null = null
   private aoChegar: (() => void) | null = null
   private aoGolpe: (() => void) | null = null
   private golpeDado = false
+  private clarao = 0
 
-  readonly id: string
-  readonly nome: string
-
-  constructor(id: string, nome: string, casa: Casa, vida: number) {
+  constructor(id: string, nome: string, casa: Casa, vida: number, folhas: Folhas, dir: Direcao) {
     this.id = id
     this.nome = nome
-    this.info = META[id]
     this.casa = casa
     this.vida = this.vidaMax = vida
-    this.olhar = this.info.olha
-    for (const a of Object.keys(this.info.anims) as NomeAnim[]) {
-      // cada folha é de um personagem só: pode usar a textura direto
-      this.texturas.set(a, tex(this.info.anims[a].arquivo))
+    this.folhas = folhas
+    this.dir = dir
+    for (const [n, f] of Object.entries(folhas)) {
+      const t = texturaPixel(f.canvas)
+      t.repeat.set(1 / f.quadros, 1 / DIRECOES.length)
+      this.texturas.set(n, t)
     }
-    const mat = new THREE.SpriteMaterial({ map: this.texturas.get('parado')!, alphaTest: 0.5, transparent: false })
-    this.sprite = new THREE.Sprite(mat)
+    this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.texturas.get('parado')!, alphaTest: 0.5 }))
     this.sprite.userData.personagem = this
     texSombra ??= texturaSombra()
     this.sombra = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.9, 0.42),
+      new THREE.PlaneGeometry(0.8, 0.38),
       new THREE.MeshBasicMaterial({ map: texSombra, transparent: true, depthWrite: false }),
     )
     this.sombra.rotation.x = -Math.PI / 2
     const c = centroCasa(casa.l, casa.c)
     this.pos.set(c.x, 0, c.z)
-    // começa a respiração em pontos diferentes para não ficarem sincronizados
-    this.tAnim = Math.random() * 2
+    this.tAnim = Math.random() * 1.5
   }
 
   get ocupado() {
-    return this.anim === 'atacar' || this.anim === 'dano' || this.trecho !== null
+    return this.anim === 'atacar' || this.anim === 'dano' || this.anim === 'frear' || this.trecho !== null
   }
 
-  tocar(anim: NomeAnim) {
+  private tocar(anim: NomeAnim) {
+    if (this.anim === anim && this.folhas[anim].laco) return
     this.anim = anim
     this.tAnim = 0
+    this.ultimoQuadro = -1
     this.golpeDado = false
     this.sprite.material.map = this.texturas.get(anim)!
     this.sprite.material.needsUpdate = true
   }
 
-  /** Anda pelo caminho (casas vizinhas em sequência). */
+  /** Segue o caminho: uma casa andando, mais de uma correndo. */
   andar(caminho: Casa[], aoChegar?: () => void) {
     if (!caminho.length) {
       aoChegar?.()
       return
     }
     this.caminho = [...caminho]
+    this.correndo = caminho.length > 1
     this.aoChegar = aoChegar ?? null
-    this.tocar('andar')
+    this.tocar(this.correndo ? 'correr' : 'andar')
     this.proximoTrecho()
   }
 
@@ -125,31 +114,42 @@ export class Personagem {
     if (!prox) {
       this.trecho = null
       this.tocar('parado')
-      const f = this.aoChegar
-      this.aoChegar = null
-      f?.()
+      this.chegou()
       return
     }
     const c = centroCasa(prox.l, prox.c)
     const para = new THREE.Vector3(c.x, 0, c.z)
     const pulo = cruzaVao(this.casa, prox)
-    if (prox.c !== this.casa.c) this.olhar = prox.c > this.casa.c ? 1 : -1
-    const dist = para.distanceTo(this.pos)
-    this.trecho = { de: this.pos.clone(), para, t: 0, dur: (dist / VELOCIDADE) * (pulo ? 1.25 : 1), pulo }
+    this.dir = direcaoDe(prox.l - this.casa.l, prox.c - this.casa.c)
+    const vel = this.correndo ? VEL_CORRER : VEL_ANDAR
+    const dist = Math.hypot(para.x - this.pos.x, para.z - this.pos.z)
+    this.trecho = { de: this.pos.clone().setY(0), para, t: 0, dur: (dist / vel) * (pulo ? 1.2 : 1), pulo, ultimo: this.caminho.length === 0 }
     this.casa = prox
   }
 
+  private chegou() {
+    this.correndo = false
+    const f = this.aoChegar
+    this.aoChegar = null
+    f?.()
+  }
+
   atacar(alvo: Personagem, aoGolpe: () => void) {
-    if (alvo.casa.c !== this.casa.c) this.olhar = alvo.casa.c > this.casa.c ? 1 : -1
+    this.dir = direcaoDe(alvo.casa.l - this.casa.l, alvo.casa.c - this.casa.c)
     this.aoGolpe = aoGolpe
     this.tocar('atacar')
   }
 
-  sofrer(dano: number, deOnde: number) {
+  sofrer(dano: number, de: Personagem) {
     this.vida = Math.max(0, this.vida - dano)
-    // recua para longe de quem bateu
-    if (deOnde !== 0) this.olhar = -deOnde
+    this.dir = direcaoDe(de.casa.l - this.casa.l, de.casa.c - this.casa.c)
+    this.clarao = 0.12
     this.tocar('dano')
+  }
+
+  /** Vira para uma casa sem sair do lugar. */
+  olharPara(c: Casa) {
+    if (!this.ocupado) this.dir = direcaoDe(c.l - this.casa.l, c.c - this.casa.c)
   }
 
   atualizar(dt: number) {
@@ -157,72 +157,77 @@ export class Personagem {
       const tr = this.trecho
       tr.t = Math.min(1, tr.t + dt / tr.dur)
       this.pos.lerpVectors(tr.de, tr.para, tr.t)
-      this.pos.y = tr.pulo ? Math.sin(Math.PI * tr.t) * 0.75 : 0
-      if (tr.t >= 1) {
+      this.pos.y = tr.pulo ? Math.sin(Math.PI * tr.t) * 0.7 : 0
+      const falta = Math.hypot(tr.para.x - this.pos.x, tr.para.z - this.pos.z)
+      if (this.correndo && tr.ultimo && !tr.pulo && falta <= FREIO) {
+        // correndo, o último trecho termina freando (arrastando o pé)
+        this.trecho = null
+        this.freio = { de: this.pos.clone(), para: tr.para.clone() }
+        this.tocar('frear')
+      } else if (tr.t >= 1) {
+        if (tr.pulo) this.poeiras.push(this.pos.clone().setY(0))
         this.pos.copy(tr.para)
         this.proximoTrecho()
       }
     }
-    const info = this.info.anims[this.anim]
+    const f = this.folhas[this.anim]
     this.tAnim += dt
-    const dur = info.quadros / this.info.fps
-    if (this.anim === 'atacar' && !this.golpeDado && this.tAnim >= dur * IMPACTO) {
+    const dur = f.quadros / f.fps
+    if (this.freio) {
+      // desliza até o centro da casa perdendo velocidade
+      const t = Math.min(1, this.tAnim / (dur * 0.45))
+      this.pos.lerpVectors(this.freio.de, this.freio.para, 1 - (1 - t) ** 2)
+      if (t >= 1) this.freio = null
+    }
+    const q = Math.min(f.quadros - 1, Math.floor(this.tAnim * f.fps))
+    if (q !== this.ultimoQuadro) {
+      this.ultimoQuadro = q
+      if (f.poeira[q]) this.poeiras.push(this.pePosicao())
+    }
+    if (this.anim === 'atacar' && !this.golpeDado && f.impacto !== undefined && q >= f.impacto) {
       this.golpeDado = true
-      const f = this.aoGolpe
+      const g = this.aoGolpe
       this.aoGolpe = null
-      f?.()
+      g?.()
     }
     if (this.tAnim >= dur) {
-      if (info.laco) this.tAnim %= dur
-      else {
-        this.tocar(this.trecho ? 'andar' : 'parado')
-      }
+      if (f.laco) this.tAnim %= dur
+      else if (this.anim === 'frear') {
+        this.freio = null
+        this.tocar('parado')
+        this.chegou()
+      } else this.tocar(this.trecho ? (this.correndo ? 'correr' : 'andar') : 'parado')
     }
+    this.clarao = Math.max(0, this.clarao - dt)
   }
 
-  /**
-   * Posiciona o sprite: tamanho exato em pixels (um texel por pixel) e canto
-   * alinhado à grade de pixels da tela.
-   */
-  posicionar(camera: THREE.PerspectiveCamera, largura: number, altura: number) {
-    const info = this.info.anims[this.anim]
-    const q = Math.min(info.quadros - 1, Math.floor(this.tAnim * this.info.fps))
-    const map = this.sprite.material.map!
-    const img = map.image as HTMLImageElement | undefined
-    const tw = img?.width || info.colunas * info.largura
-    const th = img?.height || Math.ceil(info.quadros / info.colunas) * info.altura
-    const col = q % info.colunas
-    const lin = Math.floor(q / info.colunas)
-    map.repeat.set(info.largura / tw, info.altura / th)
-    map.offset.set((col * info.largura) / tw, 1 - ((lin + 1) * info.altura) / th)
+  /** Ponto do pé da frente, para a poeira. */
+  private pePosicao() {
+    const [dl, dc] = PASSO_DIR[this.dir]
+    const n = Math.hypot(dl, dc) || 1
+    return new THREE.Vector3(this.pos.x + (dc / n) * 0.3, 0, this.pos.z + (dl / n) * 0.3)
+  }
 
-    const espelha = this.olhar !== this.info.olha
-    const cx = info.peX / info.largura
-    this.sprite.center.set(espelha ? 1 - cx : cx, 1 - info.peY / info.altura)
-
-    // pé no mundo → pixel da tela (arredondado) → de volta ao mundo
-    const pe = this.pos.clone()
-    const ndc = pe.clone().project(camera)
-    const px = Math.round(((ndc.x + 1) / 2) * largura)
-    const py = Math.round(((1 - ndc.y) / 2) * altura)
-    // puxa um pouco para a câmera, para não brigar com o piso
-    const paraCamera = camera.position.clone().sub(pe).normalize().multiplyScalar(0.45)
-    const ndcZ = pe.clone().add(paraCamera).project(camera).z
-    const alinhado = new THREE.Vector3((px / largura) * 2 - 1, 1 - (py / altura) * 2, ndcZ).unproject(camera)
-    this.sprite.position.copy(alinhado)
-    // mundo por pixel na profundidade do sprite
-    const prof = alinhado.clone().applyMatrix4(camera.matrixWorldInverse).z * -1
-    const porPixel = (2 * prof * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) / altura
-    this.sprite.scale.set(info.largura * porPixel * (espelha ? -1 : 1), info.altura * porPixel, 1)
-
+  posicionar(camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
+    const f = this.folhas[this.anim]
+    const q = Math.min(f.quadros - 1, Math.floor(this.tAnim * f.fps))
+    const base = ESPELHO[this.dir] ?? this.dir
+    const linha = DIRECOES.indexOf(base as (typeof DIRECOES)[number])
+    const espelha = this.dir in ESPELHO
+    this.sprite.material.map!.offset.set(q / f.quadros, 1 - (linha + 1) / DIRECOES.length)
+    const cx = PE_X / QUADRO_L
+    this.sprite.center.set(espelha ? 1 - cx : cx, 1 - PE_Y / QUADRO_A)
+    // clarão branco ao levar o golpe
+    const k = this.clarao > 0 ? 3.2 : 1
+    this.sprite.material.color.setRGB(k, k, k)
+    posicionarPixel(this.sprite, this.pos, QUADRO_L, QUADRO_A, camera, telaL, telaA, espelha)
     this.sombra.position.set(this.pos.x, 0.012, this.pos.z)
     const s = 1 - Math.min(0.5, this.pos.y * 0.6)
     this.sombra.scale.set(s, s, 1)
   }
 
-  /** Ponto acima da cabeça (para barra de vida e números). */
-  topo() {
-    const info = this.info.anims.parado
-    return { pe: this.pos.clone(), alturaPx: info.peY }
+  /** Altura (px da cena) do topo da cabeça acima do pé. */
+  get alturaPx() {
+    return 118
   }
 }

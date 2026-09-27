@@ -42,9 +42,13 @@ velas. Abordagem quando o inimigo está avariado, perto e devagar.
 - Protótipo das posturas + vontade na abordagem (contra a IA), depois no PvP.
 - **Teste de tabuleiro em pixel art** (`/teste-tabuleiro`): tabuleiro 10×20 em
   dois conveses de 5×20 (um navio de cada lado, água entre eles), câmera de
-  cima inclinada como na referência. Capitães em pixel art com parado
-  (respiração, capa), andar (casa a casa, pulo no vão), ataque de espada e dano.
-  Animações assadas por `frontend/scripts/personagens/assar_personagens.py`.
+  cima inclinada como na referência. Andar 1 casa = caminhada; mais de 1 =
+  corrida, que termina freando (pé arrastando, tranco e poeira). Ataque com
+  preparação, brilho na lâmina e rastro do corte.
+- **Personagens modulares** (`/teste-boneco`, o provador): boneco 3D com
+  corpo base + encaixes (cabelo, barba, chapéu, camisa, casaca, capa,
+  cintura, calça, botas, arma), "fotografado" em pixel art em 8 direções
+  (5 + espelho) com ciclos de 12 quadros. Trocar peça = assar de novo.
 
 ## Depois
 _(ideias que entram mais tarde)_

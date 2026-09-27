@@ -15,6 +15,7 @@ import { Carregando } from './componentes/ui/controles'
 // O Phaser pesa ~1 MB: só baixa quem abrir a navegação.
 const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
 const TelaTabuleiro = lazy(() => import('./tabuleiro/TelaTabuleiro'))
+const TelaBoneco = lazy(() => import('./tabuleiro/TelaBoneco'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +64,15 @@ export function App() {
               element={
                 <Suspense fallback={<Carregando texto="Preparando o convés…" />}>
                   <TelaTabuleiro />
+                </Suspense>
+              }
+            />
+
+            <Route
+              path="/teste-boneco"
+              element={
+                <Suspense fallback={<Carregando texto="Costurando as roupas…" />}>
+                  <TelaBoneco />
                 </Suspense>
               }
             />
