@@ -3,6 +3,41 @@
 Leia isto antes de mexer no Blender pelo MCP. Resume o que já foi decidido
 para os personagens do combate em tabuleiro (Sugoigame / Grand Seas Online).
 
+## Como o trabalho está dividido (duas conversas)
+
+O projeto é tocado por **duas conversas do Claude ao mesmo tempo**:
+
+- **Conversa local (esta, com o Blender MCP):** cuida só dos personagens no
+  Blender — modelos, materiais cel-shading, esqueleto, animações e exportação
+  dos `.glb` para `frontend/public/personagens/`.
+- **Conversa na nuvem (Claude Code on the web):** cuida do código do jogo —
+  tabuleiro, carregador dos modelos, sombreamento no jogo, efeitos, combate —
+  e dá apoio quando algo não der para resolver no Blender.
+
+Regras para as duas não se atrapalharem:
+
+1. **Branch única:** `claude/ola-wafo5q`. Faça `git pull` antes de começar e
+   antes de cada push.
+2. **Cada uma no seu pedaço:** a conversa local mexe em arquivos do Blender,
+   nos `.glb` (e texturas) em `frontend/public/personagens/` e neste
+   `BLENDER.md`. **Não altere código em `frontend/src`**: se precisar de algo
+   no jogo, anote na seção "Pedidos para o jogo" abaixo e avise o dono do
+   projeto, que repassa para a conversa da nuvem.
+3. **Commits claros**, ex.: `Personagem: capitão vermelho v1 (.glb)`.
+4. Arquivos `.blend` de trabalho ficam **fora do git** (são grandes); só vai o
+   `.glb` exportado. Se quiser guardar o `.blend`, use uma pasta fora do
+   projeto ou peça para configurar o Git LFS.
+
+### Pedidos para o jogo
+
+_(a conversa local anota aqui o que precisa no código — ex.: "o carregador
+precisa ler o osso `weapon`", "capa usa ossos `cape_*` para simular mola")_
+
+### Registro de entregas
+
+_(a conversa local anota aqui cada `.glb` enviado: nome, o que tem, o que
+falta)_
+
 ## Estilo alvo
 
 3D com cel-shading imitando ilustração 2D, como **Guilty Gear Xrd/Strive**,
