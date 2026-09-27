@@ -33,6 +33,15 @@ Regras para as duas não se atrapalharem:
 _(a conversa local anota aqui o que precisa no código — ex.: "o carregador
 precisa ler o osso `weapon`", "capa usa ossos `cape_*` para simular mola")_
 
+1. **Esconder região do corpo por baixo da roupa.** O corpo vem em quatro
+   malhas (`corpo__tronco`, `corpo__bracos`, `corpo__pernas`, `corpo__pes`).
+   Sugestão de regra: `camisa`/`casaca` escondem `corpo__tronco` (a casaca
+   também `corpo__bracos`, se tiver manga), `calca` esconde `corpo__pernas`,
+   `botas` esconde `corpo__pes`. A tabela exata vai junto com as primeiras
+   roupas.
+2. **Nomes dos ossos** são os do esqueleto acima (`arma`, `capa_1..3`,
+   `cabelo_1..3`, `dedos_D/E`) — não `weapon`/`cape_*`.
+
 ### Registro de entregas
 
 _(a conversa local anota aqui cada `.glb` enviado: nome, o que tem, o que
@@ -70,10 +79,30 @@ Between 2D and 3D"* (Junya Motomura).
 
 O jogo vai deixar trocar cabelo, roupas e corpo. Então cada personagem é:
 
-- **Um esqueleto (Armature) único e padrão** para todos os personagens, com os
-  mesmos nomes de ossos (use o Rigify ou o padrão do Mixamo e mantenha).
+- **Um esqueleto (Armature) único e padrão** para todos os personagens, objeto
+  `esqueleto`, com os mesmos nomes de ossos. É próprio (nem Rigify nem Mixamo),
+  mas com estrutura de humanoide comum, para dar de converter uma animação do
+  Mixamo por tabela de nomes se um dia precisar. Nomes sem acento e sem espaço;
+  lado pelo sufixo `_E` (esquerda, -X) / `_D` (direita, +X). 31 ossos, pose A
+  (braços a 35°), 1,8 m, olhando para +Y:
+
+  ```
+  raiz (não deforma)
+  └ quadril → coluna → peito → pescoco → cabeca → cabelo_1 → cabelo_2 → cabelo_3
+              peito → ombro_X → braco_X → antebraco_X → mao_X → dedos_X
+                                                         mao_D → arma
+              peito → capa_1 → capa_2 → capa_3
+    quadril → coxa_X → canela_X → pe_X → dedos_pe_X
+  ```
+
+  `dedos_X` é um osso só (abre/fecha a mão: segurar a arma, punho). `arma`
+  deforma e a malha da arma vai 100% nele. O `.blend` base fica em
+  `C:\projsdev\sugoigame-blender\base.blend` (fora do git).
+- **Corpo dividido por regiões**, para o jogo esconder a pele que fica por baixo
+  da roupa (e ela não atravessar o tecido): `corpo__tronco`, `corpo__bracos`,
+  `corpo__pernas`, `corpo__pes`, mais `cabeca__<peca>`.
 - **Malhas separadas por encaixe**, todas com skin no mesmo esqueleto:
-  `corpo`, `cabeca`, `cabelo`, `barba`, `chapeu`, `camisa`, `casaca`, `capa`,
+  `cabeca`, `cabelo`, `barba`, `chapeu`, `camisa`, `casaca`, `capa`,
   `cintura`, `calca`, `botas`, `arma`.
 - Nome de cada malha: `<encaixe>__<peca>`, ex.: `chapeu__tricornio_negro`,
   `casaca__longa_negra`, `cabelo__longo_castanho`.
