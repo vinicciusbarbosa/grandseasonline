@@ -124,8 +124,28 @@ Todas no mesmo esqueleto, nomes exatos (o jogo procura por eles):
 | `dano`    | não  | recua e volta |
 
 O personagem anima **no lugar** (sem sair da origem; o jogo move ele de casa
-em casa), olhando para **+Y do Blender** (vira +Z no jogo, exportando com
-"+Y Up").
+em casa), **de frente para a vista Frontal do Blender (Numpad 1)**, ou seja,
+olhando para **−Y do Blender** — exportando com "+Y Up", isso vira a frente
+(+Z) no jogo.
+
+### Esqueleto
+
+- Próprio e simples, estrutura de humanoide comum: `quadril → coluna → peito
+  → pescoco → cabeca`; `ombro → braco → antebraco → mao (+ dedos)`;
+  `coxa → canela → pe → dedos_pe`. Nomes **sem acento nem espaço**.
+- Lados com sufixo **`_L` / `_R`** (o Blender só espelha — Symmetrize, colar
+  pose espelhada — com L/R). O jogo aceita qualquer sufixo.
+- Pose de descanso em **A** simétrica (braços ~45°, cotovelos e joelhos
+  levemente dobrados), pés no chão, origem entre os pés.
+- Ossos extras: `arma` (filho de `mao_R`, na palma, onde segura o cabo);
+  `cabelo_1..3` (filho de `cabeca`, saindo da nuca/onde está o cabelo);
+  `capa_1..3` (filho de `peito`, saindo dos ombros/costas); `dedos_L/R` para
+  abrir/fechar a mão.
+- Rosto: olhos, sobrancelhas e boca **não** são malhas separadas — ficam numa
+  área reservada da textura do rosto; o jogo troca os desenhos (customização
+  e expressões).
+- Corpo dividido em regiões (tronco, braços, pernas, pés) para o jogo esconder
+  o que fica debaixo da roupa.
 
 ## Exportação para o jogo
 
