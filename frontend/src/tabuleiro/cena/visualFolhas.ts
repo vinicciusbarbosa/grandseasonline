@@ -35,8 +35,18 @@ const QUADROS_PADRAO = 12
 let texSombra: THREE.Texture | null = null
 const carregador = new THREE.TextureLoader()
 
+/**
+ * Arquivos embutidos na própria página (versão publicada para o celular):
+ * caminho → data URI. Sem eles, busca normal pela URL.
+ */
+function recurso(url: string) {
+  const embutidos = (window as unknown as { __embutidos?: Record<string, string> }).__embutidos
+  const chave = url.replace(/^.*?sprites\//, 'sprites/')
+  return embutidos?.[chave] ?? url
+}
+
 function textura(url: string) {
-  const t = carregador.load(url)
+  const t = carregador.load(recurso(url))
   t.magFilter = THREE.NearestFilter
   t.minFilter = THREE.NearestFilter
   t.generateMipmaps = false
@@ -72,7 +82,7 @@ export class VisualFolhas implements Visual {
 
   static async carregar(personagem: string) {
     const base = `${import.meta.env.BASE_URL}sprites/${personagem}/`
-    const resp = await fetch(`${base}manifesto.json`)
+    const resp = await fetch(recurso(`${base}manifesto.json`))
     if (!resp.ok) throw new Error(`sem manifesto de ${personagem}`)
     return new VisualFolhas(base, (await resp.json()) as Manifesto)
   }
