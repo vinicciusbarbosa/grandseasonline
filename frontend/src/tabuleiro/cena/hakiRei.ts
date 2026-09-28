@@ -16,7 +16,7 @@ const DURACAO = 2.2 // s
 const TAM = 7 // lado (em casas) do quadro dos raios
 const PX = 1024 // resolução das camadas desenhadas
 
-type Raio = { pts: [number, number][]; larg: number }
+type Raio = { pts: [number, number][]; larg: number; nasce: number }
 type Particula = { x: number; y: number; vx: number; vy: number; vida: number; t: number; tam: number; tipo: 'lasca' | 'faisca'; giro: number }
 
 function envelope(t: number) {
@@ -142,41 +142,96 @@ export class HakiRei {
   }
 
   // ---------------------------------------------------------------- raios
+  /**
+   * Raios do Haoshoku como no anime: grossos na base e afinando até a ponta,
+   * em zigue-zague de ângulos bem marcados (quebras retas, sem curva), pretos
+   * com contorno vermelho e um brilho vermelho em volta. Poucos e fortes,
+   * mais alguns galhos finos.
+   */
   private gerarRaios(e: number, f: number): Raio[] {
-    const n = Math.round(6 + 12 * e)
+    const n = Math.round(5 + 9 * e)
     const raios: Raio[] = []
-    const alcance = (0.14 + 0.3 * Math.min(1, f * 5)) * PX
+    const alcance = (0.2 + 0.28 * Math.min(1, f * 5)) * PX
     for (let i = 0; i < n; i++) {
-      // mais para cima e para os lados, como nas referências
-      let ang = Math.random() * Math.PI * 2
-      if (Math.sin(ang) > 0.3 && Math.random() < 0.6) ang = -ang
-      const comp = alcance * (0.45 + Math.random() * 0.55)
-      const r0 = PX * (0.035 + Math.random() * 0.06)
-      const seg = 7 + Math.floor(Math.random() * 5)
-      const pts: [number, number][] = []
-      for (let k = 0; k <= seg; k++) {
-        const u = k / seg
-        const r = r0 + comp * u
-        const desvio = (Math.random() - 0.5) * 0.16 * (0.3 + u)
-        const a = ang + desvio
-        pts.push([PX / 2 + Math.cos(a) * r, PX / 2 + Math.sin(a) * r * 0.92])
+      // espalhados em volta, mais para cima e para os lados
+      let ang = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.7
+      if (Math.sin(ang) > 0.45 && Math.random() < 0.5) ang = -ang
+      const comp = alcance * (0.6 + Math.random() * 0.4)
+      const r0 = PX * (0.03 + Math.random() * 0.04)
+      // zigue-zague: segmentos alternando para um lado e para o outro
+      const seg = 5 + Math.floor(Math.random() * 3)
+      const pts: [number, number][] = [[PX / 2 + Math.cos(ang) * r0, PX / 2 + Math.sin(ang) * r0 * 0.92]]
+      let x = pts[0][0]
+      let y = pts[0][1]
+      let lado = Math.random() < 0.5 ? 1 : -1
+      for (let k = 1; k <= seg; k++) {
+        const passo = (comp / seg) * (0.7 + Math.random() * 0.6)
+        const quebra = lado * (0.45 + Math.random() * 0.55)
+        lado = -lado
+        const a = ang + quebra
+        x += Math.cos(a) * passo
+        y += Math.sin(a) * passo * 0.92
+        pts.push([x, y])
       }
-      raios.push({ pts, larg: 7 + Math.random() * 14 * e })
-      // galho
-      if (Math.random() < 0.3 && pts.length > 4) {
-        const b = pts[2 + Math.floor(Math.random() * (pts.length - 4))]
-        const ga = ang + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.6)
-        const gp: [number, number][] = [b]
-        let [x, y] = b
-        for (let k = 0; k < 4; k++) {
-          x += Math.cos(ga + (Math.random() - 0.5) * 0.8) * comp * 0.09
-          y += Math.sin(ga + (Math.random() - 0.5) * 0.8) * comp * 0.09
-          gp.push([x, y])
+      raios.push({ pts, larg: (16 + Math.random() * 14) * (0.6 + 0.4 * e), nasce: Math.random() * 0.25 })
+      // galho fino saindo de uma quebra
+      if (Math.random() < 0.55) {
+        const j = 1 + Math.floor(Math.random() * (pts.length - 2))
+        const ga = ang + (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.5)
+        const gp: [number, number][] = [pts[j]]
+        let [gx, gy] = pts[j]
+        let gl = Math.random() < 0.5 ? 1 : -1
+        for (let k = 0; k < 3; k++) {
+          const a = ga + gl * 0.5
+          gl = -gl
+          gx += Math.cos(a) * comp * 0.12
+          gy += Math.sin(a) * comp * 0.11
+          gp.push([gx, gy])
         }
-        raios.push({ pts: gp, larg: 4 + Math.random() * 6 })
+        raios.push({ pts: gp, larg: 7 + Math.random() * 5, nasce: 0.15 + Math.random() * 0.2 })
       }
     }
     return raios
+  }
+
+  /** Contorno de um raio que afina da base (larg) até a ponta (0). */
+  private forma(r: Raio, extra: number, cresce: number) {
+    // só a parte já "crescida" do raio (ele avança do corpo para fora)
+    const n = r.pts.length
+    const ate = Math.max(1, Math.min(n - 1, (n - 1) * cresce))
+    const pts: [number, number][] = []
+    for (let i = 0; i <= Math.floor(ate); i++) pts.push(r.pts[i])
+    const fr = ate - Math.floor(ate)
+    if (fr > 0 && Math.floor(ate) < n - 1) {
+      const [ax, ay] = r.pts[Math.floor(ate)]
+      const [bx, by] = r.pts[Math.floor(ate) + 1]
+      pts.push([ax + (bx - ax) * fr, ay + (by - ay) * fr])
+    }
+    const esq: [number, number][] = []
+    const dir: [number, number][] = []
+    for (let i = 0; i < pts.length; i++) {
+      const [px, py] = pts[i]
+      const [ax, ay] = pts[Math.max(0, i - 1)]
+      const [bx, by] = pts[Math.min(pts.length - 1, i + 1)]
+      let nx = -(by - ay)
+      let ny = bx - ax
+      const l = Math.hypot(nx, ny) || 1
+      nx /= l
+      ny /= l
+      const u = i / Math.max(1, pts.length - 1)
+      const w = (r.larg * (1 - u) ** 0.85 + extra * (1 - u * 0.6)) / 2
+      esq.push([px + nx * w, py + ny * w])
+      dir.push([px - nx * w, py - ny * w])
+    }
+    const g = this.tras.g
+    g.beginPath()
+    g.moveTo(esq[0][0], esq[0][1])
+    for (const [x, y] of esq.slice(1)) g.lineTo(x, y)
+    // ponta afiada
+    const [tx, ty] = pts[pts.length - 1]
+    g.lineTo(tx, ty)
+    for (const [x, y] of dir.reverse()) g.lineTo(x, y)
+    g.closePath()
   }
 
   private desenharTras(e: number, f: number) {
@@ -189,33 +244,21 @@ export class HakiRei {
     neb.addColorStop(1, 'rgba(120,0,20,0)')
     g.fillStyle = neb
     g.fillRect(0, 0, PX, PX)
-    // raios: halo vermelho, miolo preto, fio claro
-    const tracar = (r: Raio) => {
-      g.beginPath()
-      g.moveTo(r.pts[0][0], r.pts[0][1])
-      for (const [x, y] of r.pts.slice(1)) g.lineTo(x, y)
-      g.stroke()
-    }
-    g.lineJoin = 'miter'
-    g.lineCap = 'round'
+    // raios: brilho vermelho, contorno vermelho vivo, miolo preto
     const alfa = Math.min(1, e * 1.3)
-    g.shadowColor = 'rgba(255,20,50,0.9)'
-    g.shadowBlur = 24
+    const idade = (this.t * 20) % 1 // fração desde o último "relâmpago"
+    g.lineJoin = 'miter'
     for (const r of this.raios) {
-      g.strokeStyle = `rgba(255,30,60,${0.7 * alfa})`
-      g.lineWidth = r.larg + 16
-      tracar(r)
-    }
-    g.shadowBlur = 0
-    for (const r of this.raios) {
-      g.strokeStyle = `rgba(10,0,4,${alfa})`
-      g.lineWidth = r.larg
-      tracar(r)
-    }
-    for (const r of this.raios) {
-      g.strokeStyle = `rgba(255,190,200,${0.8 * alfa})`
-      g.lineWidth = Math.max(1, r.larg * 0.18)
-      tracar(r)
+      const cresce = Math.min(1, Math.max(0, (idade * 3 - r.nasce) / 0.6) + (f > 0.15 ? 0.5 : 0))
+      g.shadowColor = 'rgba(255,20,50,1)'
+      g.shadowBlur = 30
+      g.fillStyle = `rgba(255,35,70,${alfa})`
+      this.forma(r, 12, cresce)
+      g.fill()
+      g.shadowBlur = 0
+      g.fillStyle = `rgba(8,0,3,${alfa})`
+      this.forma(r, 0, cresce)
+      g.fill()
     }
     // clarão inicial: brilho vermelho-claro que some rápido
     if (f < 0.1) {
