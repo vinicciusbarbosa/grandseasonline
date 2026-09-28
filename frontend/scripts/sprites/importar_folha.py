@@ -225,7 +225,7 @@ def achar_quadros(alfa):
     H, W = alfa.shape
     quadros = []
     for y0, y1 in faixas(alfa.any(axis=1), 2):
-        for x0, x1 in faixas(alfa[y0:y1].any(axis=0), max(4, W // 60)):
+        for x0, x1 in faixas(alfa[y0:y1].any(axis=0), 3):
             if alfa[y0:y1, x0:x1].sum() > 400:
                 quadros.append((x0, x1, y0, y1))
     return quadros
