@@ -58,6 +58,7 @@ export class VisualFolhas implements Visual {
   readonly info = {} as Record<NomeAnim, InfoAnim>
   readonly objetos: THREE.Object3D[]
   readonly altura: number
+  readonly alturaPx = 106
   private readonly man: Manifesto
   private readonly base: string
   private readonly texturas = new Map<string, THREE.Texture>()

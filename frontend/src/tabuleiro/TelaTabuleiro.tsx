@@ -86,7 +86,19 @@ export default function TelaTabuleiro() {
         <div style={{ font: '700 14px monospace', color: '#ffd88a', marginBottom: 4 }}>Teste de tabuleiro · 10×20</div>
         <div>{estado.dica}</div>
         <div style={{ opacity: 0.7, marginTop: 4 }}>
-          {toque ? 'Toque para escolher · arraste para mover a câmera.' : 'Botão direito ou Esc: cancelar · setas/WASD movem a câmera.'}
+          {toque ? 'Toque para escolher · arraste move a câmera · pinça dá zoom.' : 'Esc cancela · setas/WASD movem · roda do mouse dá zoom.'}
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
+          <span>Zoom:</span>
+          {([['−', 1 / 1.4], ['+', 1.4], ['tudo', 0]] as const).map(([r, f]) => (
+            <button
+              key={r}
+              onClick={() => cena?.zoomPasso(f)}
+              style={{ font: '700 11px monospace', padding: '2px 8px', background: '#3a2616', color: '#f3e3c3', border: '1px solid #b58a4a', cursor: 'pointer' }}
+            >
+              {r}
+            </button>
+          ))}
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
           <span>Velocidade:</span>

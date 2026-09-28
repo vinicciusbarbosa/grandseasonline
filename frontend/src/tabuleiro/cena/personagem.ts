@@ -23,6 +23,8 @@ export interface Visual {
   readonly objetos: THREE.Object3D[]
   /** altura do topo da cabeça (unidades do mundo) */
   readonly altura: number
+  /** altura do sprite na tela (px da cena, sem zoom), do pé ao topo */
+  readonly alturaPx: number
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number): void
 }
 const VEL_ANDAR = 1.25 // casas/s: um ciclo de passos por casa

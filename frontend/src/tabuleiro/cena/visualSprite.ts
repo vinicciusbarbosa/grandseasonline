@@ -16,6 +16,7 @@ export class VisualSprite implements Visual {
   readonly info: Record<NomeAnim, InfoAnim>
   readonly objetos: THREE.Object3D[]
   readonly altura = 2.3
+  readonly alturaPx = 118
   private readonly sprite: THREE.Sprite
   private readonly sombra: THREE.Mesh
   private readonly texturas = new Map<string, THREE.Texture>()

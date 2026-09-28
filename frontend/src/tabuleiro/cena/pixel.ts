@@ -5,6 +5,9 @@ import * as THREE from 'three'
  * projeta o ponto de apoio, arredonda para o pixel e desprojeta de volta, e
  * ajusta a escala à profundidade. Assim nada fica borrado nem "tremendo".
  */
+/** Zoom da câmera: um pixel da arte vira `zoom` pixels da tela. */
+export const escalaPixel = { zoom: 1 }
+
 export function posicionarPixel(
   sprite: THREE.Sprite,
   apoio: THREE.Vector3,
@@ -18,15 +21,16 @@ export function posicionarPixel(
   desvio: [number, number] = [0, 0],
 ) {
   const ndc = apoio.clone().project(camera)
-  const px = Math.round(((ndc.x + 1) / 2) * telaL) + Math.round(desvio[0])
-  const py = Math.round(((1 - ndc.y) / 2) * telaA) + Math.round(desvio[1])
+  const px = Math.round(((ndc.x + 1) / 2) * telaL) + Math.round(desvio[0] * escalaPixel.zoom)
+  const py = Math.round(((1 - ndc.y) / 2) * telaA) + Math.round(desvio[1] * escalaPixel.zoom)
   const recuo = camera.position.clone().sub(apoio).normalize().multiplyScalar(paraCamera)
   const ndcZ = apoio.clone().add(recuo).project(camera).z
   const alinhado = new THREE.Vector3((px / telaL) * 2 - 1, 1 - (py / telaA) * 2, ndcZ).unproject(camera)
   sprite.position.copy(alinhado)
   const prof = -alinhado.clone().applyMatrix4(camera.matrixWorldInverse).z
   const porPixel = (2 * prof * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) / telaA
-  sprite.scale.set(largura * porPixel * (espelha ? -1 : 1), altura * porPixel, 1)
+  const z = escalaPixel.zoom
+  sprite.scale.set(largura * porPixel * z * (espelha ? -1 : 1), altura * porPixel * z, 1)
 }
 
 /** Textura de canvas com filtro de pixel. */

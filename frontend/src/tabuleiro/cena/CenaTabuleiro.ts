@@ -8,6 +8,7 @@ import { Personagem } from './personagem'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
+import { escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
 
 /**
@@ -30,6 +31,9 @@ const PASSOS = 4
 /** largura (px da cena) de uma casa no meio do tabuleiro: o padrão dos sprites */
 export const PX_CASA = 64
 const INCLINACAO = Math.asin(0.75) // casa de 64×48 px
+/** com zoom máximo a câmera desce até este ângulo, mais rente aos personagens */
+const INCLINACAO_PERTO = THREE.MathUtils.degToRad(28)
+const ZOOM_MAX = 4
 const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
 const DANO = [14, 22]
@@ -63,6 +67,10 @@ export class CenaTabuleiro {
   private readonly ouvintes = new Set<() => void>()
   private estado: EstadoTela
   private readonly pan = new THREE.Vector3()
+  /** 1 = tabuleiro inteiro; até ZOOM_MAX */
+  private zoom = 1
+  private readonly toques = new Map<number, { x: number; y: number }>()
+  private pinca: { dist: number; zoom: number } | null = null
   private readonly ray = new THREE.Raycaster()
   private readonly plano = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 
@@ -143,6 +151,8 @@ export class CenaTabuleiro {
     cv.addEventListener('pointermove', this.aoMover)
     cv.addEventListener('pointerdown', this.aoApertar)
     cv.addEventListener('pointerup', this.aoSoltar)
+    cv.addEventListener('pointercancel', this.aoSoltar)
+    cv.addEventListener('wheel', this.aoRolar, { passive: false })
     cv.addEventListener('contextmenu', this.aoDireito)
     window.addEventListener('keydown', this.aoTecla)
     this.quadro = requestAnimationFrame(this.laco)
@@ -169,6 +179,11 @@ export class CenaTabuleiro {
   }
   retrato = () => this.estado
 
+  /** Botões de zoom da tela. */
+  zoomPasso(fator: number) {
+    this.aplicarZoom(fator === 0 ? 1 : this.zoom * fator)
+  }
+
   setVelocidade(v: number) {
     this.velocidade = v
   }
@@ -176,7 +191,7 @@ export class CenaTabuleiro {
   private montarEstado(): EstadoTela {
     return {
       personagens: this.personagens.map((p) => {
-        const s = this.naTela(p.topo(0.25))
+        const s = this.acimaDe(p, 1.1)
         return { id: p.id, nome: p.nome, vida: p.vida, vidaMax: p.vidaMax, x: s.x, y: s.y, selecionado: p === this.selecionado }
       }),
       flutuantes: this.flutuantes,
@@ -187,6 +202,13 @@ export class CenaTabuleiro {
   }
 
   /** Posição em pixels CSS de um ponto do mundo, subindo `acimaPx` pixels da cena. */
+  /** Ponto na tela (px CSS) a uma fração da altura do sprite acima do pé. */
+  private acimaDe(p: Personagem, fracao: number) {
+    const s = this.naTela(p.pos)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: s.x, y: s.y - p.visual.alturaPx * fracao * this.zoom * (r.height / this.altura) }
+  }
+
   private naTela(p: THREE.Vector3) {
     const n = p.clone().project(this.camera)
     const r = this.renderer.domElement.getBoundingClientRect()
@@ -225,12 +247,44 @@ export class CenaTabuleiro {
     const cam = this.camera
     cam.fov = FOV
     cam.updateProjectionMatrix()
-    const dir = new THREE.Vector3(Math.sin(GIRO) * Math.cos(INCLINACAO), Math.sin(INCLINACAO), Math.cos(GIRO) * Math.cos(INCLINACAO))
-    const dist = this.altura / (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * PX_CASA)
-    const alvo = new THREE.Vector3(0, 0, 0.3).add(this.pan)
+    // quanto mais perto, mais rente: a inclinação desce suavemente com o zoom
+    const t = (this.zoom - 1) / (ZOOM_MAX - 1)
+    const inc = THREE.MathUtils.lerp(INCLINACAO, INCLINACAO_PERTO, Math.sqrt(t))
+    const dir = new THREE.Vector3(Math.sin(GIRO) * Math.cos(inc), Math.sin(inc), Math.cos(GIRO) * Math.cos(inc))
+    const dist = this.altura / (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * PX_CASA * this.zoom)
+    // de perto, mira na altura do peito dos personagens
+    const alvo = new THREE.Vector3(0, 0.9 * t, 0.3).add(this.pan)
     cam.position.copy(alvo).addScaledVector(dir, dist)
     cam.lookAt(alvo)
     cam.updateMatrixWorld()
+    escalaPixel.zoom = this.zoom
+  }
+
+  /** Aproxima/afasta mantendo parado o ponto do convés sob (px, py) em pixels CSS. */
+  private aplicarZoom(novo: number, px?: number, py?: number) {
+    novo = THREE.MathUtils.clamp(novo, 1, ZOOM_MAX)
+    if (Math.abs(novo - this.zoom) < 1e-4) return
+    const antes = px !== undefined && py !== undefined ? this.noConves(px, py) : null
+    this.zoom = novo
+    this.enquadrar()
+    if (antes) {
+      const depois = this.noConves(px!, py!)
+      if (depois) this.moverCamera(antes.x - depois.x, antes.z - depois.z)
+    }
+  }
+
+  /** Ponto do convés (y = 0) sob uma posição da tela em pixels CSS. */
+  private noConves(px: number, py: number) {
+    const r = this.renderer.domElement.getBoundingClientRect()
+    const ndc = new THREE.Vector2(((px - r.left) / r.width) * 2 - 1, -((py - r.top) / r.height) * 2 + 1)
+    this.ray.setFromCamera(ndc, this.camera)
+    const p = new THREE.Vector3()
+    return this.ray.ray.intersectPlane(this.plano, p) ? p : null
+  }
+
+  private aoRolar = (ev: WheelEvent) => {
+    ev.preventDefault()
+    this.aplicarZoom(this.zoom * Math.exp(-ev.deltaY * 0.0015), ev.clientX, ev.clientY)
   }
 
   /** Arrasta a câmera (setas/WASD), sem sair de perto do tabuleiro. */
@@ -317,7 +371,7 @@ export class CenaTabuleiro {
     const n = p.pos.clone().project(this.camera)
     const x = ((n.x + 1) / 2) * this.largura
     const y = ((1 - n.y) / 2) * this.altura
-    const topo = ((1 - p.topo().project(this.camera).y) / 2) * this.altura
+    const topo = y - p.visual.alturaPx * this.zoom
     const meia = (y - topo) * 0.28
     return { x0: x - meia, x1: x + meia, y0: topo, y1: y + 2 }
   }
@@ -325,18 +379,36 @@ export class CenaTabuleiro {
   private arrasto: { x: number; y: number; moveu: boolean } | null = null
 
   private aoApertar = (ev: PointerEvent) => {
+    this.toques.set(ev.pointerId, { x: ev.clientX, y: ev.clientY })
+    this.renderer.domElement.setPointerCapture(ev.pointerId)
+    if (this.toques.size === 2) {
+      // dois dedos: pinça de zoom (cancela o toque/arrasto)
+      const [a, b] = [...this.toques.values()]
+      this.pinca = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: this.zoom }
+      if (this.arrasto) this.arrasto.moveu = true
+      return
+    }
     if (ev.button !== 0) return
     this.arrasto = { x: ev.clientX, y: ev.clientY, moveu: false }
-    this.renderer.domElement.setPointerCapture(ev.pointerId)
   }
 
   private aoSoltar = (ev: PointerEvent) => {
+    this.toques.delete(ev.pointerId)
+    if (this.toques.size < 2) this.pinca = null
     const a = this.arrasto
+    if (this.toques.size > 0) return
     this.arrasto = null
-    if (a && !a.moveu) this.aoClicar(ev)
+    if (a && !a.moveu && ev.type === 'pointerup') this.aoClicar(ev)
   }
 
   private aoMover = (ev: PointerEvent) => {
+    if (this.toques.has(ev.pointerId)) this.toques.set(ev.pointerId, { x: ev.clientX, y: ev.clientY })
+    if (this.pinca && this.toques.size === 2) {
+      const [p1, p2] = [...this.toques.values()]
+      const d = Math.hypot(p1.x - p2.x, p1.y - p2.y)
+      this.aplicarZoom(this.pinca.zoom * (d / Math.max(1, this.pinca.dist)), (p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
+      return
+    }
     const a = this.arrasto
     if (a) {
       const dx = ev.clientX - a.x
@@ -345,7 +417,7 @@ export class CenaTabuleiro {
       if (a.moveu) {
         // pixels da tela → casas: a casa do meio mede PX_CASA pixels da cena
         const r = this.renderer.domElement.getBoundingClientRect()
-        const k = this.largura / r.width / PX_CASA
+        const k = this.largura / r.width / (PX_CASA * this.zoom)
         this.moverCamera(-dx * k, -dy * k * (64 / 48))
         a.x = ev.clientX
         a.y = ev.clientY
@@ -371,12 +443,15 @@ export class CenaTabuleiro {
 
   private aoTecla = (ev: KeyboardEvent) => {
     if (ev.key === 'Escape') this.selecionar(null)
-    const passo = 0.6
+    const passo = 0.6 / this.zoom
     const k = ev.key.toLowerCase()
     if (k === 'arrowleft' || k === 'a') this.moverCamera(-passo, 0)
     if (k === 'arrowright' || k === 'd') this.moverCamera(passo, 0)
     if (k === 'arrowup' || k === 'w') this.moverCamera(0, -passo)
     if (k === 'arrowdown' || k === 's') this.moverCamera(0, passo)
+    if (k === '+' || k === '=') this.aplicarZoom(this.zoom * 1.25)
+    if (k === '-') this.aplicarZoom(this.zoom / 1.25)
+    if (k === '0') this.aplicarZoom(1)
   }
 
   private aoClicar = (ev: PointerEvent) => {
@@ -413,7 +488,7 @@ export class CenaTabuleiro {
         const dano = DANO[0] + Math.floor(Math.random() * (DANO[1] - DANO[0] + 1))
         alvo.sofrer(dano, atacante)
         if (alvo.vida <= 0) alvo.vida = alvo.vidaMax // teste: volta a vida cheia
-        const s = this.naTela(alvo.topo(-0.35))
+        const s = this.acimaDe(alvo, 0.7)
         this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: `-${dano}`, x: s.x, y: s.y, t: 0, cor: '#ffe27a' }]
       })
       this.selecionar(null)
