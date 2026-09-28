@@ -91,7 +91,14 @@ def reduzir(rgb, alfa, escala):
     um inteiro), acha o alinhamento da grade e pega a cor mais comum do miolo de
     cada bloco — sem misturar vizinhos. Senão, média por área."""
     b = round(1 / escala)
-    if b >= 2 and abs(1 / escala - b) < 0.12:
+    if b >= 2 and abs(1 / escala - b) < 0.3:
+        # a IA quase nunca acerta o bloco exato (4,14 em vez de 4): ajusta a
+        # figura para blocos inteiros antes de ler a grade
+        if abs(1 / escala - b) > 0.02:
+            k = b * escala
+            nh, nw = round(alfa.shape[0] * k), round(alfa.shape[1] * k)
+            rgb = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_NEAREST)
+            alfa = cv2.resize(alfa.astype(np.uint8), (nw, nh), interpolation=cv2.INTER_NEAREST) > 0
         g = rgb.mean(-1)
         melhor = None
         for fy in range(b):
