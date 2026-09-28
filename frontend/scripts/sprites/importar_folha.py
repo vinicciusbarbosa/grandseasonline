@@ -5,7 +5,7 @@ Importa folhas de sprites geradas por IA (fundo magenta) para o jogo.
     python3 frontend/scripts/sprites/importar_folha.py referencia \\
         frontend/scripts/sprites/fonte/almirante/referencia.png almirante
 
-    # folha de animação: grade 4×3 = 12 quadros de UMA direção
+    # folha de animação: 12 quadros de UMA direção, em qualquer grade
     python3 frontend/scripts/sprites/importar_folha.py animacao \\
         frontend/scripts/sprites/fonte/almirante/andar_S.png almirante andar S
 
@@ -166,23 +166,46 @@ def importar_referencia(arquivo, personagem):
     print(f'{personagem}: 5 direções, escala {escala:.3f}, altura na fonte {altura:.0f}px → {pasta}')
 
 
-def importar_animacao(arquivo, personagem, anim, direcao, colunas=4, linhas=3):
+def faixas(ocupado, vao_min):
+    """Trechos ocupados separados por pelo menos `vao_min` vazios."""
+    trechos = []
+    i = 0
+    n = len(ocupado)
+    while i < n:
+        if ocupado[i]:
+            j = i
+            while j < n and ocupado[j]:
+                j += 1
+            if trechos and i - trechos[-1][1] < vao_min:
+                trechos[-1] = (trechos[-1][0], j)
+            else:
+                trechos.append((i, j))
+            i = j
+        else:
+            i += 1
+    return trechos
+
+
+def achar_quadros(alfa):
+    """Acha as figuras em qualquer grade: faixas de linhas, depois de colunas.
+    Ordem de leitura: esquerda→direita, cima→baixo."""
+    H, W = alfa.shape
+    quadros = []
+    for y0, y1 in faixas(alfa.any(axis=1), 2):
+        for x0, x1 in faixas(alfa[y0:y1].any(axis=0), max(4, W // 60)):
+            if alfa[y0:y1, x0:x1].sum() > 400:
+                quadros.append((x0, x1, y0, y1))
+    return quadros
+
+
+def importar_animacao(arquivo, personagem, anim, direcao):
     rgb, alfa = carregar(arquivo)
     pasta, cam, man = manifesto(personagem)
     if 'paleta' not in man:
         sys.exit('importe a referência do personagem primeiro (ela define a paleta)')
     paleta = np.array(man['paleta'], np.float32)
-    H, W = alfa.shape
-    ch, cw = H / linhas, W / colunas
-    celulas = []
-    for i in range(linhas * colunas):
-        l, c = divmod(i, colunas)
-        y0, y1 = int(l * ch), int((l + 1) * ch)
-        x0, x1 = int(c * cw), int((c + 1) * cw)
-        if alfa[y0:y1, x0:x1].sum() < 200:
-            continue  # célula vazia
-        celulas.append(recortar(rgb, alfa, x0, x1, y0, y1))
-    # escala da folha: altura típica (mediana) das figuras de pé ≈ ALTURA
+    celulas = [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in achar_quadros(alfa)]
+    # escala da folha: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
     quadros = [encaixar(*reduzir(c, a, escala), paleta) for c, a in celulas]
