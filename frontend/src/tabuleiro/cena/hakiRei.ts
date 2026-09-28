@@ -70,7 +70,7 @@ export class HakiRei {
   /** ligado (toggle): segura o Haki até desligar */
   private ativo = true
   private tDesligou = 0
-  private proxGolpe = 0.5
+  private proxGolpe = 0.3
   private acumDesenho = 1
   /** personagem de quem sai (para ligar/desligar o certo) */
   dono: unknown = null
@@ -197,10 +197,10 @@ export class HakiRei {
       this.raios = this.gerarRaios(e, f)
       this.gigantes = f > 0.08 && f < 0.75 ? this.gerarGigantes(e) : []
       // de vez em quando um raio desce e acerta o convés
-      // de vez em quando (raro) um raio acerta o convés; no máximo 2 ao mesmo tempo
-      if (f > 0.1 && f < 0.7 && this.t > this.proxGolpe && this.impactos.length < 2 && Math.random() < 0.15) {
+      // de vez em quando um raio acerta o convés; no máximo 3 ao mesmo tempo
+      if (f > 0.1 && f < 0.7 && this.t > this.proxGolpe && this.impactos.length < 3 && Math.random() < 0.35) {
         this.golpear(camera, Math.random() < 0.4)
-        this.proxGolpe = this.t + 1.6 + Math.random() * 1.8
+        this.proxGolpe = this.t + 0.7 + Math.random() * 1.1
       }
       for (const fx of this.fixos) {
         ;(fx.longe ? this.gigantes : this.raios).push(fx.raio)
