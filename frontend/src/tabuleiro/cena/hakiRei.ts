@@ -45,6 +45,11 @@ export class HakiRei {
   private readonly tras = camada()
   private readonly frente = camada()
   private readonly longe = camada()
+  // raios que vêm para a frente do personagem (na direção da câmera)
+  private readonly raiosFrente = camada()
+  private readonly longeFrente = camada()
+  private readonly spriteRaiosFrente: THREE.Sprite
+  private readonly spriteLongeFrente: THREE.Sprite
   private readonly spriteLonge: THREE.Sprite
   private gigantes: Raio[] = []
   private readonly spriteTras: THREE.Sprite
@@ -78,6 +83,9 @@ export class HakiRei {
     this.spriteTras = mk(this.tras.t, 1)
     this.spriteLonge = mk(this.longe.t, 1)
     this.spriteLonge.scale.set(TAM_LONGE, TAM_LONGE, 1)
+    this.spriteRaiosFrente = mk(this.raiosFrente.t, 3)
+    this.spriteLongeFrente = mk(this.longeFrente.t, 3)
+    this.spriteLongeFrente.scale.set(TAM_LONGE, TAM_LONGE, 1)
     this.spriteFrente = mk(this.frente.t, 3)
 
     this.matChao = new THREE.ShaderMaterial({
@@ -128,7 +136,7 @@ export class HakiRei {
     this.chao.rotation.x = -Math.PI / 2
     this.chao.position.set(pe.x, 0.02, pe.z)
     this.chao.renderOrder = 0
-    this.objetos = [this.chao, this.spriteLonge, this.spriteTras, this.spriteFrente, this.grupoImpactos]
+    this.objetos = [this.chao, this.spriteLonge, this.spriteTras, this.spriteRaiosFrente, this.spriteLongeFrente, this.spriteFrente, this.grupoImpactos]
   }
 
   /** 0–1: quanto a cena deve tremer e escurecer agora. */
@@ -148,7 +156,7 @@ export class HakiRei {
     if (f >= 1) {
       // só termina depois das rachaduras sumirem
       if (!this.impactos.length) this.vivo = false
-      this.spriteTras.visible = this.spriteFrente.visible = this.spriteLonge.visible = this.chao.visible = false
+      for (const o of [this.spriteTras, this.spriteFrente, this.spriteLonge, this.spriteRaiosFrente, this.spriteLongeFrente, this.chao]) o.visible = false
       return
     }
     const e = envelope(f)
@@ -188,7 +196,6 @@ export class HakiRei {
     for (let i = 0; i < n; i++) {
       // espalhados em volta, mais para cima e para os lados
       let ang = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.9
-      if (Math.sin(ang) > 0.45 && Math.random() < 0.5) ang = -ang
       // tamanhos bem diferentes: alguns curtos, a maioria média, poucos enormes
       const sorte = Math.random()
       const tam = sorte < 0.3 ? 0.3 + Math.random() * 0.25 : sorte < 0.85 ? 0.6 + Math.random() * 0.35 : 1.1 + Math.random() * 0.45
@@ -285,22 +292,17 @@ export class HakiRei {
     neb.addColorStop(1, 'rgba(120,0,20,0)')
     g.fillStyle = neb
     g.fillRect(0, 0, PX, PX)
-    // raios: brilho vermelho, contorno vermelho vivo, miolo preto
-    const alfa = Math.min(1, e * 1.3)
+    // raios: os que apontam para cima/para trás ficam atrás do personagem;
+    // os que vêm para baixo (na direção da câmera) passam pela frente dele
     const idade = (this.t * 20) % 1 // fração desde o último "relâmpago"
-    g.lineJoin = 'miter'
+    const gf = this.raiosFrente.g
+    gf.clearRect(0, 0, PX, PX)
     for (const r of this.raios) {
       const cresce = r.nasce < 0 ? 1 : Math.min(1, Math.max(0, (idade * 3 - r.nasce) / 0.6) + (f > 0.15 ? 0.5 : 0))
-      g.shadowColor = 'rgba(255,20,50,1)'
-      g.shadowBlur = 30
-      g.fillStyle = `rgba(255,35,70,${alfa})`
-      this.forma(r, 12, cresce)
-      g.fill()
-      g.shadowBlur = 0
-      g.fillStyle = `rgba(8,0,3,${alfa})`
-      this.forma(r, 0, cresce)
-      g.fill()
+      this.pintarRaio(HakiRei.naFrente(r) ? gf : g, r, cresce, e, 12, 30)
     }
+    this.abrirCorpo(gf, TAM)
+    this.raiosFrente.t.needsUpdate = true
     // clarão inicial: brilho vermelho-claro que some rápido
     if (f < 0.1) {
       const k = 1 - f / 0.1
@@ -320,7 +322,6 @@ export class HakiRei {
     const n = e > 0.6 ? 1 + Math.floor(Math.random() * 3) : Math.random() < 0.5 ? 1 : 0
     for (let i = 0; i < n; i++) {
       let ang = Math.random() * Math.PI * 2
-      if (Math.sin(ang) > 0.4 && Math.random() < 0.5) ang = -ang
       const comp = PX * (0.28 + Math.random() * 0.19)
       const seg = 6 + Math.floor(Math.random() * 5)
       const pts: [number, number][] = [[PX / 2, PX / 2]]
@@ -359,21 +360,60 @@ export class HakiRei {
 
   private desenharLonge(e: number) {
     const { g, t } = this.longe
+    const gf = this.longeFrente.g
     g.clearRect(0, 0, PX, PX)
+    gf.clearRect(0, 0, PX, PX)
+    for (const r of this.gigantes) this.pintarRaio(HakiRei.naFrente(r) ? gf : g, r, 1, e, 6, 18)
+    this.abrirCorpo(gf, TAM_LONGE)
+    t.needsUpdate = true
+    this.longeFrente.t.needsUpdate = true
+  }
+
+  /**
+   * Os raios da frente saem "de dentro" do corpo: apaga quase tudo deles em
+   * cima do personagem, para ele continuar visível (como no anime).
+   */
+  private abrirCorpo(g: CanvasRenderingContext2D, tam: number) {
+    const pu = PX / tam // pixels por unidade do mundo
+    const cy = PX / 2 - this.altura * 0.08 * pu
+    const rx = 0.42 * pu
+    const ry = this.altura * 0.52 * pu
+    g.save()
+    g.globalCompositeOperation = 'destination-out'
+    g.translate(PX / 2, cy)
+    g.scale(1, ry / rx)
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx)
+    gr.addColorStop(0, 'rgba(0,0,0,0.9)')
+    gr.addColorStop(0.7, 'rgba(0,0,0,0.75)')
+    gr.addColorStop(1, 'rgba(0,0,0,0)')
+    g.fillStyle = gr
+    g.beginPath()
+    g.arc(0, 0, rx, 0, Math.PI * 2)
+    g.fill()
+    g.restore()
+  }
+
+  /** O raio termina abaixo do centro (para a câmera): vai na frente do corpo. */
+  private static naFrente(r: Raio) {
+    const [x0, y0] = r.pts[0]
+    const y1 = r.pts[r.pts.length - 1][1]
+    // galhos herdam o lado pelo ponto de onde saem
+    const dy = Math.abs(x0 - PX / 2) + Math.abs(y0 - PX / 2) > 30 ? y0 - PX / 2 : y1 - y0
+    return dy > PX * 0.015
+  }
+
+  private pintarRaio(g: CanvasRenderingContext2D, r: Raio, cresce: number, e: number, extra: number, brilho: number) {
     const alfa = Math.min(1, e * 1.3)
     g.lineJoin = 'miter'
-    for (const r of this.gigantes) {
-      g.shadowColor = 'rgba(255,20,50,1)'
-      g.shadowBlur = 18
-      g.fillStyle = `rgba(255,35,70,${alfa})`
-      this.forma(r, 6, 1, g)
-      g.fill()
-      g.shadowBlur = 0
-      g.fillStyle = `rgba(8,0,3,${alfa})`
-      this.forma(r, 0, 1, g)
-      g.fill()
-    }
-    t.needsUpdate = true
+    g.shadowColor = 'rgba(255,20,50,1)'
+    g.shadowBlur = brilho
+    g.fillStyle = `rgba(255,35,70,${alfa})`
+    this.forma(r, extra, cresce, g)
+    g.fill()
+    g.shadowBlur = 0
+    g.fillStyle = `rgba(8,0,3,${alfa})`
+    this.forma(r, 0, cresce, g)
+    g.fill()
   }
 
   /** Ponto do mundo → coordenada no quadro dos raios (que encara a câmera). */
@@ -488,6 +528,8 @@ export class HakiRei {
   descartar() {
     for (const im of this.impactos) im.descartar()
     this.longe.t.dispose()
+    this.raiosFrente.t.dispose()
+    this.longeFrente.t.dispose()
     this.tras.t.dispose()
     this.frente.t.dispose()
     this.matChao.dispose()
