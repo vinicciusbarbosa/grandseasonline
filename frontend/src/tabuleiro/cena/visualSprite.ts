@@ -48,14 +48,16 @@ export class VisualSprite implements Visual {
     const base = ESPELHO[e.dir] ?? e.dir
     const linha = DIRECOES.indexOf(base as (typeof DIRECOES)[number])
     const espelha = e.dir in ESPELHO
-    this.sprite.material.map!.offset.set(q / f.quadros, 1 - (linha + 1) / DIRECOES.length)
+    // espelho pela textura (o shader de sprite ignora escala negativa)
+    this.sprite.material.map!.repeat.set((espelha ? -1 : 1) / f.quadros, 1 / DIRECOES.length)
+    this.sprite.material.map!.offset.set((q + (espelha ? 1 : 0)) / f.quadros, 1 - (linha + 1) / DIRECOES.length)
     const cx = PE_X / QUADRO_L
     this.sprite.center.set(espelha ? 1 - cx : cx, 1 - PE_Y / QUADRO_A)
     const k = e.clarao > 0 ? 3.2 : 1
     this.sprite.material.color.setRGB(k, k, k)
     const peY = 1 - PE_Y / QUADRO_A
     atualizarLuz(this.sprite.material, this.sprite.material.map!, espelha, peY, peY + 118 / QUADRO_A, e.luz)
-    posicionarPixel(this.sprite, e.pos, QUADRO_L * ESCALA_ARTE_ANTIGA, QUADRO_A * ESCALA_ARTE_ANTIGA, camera, telaL, telaA, espelha)
+    posicionarPixel(this.sprite, e.pos, QUADRO_L * ESCALA_ARTE_ANTIGA, QUADRO_A * ESCALA_ARTE_ANTIGA, camera, telaL, telaA, false)
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)
     const s = 1 - Math.min(0.5, e.pos.y * 0.6)
     this.sombra.scale.set(s, s, 1)

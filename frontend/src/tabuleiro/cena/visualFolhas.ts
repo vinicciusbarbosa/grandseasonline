@@ -153,7 +153,9 @@ export class VisualFolhas implements Visual {
       mat.map = tira.t
       mat.needsUpdate = true
     }
-    tira.t.offset.set(q / tira.quadros, 0)
+    // espelho pela textura (o shader de sprite ignora escala negativa)
+    tira.t.repeat.set((espelha ? -1 : 1) / tira.quadros, 1)
+    tira.t.offset.set((q + (espelha ? 1 : 0)) / tira.quadros, 0)
     const [L, A] = this.man.quadro
     const cx = this.man.pe[0] / L
     this.sprite.center.set(espelha ? 1 - cx : cx, 1 - this.man.pe[1] / A)
@@ -162,7 +164,7 @@ export class VisualFolhas implements Visual {
     const desvio = tira.propria ? ([0, 0] as [number, number]) : this.movimentoProvisorio(e, fase)
     const peY = 1 - this.man.pe[1] / A
     atualizarLuz(mat, tira.t, espelha, peY, peY + (this.man.altura ?? 104) / A, e.luz)
-    posicionarPixel(this.sprite, e.pos, L / this.densidade, A / this.densidade, camera, telaL, telaA, espelha, 0.45, desvio)
+    posicionarPixel(this.sprite, e.pos, L / this.densidade, A / this.densidade, camera, telaL, telaA, false, 0.45, desvio)
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)
     const s = 1 - Math.min(0.5, e.pos.y * 0.6)
     this.sombra.scale.set(s, s, 1)

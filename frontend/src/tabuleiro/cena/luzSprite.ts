@@ -82,7 +82,7 @@ void main() {`,
     c *= 1.0 + 0.42 * s;                              // volume
     c += vec3(1.0, 0.94, 0.8) * max(s, 0.0) * 0.18;   // brilho de borda do lado do sol
     // sombra de contato perto dos pés
-    float y = (vMapUv.y - uRecorte.y) / uRecorte.w;   // 0 = base do quadro
+    float y = (vMapUv.y - uRecorte.y) / abs(uRecorte.w); // 0 = base do quadro
     float altura = max(uPe.y - uPe.x, 1e-3);
     c *= mix(0.78, 1.0, smoothstep(0.0, 0.16, (y - uPe.x) / altura));
     // sol quente ou sombra fria da cena
