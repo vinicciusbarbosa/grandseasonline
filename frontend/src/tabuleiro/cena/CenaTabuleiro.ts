@@ -151,7 +151,7 @@ export class CenaTabuleiro {
     vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE')
     // o almirante já usa as folhas desenhadas (estilo Ragnarok)
     void VisualFolhas.carregar('almirante')
-      .then((v) => this.adicionar(new Personagem('almirante', 'Almirante', { l: 7, c: 13 }, 120, v, 'NW')))
+      .then((v) => this.adicionar(new Personagem('almirante', 'Almirante', { l: 7, c: 13 }, 120, v, 'SW')))
       .catch((e) => {
         console.error('almirante não carregou', e)
         vir('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 'NW')
