@@ -216,9 +216,14 @@ def importar_referencia(arquivo, personagem):
     paleta = paleta_de(np.concatenate([c[m] for c, m in reduzidos]))
     man['paleta'] = paleta.round().astype(int).tolist()
     man['alturaFonte'] = altura
+    moldes = os.path.join(os.path.dirname(os.path.abspath(arquivo)), 'moldes')
+    os.makedirs(moldes, exist_ok=True)
     for d, (c, m) in zip(DIRECOES, reduzidos):
         nome = f'parado_{d}.png'
-        salvar_tira(pasta, nome, [encaixar(c, m, None if HD else paleta)])
+        q = encaixar(c, m, None if HD else paleta)
+        # molde: todas as animações desta direção se alinham a ele
+        Image.fromarray(q).save(os.path.join(moldes, f'{d}.png'))
+        salvar_tira(pasta, nome, [q])
         man['anims'].setdefault('parado', {})[d] = {'arquivo': nome, 'quadros': 1}
     with open(cam, 'w') as f:
         json.dump(man, f, indent=1)
@@ -276,6 +281,35 @@ def achar_quadros(alfa):
     return quadros
 
 
+def cinza(q):
+    g = q[..., :3].astype(np.float32).mean(-1)
+    return np.where(q[..., 3] > 0, g, -60.0)
+
+
+def registrar(quadros, molde, busca=14):
+    """Desloca cada quadro para a cabeça e o tronco (as partes paradas)
+    ficarem exatamente sobre o molde — some o "tremido" de lado a lado."""
+    y0, y1 = PE[1] - ALTURA, int(PE[1] - ALTURA * 0.42)
+    x0, x1 = int(PE[0] - ALTURA * 0.2), int(PE[0] + ALTURA * 0.2)
+    ref = cinza(molde)[y0:y1, x0:x1]
+    saida = []
+    desloc = []
+    for q in quadros:
+        g = cinza(q)
+        melhor = (np.inf, 0, 0)
+        for dy in range(-busca, busca + 1):
+            for dx in range(-busca, busca + 1):
+                janela = g[y0 - dy:y1 - dy, x0 - dx:x1 - dx]
+                e = np.abs(janela - ref).mean()
+                if e < melhor[0]:
+                    melhor = (e, dx, dy)
+        _, dx, dy = melhor
+        desloc.append((dx, dy))
+        saida.append(np.roll(np.roll(q, dy, axis=0), dx, axis=1))
+    print('  alinhamento (dx, dy):', desloc)
+    return saida
+
+
 def grade_fixa(alfa, achados):
     """Folha de 12 quadros em grade (4 colunas × 3 linhas ou 3 × 4) quando a
     detecção livre achou menos (quadros encostados, ex.: mangas ao vento).
@@ -318,6 +352,9 @@ def importar_animacao(arquivos, personagem, anim, direcao):
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
     quadros = [encaixar(*reduzir(c, a, escala), paleta) for c, a in celulas]
+    molde = os.path.join(os.path.dirname(os.path.abspath(arquivos.split(',')[0])), 'moldes', f'{direcao}.png')
+    if os.path.exists(molde):
+        quadros = registrar(quadros, np.asarray(Image.open(molde).convert('RGBA')))
     # "parado:vento" = variação "vento" do parado (tocada de vez em quando)
     anim, _, variante = anim.partition(':')
     nome = f'{anim}-{variante}_{direcao}.png' if variante else f'{anim}_{direcao}.png'
