@@ -67,6 +67,13 @@ export class HakiRei {
   private readonly centro: THREE.Vector3
   private readonly pe: THREE.Vector3
   private golpes = 0
+  /** ligado (toggle): segura o Haki até desligar */
+  private ativo = true
+  private tDesligou = 0
+  private proxGolpe = 0.5
+  private acumDesenho = 1
+  /** personagem de quem sai (para ligar/desligar o certo) */
+  dono: unknown = null
 
   constructor(pe: THREE.Vector3, alturaPersonagem: number) {
     this.altura = alturaPersonagem
@@ -139,9 +146,28 @@ export class HakiRei {
     this.objetos = [this.chao, this.spriteLonge, this.spriteTras, this.spriteRaiosFrente, this.spriteLongeFrente, this.spriteFrente, this.grupoImpactos]
   }
 
+  /**
+   * Fase do efeito (0–1): sobe até o platô e fica nele enquanto ligado;
+   * ao desligar, segue para o fim (some em ~0,8 s).
+   */
+  private fase() {
+    if (this.ativo) return Math.min(this.t / DURACAO, 0.5)
+    return 0.62 + (this.t - this.tDesligou) / DURACAO
+  }
+
+  desligar() {
+    if (!this.ativo) return
+    this.ativo = false
+    this.tDesligou = this.t
+  }
+
+  get ligado() {
+    return this.ativo
+  }
+
   /** 0–1: quanto a cena deve tremer e escurecer agora. */
   forca() {
-    return envelope(this.t / DURACAO)
+    return envelope(this.fase()) * (this.ativo && this.t > 1.2 ? 0.45 : 1)
   }
 
   atualizar(dt: number, camera: THREE.Camera) {
@@ -152,7 +178,7 @@ export class HakiRei {
       im.descartar()
     }
     this.impactos.splice(0, this.impactos.length, ...this.impactos.filter((i) => i.vivo))
-    const f = this.t / DURACAO
+    const f = this.fase()
     if (f >= 1) {
       // só termina depois das rachaduras sumirem
       if (!this.impactos.length) this.vivo = false
@@ -160,7 +186,8 @@ export class HakiRei {
       return
     }
     const e = envelope(f)
-    this.matChao.uniforms.t.value = f
+    // ondas de choque: enquanto ligado, pulsam de novo a cada 1,4 s
+    this.matChao.uniforms.t.value = this.ativo && this.t > 1.1 ? ((this.t - 1.1) % 1.4) / 1.4 * 0.9 : f
     this.matChao.uniforms.forca.value = e
 
     // raios: refeitos a cada ~3 quadros, para piscarem como eletricidade
@@ -170,16 +197,25 @@ export class HakiRei {
       this.raios = this.gerarRaios(e, f)
       this.gigantes = f > 0.08 && f < 0.75 ? this.gerarGigantes(e) : []
       // de vez em quando um raio desce e acerta o convés
-      if (f > 0.1 && f < 0.7 && this.golpes < 9 && Math.random() < 0.3) this.golpear(camera, Math.random() < 0.4)
+      // de vez em quando (raro) um raio acerta o convés; no máximo 2 ao mesmo tempo
+      if (f > 0.1 && f < 0.7 && this.t > this.proxGolpe && this.impactos.length < 2 && Math.random() < 0.15) {
+        this.golpear(camera, Math.random() < 0.4)
+        this.proxGolpe = this.t + 1.6 + Math.random() * 1.8
+      }
       for (const fx of this.fixos) {
         ;(fx.longe ? this.gigantes : this.raios).push(fx.raio)
         fx.ciclos--
       }
       this.fixos = this.fixos.filter((fx) => fx.ciclos > 0)
     }
-    this.desenharTras(e, f)
     this.emitir(f, dt)
-    this.desenharFrente(dt)
+    // redesenha as camadas a no máximo 30 quadros/s (o desenho é o mais pesado)
+    this.acumDesenho += dt
+    if (this.acumDesenho >= 1 / 30) {
+      this.acumDesenho = 0
+      this.desenharTras(e, f)
+      this.desenharFrente(dt)
+    }
   }
 
   // ---------------------------------------------------------------- raios
@@ -461,9 +497,10 @@ export class HakiRei {
   // ---------------------------------------------------------------- partículas
   private emitir(f: number, dt: number) {
     // rajada no começo e fluxo menor enquanto dura
-    const alvo = f < 0.15 ? 90 * (f / 0.15) : 90 + 60 * Math.min(1, (f - 0.15) / 0.45)
+    // rajada no começo; ligado, continua soltando aos poucos (até ~120 no ar)
+    const alvo = f < 0.15 ? 90 * (f / 0.15) : this.ativo ? Math.max(this.emitidas, 90 + this.t * 25) : 90 + 60 * Math.min(1, (f - 0.15) / 0.45)
     const pe = PX / 2 + (this.altura * 0.42 * PX) / TAM // pés no quadro
-    while (this.emitidas < alvo && f < 0.7) {
+    while (this.emitidas < alvo && f < 0.7 && this.particulas.length < 120) {
       this.emitidas++
       const lasca = Math.random() < 0.45
       const a = Math.random() * Math.PI * 2

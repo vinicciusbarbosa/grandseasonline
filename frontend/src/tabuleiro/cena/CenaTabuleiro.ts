@@ -207,10 +207,16 @@ export class CenaTabuleiro {
   hakiDoRei() {
     const p = this.selecionado ?? this.personagens.find((x) => x.id === 'almirante') ?? this.personagens[0]
     if (!p) return
+    // liga/desliga: se já está soltando Haki, desliga
+    const ligado = this.hakis.find((h) => h.dono === p && h.ligado)
+    if (ligado) {
+      ligado.desligar()
+      return
+    }
     const h = new HakiRei(p.pos, p.visual.altura)
+    h.dono = p
     this.hakis.push(h)
     this.cena.add(...h.objetos)
-    this.dica = `${p.nome} liberou o Haki do Rei!`
     window.setTimeout(() => {
       for (const o of this.personagens) {
         if (o === p || o.pos.distanceTo(p.pos) > 4.5) continue
@@ -588,7 +594,7 @@ export class CenaTabuleiro {
     if (k === '+' || k === '=') this.irParaNivel(1)
     if (k === '-') this.irParaNivel(-1)
     if (k === '0') this.irParaNivel(-99)
-    if (k === 'h') this.hakiDoRei()
+    if (k === 'h' && !ev.repeat) this.hakiDoRei()
   }
 
   private aoClicar = (ev: PointerEvent) => {
