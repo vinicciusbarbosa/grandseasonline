@@ -58,9 +58,21 @@ export const vizinhos = (a: Casa): Casa[] =>
     { l: a.l, c: a.c + 1 },
   ].filter((v) => v.l >= 0 && v.l < LINHAS && v.c >= 0 && v.c < COLUNAS)
 
+/** As 8 casas em volta (retas e diagonais): é por elas que se anda. */
+export const vizinhos8 = (a: Casa): Casa[] => {
+  const r: Casa[] = []
+  for (let dl = -1; dl <= 1; dl++)
+    for (let dc = -1; dc <= 1; dc++) {
+      if (!dl && !dc) continue
+      const v = { l: a.l + dl, c: a.c + dc }
+      if (v.l >= 0 && v.l < LINHAS && v.c >= 0 && v.c < COLUNAS) r.push(v)
+    }
+  return r
+}
+
 export const mesmaCasa = (a: Casa, b: Casa) => a.l === b.l && a.c === b.c
 
-/** Casas alcançáveis em até `passos`, sem atravessar ocupadas. Guarda o caminho. */
+/** Casas alcançáveis em até `passos` (retos ou diagonais), sem atravessar ocupadas. Guarda o caminho. */
 export function alcance(de: Casa, passos: number, ocupada: (c: Casa) => boolean) {
   const chave = (c: Casa) => c.l * COLUNAS + c.c
   const veio = new Map<number, Casa | null>([[chave(de), null]])
@@ -70,7 +82,7 @@ export function alcance(de: Casa, passos: number, ocupada: (c: Casa) => boolean)
     const a = fila.shift()!
     const d = dist.get(chave(a))!
     if (d >= passos) continue
-    for (const v of vizinhos(a)) {
+    for (const v of vizinhos8(a)) {
       const k = chave(v)
       if (dist.has(k) || ocupada(v)) continue
       dist.set(k, d + 1)
