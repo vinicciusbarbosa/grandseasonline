@@ -239,25 +239,27 @@ def achar_quadros(alfa):
     """Acha as figuras em qualquer grade: faixas de linhas, depois de colunas.
     Ordem de leitura: esquerda→direita, cima→baixo."""
     H, W = alfa.shape
-    quadros = []
+    linhas = []
     for y0, y1 in faixas(alfa.any(axis=1), 2):
-        linha = [(x0, x1) for x0, x1 in faixas(alfa[y0:y1].any(axis=0), 3) if alfa[y0:y1, x0:x1].sum() > 400]
-        if not linha:
-            continue
-        # quadros encostados (casaca tocando o vizinho): um trecho com o dobro
-        # da largura típica é dividido na coluna mais vazia perto do meio
-        larg = float(np.median([x1 - x0 for x0, x1 in linha]))
-        if len(linha) > 1:
-            larg = min(larg, float(np.min([x1 - x0 for x0, x1 in linha])) * 1.25)
-        for x0, x1 in linha:
+        trechos = [(x0, x1) for x0, x1 in faixas(alfa[y0:y1].any(axis=0), 3) if alfa[y0:y1, x0:x1].sum() > 400]
+        if trechos:
+            linhas.append((y0, y1, trechos))
+    # largura típica de UM quadro, na folha inteira: quadros encostados (casaca
+    # tocando o vizinho) formam trechos de 2, 3... larguras e são divididos na
+    # coluna mais vazia perto de cada corte
+    larguras = sorted(x1 - x0 for _, _, t in linhas for x0, x1 in t)
+    larg = float(np.median(larguras[: max(1, (len(larguras) + 1) // 2)]))
+    quadros = []
+    for y0, y1, trechos in linhas:
+        for x0, x1 in trechos:
             n = max(1, round((x1 - x0) / larg))
             cortes = [x0]
             ocup = alfa[y0:y1, x0:x1].sum(axis=0)
             for k in range(1, n):
                 alvo = (x1 - x0) * k // n
                 janela = max(4, (x1 - x0) // (4 * n))
-                a, b = max(1, alvo - janela), min(x1 - x0 - 1, alvo + janela)
-                cortes.append(x0 + a + int(np.argmin(ocup[a:b])))
+                c0, c1 = max(1, alvo - janela), min(x1 - x0 - 1, alvo + janela)
+                cortes.append(x0 + c0 + int(np.argmin(ocup[c0:c1])))
             cortes.append(x1)
             for c0, c1 in zip(cortes, cortes[1:]):
                 quadros.append((c0, c1, y0, y1))
