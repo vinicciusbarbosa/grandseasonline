@@ -5,8 +5,16 @@ import * as THREE from 'three'
  * projeta o ponto de apoio, arredonda para o pixel e desprojeta de volta, e
  * ajusta a escala à profundidade. Assim nada fica borrado nem "tremendo".
  */
-/** Zoom da câmera: um pixel da arte vira `zoom` pixels da tela. */
+/**
+ * Zoom da câmera: um pixel da arte vira `zoom` pixels da cena (abaixo de 1 no
+ * tabuleiro inteiro, quando a arte nativa é maior que a tela comporta).
+ */
 export const escalaPixel = { zoom: 1 }
+
+/** Largura (px da arte) de uma casa: o personagem de 176 px cabe numa casa. */
+export const PX_CASA = 108
+/** Arte antiga (bonecos/poeira) foi feita para casas de 64 px. */
+export const ESCALA_ARTE_ANTIGA = PX_CASA / 64
 
 export function posicionarPixel(
   sprite: THREE.Sprite,

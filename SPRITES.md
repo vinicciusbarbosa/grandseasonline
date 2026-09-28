@@ -18,23 +18,24 @@ Tema: **piratas e Marinha**, inspirado em One Piece, com personagens originais.
 ## A câmera do tabuleiro (já ajustada no jogo)
 
 - Isométrica com perspectiva suave; o tabuleiro 10×20 cabe numa tela 1920×1080.
-- Uma casa no meio do tabuleiro mede **~63 × 48 px** (levemente inclinada pelo
-  giro da câmera). Do fundo para a frente varia de ~59 a ~68 px de largura.
-- O sprite é desenhado sempre no mesmo tamanho (um pixel da arte = um pixel da
-  tela); ele cabe bem em qualquer casa.
+- Em pixels da arte, uma casa mede **~108 × 81 px** (levemente inclinada pelo
+  giro da câmera). O personagem de 176 px cabe numa casa.
+- Com o tabuleiro inteiro na tela, a imagem é reduzida (~0,6×); no zoom máximo
+  cada pixel da arte vira 2,5 pixels da tela. A arte é sempre guardada na
+  resolução nativa — nada é reduzido no arquivo.
 
 ## Tamanho e quadro
 
 | item | valor |
 |---|---|
-| altura do personagem | **96 px** (do pé ao topo da cabeça, sem chapéu alto) |
-| quadro padrão | **128 × 128 px** |
-| ponto do pé (âncora) | **x = 64, y = 112** — meio entre os pés, no chão |
-| quadro de ataque/especial | **192 × 192 px**, âncora **x = 96, y = 176** |
-| largura do corpo | cabe nos ~64 px da casa; capa, arma e golpes podem passar |
+| altura do personagem | **176 px** de arte (do pé ao topo do chapéu) |
+| quadro padrão | **224 × 224 px** |
+| ponto do pé (âncora) | **x = 112, y = 200** — meio entre os pés, no chão |
+| quadro de ataque/especial | **320 × 320 px**, âncora **x = 160, y = 288** |
+| largura do corpo | cabe nos ~108 px da casa; capa, arma e golpes podem passar |
 
 Moldes prontos (casa, âncora e a linha dos 96 px) em `docs/sprites/`:
-`molde_128.png`, `molde_192.png` e `guia_tamanhos.png` (comparação 96 × 128).
+`molde_224.png` e `molde_320.png`.
 Use o molde como camada de fundo no editor e apague antes de exportar.
 
 ## Direções

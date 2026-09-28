@@ -8,7 +8,7 @@ import { Personagem } from './personagem'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
-import { escalaPixel } from './pixel'
+import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
 
 /**
@@ -28,12 +28,13 @@ export type EstadoTela = {
 }
 
 const PASSOS = 4
-/** largura (px da cena) de uma casa no meio do tabuleiro: o padrão dos sprites */
-export const PX_CASA = 64
 const INCLINACAO = Math.asin(0.75) // casa de 64×48 px
 /** com zoom máximo a câmera desce até este ângulo, mais rente aos personagens */
 const INCLINACAO_PERTO = THREE.MathUtils.degToRad(28)
-const ZOOM_MAX = 4
+/** zoom que mostra o tabuleiro inteiro (a casa com 64 px na tela) */
+const ZOOM_TUDO = 64 / PX_CASA
+/** zoom máximo: 2,5 pixels da tela por pixel da arte */
+const ZOOM_MAX = 2.5
 const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
 const DANO = [14, 22]
@@ -67,8 +68,8 @@ export class CenaTabuleiro {
   private readonly ouvintes = new Set<() => void>()
   private estado: EstadoTela
   private readonly pan = new THREE.Vector3()
-  /** 1 = tabuleiro inteiro; até ZOOM_MAX */
-  private zoom = 1
+  /** ZOOM_TUDO = tabuleiro inteiro; 1 = arte 1:1; até ZOOM_MAX */
+  private zoom = ZOOM_TUDO
   private readonly toques = new Map<number, { x: number; y: number }>()
   private pinca: { dist: number; zoom: number } | null = null
   private readonly ray = new THREE.Raycaster()
@@ -181,7 +182,7 @@ export class CenaTabuleiro {
 
   /** Botões de zoom da tela. */
   zoomPasso(fator: number) {
-    this.aplicarZoom(fator === 0 ? 1 : this.zoom * fator)
+    this.aplicarZoom(fator === 0 ? ZOOM_TUDO : this.zoom * fator)
   }
 
   setVelocidade(v: number) {
@@ -248,7 +249,7 @@ export class CenaTabuleiro {
     cam.fov = FOV
     cam.updateProjectionMatrix()
     // quanto mais perto, mais rente: a inclinação desce suavemente com o zoom
-    const t = (this.zoom - 1) / (ZOOM_MAX - 1)
+    const t = (this.zoom - ZOOM_TUDO) / (ZOOM_MAX - ZOOM_TUDO)
     const inc = THREE.MathUtils.lerp(INCLINACAO, INCLINACAO_PERTO, Math.sqrt(t))
     const dir = new THREE.Vector3(Math.sin(GIRO) * Math.cos(inc), Math.sin(inc), Math.cos(GIRO) * Math.cos(inc))
     const dist = this.altura / (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * PX_CASA * this.zoom)
@@ -262,7 +263,7 @@ export class CenaTabuleiro {
 
   /** Aproxima/afasta mantendo parado o ponto do convés sob (px, py) em pixels CSS. */
   private aplicarZoom(novo: number, px?: number, py?: number) {
-    novo = THREE.MathUtils.clamp(novo, 1, ZOOM_MAX)
+    novo = THREE.MathUtils.clamp(novo, ZOOM_TUDO, ZOOM_MAX)
     if (Math.abs(novo - this.zoom) < 1e-4) return
     const antes = px !== undefined && py !== undefined ? this.noConves(px, py) : null
     this.zoom = novo
@@ -323,7 +324,7 @@ export class CenaTabuleiro {
       }
     }
     for (const po of this.poeiras) {
-      po.atualizar(dt, this.camera, this.largura, this.altura)
+      po.atualizar(dt, this.camera, this.largura, this.altura, ESCALA_ARTE_ANTIGA)
       if (!po.vivo) this.cena.remove(po.sprite)
     }
     this.poeiras = this.poeiras.filter((po) => po.vivo)
@@ -443,7 +444,7 @@ export class CenaTabuleiro {
 
   private aoTecla = (ev: KeyboardEvent) => {
     if (ev.key === 'Escape') this.selecionar(null)
-    const passo = 0.6 / this.zoom
+    const passo = (0.6 * ZOOM_TUDO) / this.zoom
     const k = ev.key.toLowerCase()
     if (k === 'arrowleft' || k === 'a') this.moverCamera(-passo, 0)
     if (k === 'arrowright' || k === 'd') this.moverCamera(passo, 0)
@@ -451,7 +452,7 @@ export class CenaTabuleiro {
     if (k === 'arrowdown' || k === 's') this.moverCamera(0, passo)
     if (k === '+' || k === '=') this.aplicarZoom(this.zoom * 1.25)
     if (k === '-') this.aplicarZoom(this.zoom / 1.25)
-    if (k === '0') this.aplicarZoom(1)
+    if (k === '0') this.aplicarZoom(ZOOM_TUDO)
   }
 
   private aoClicar = (ev: PointerEvent) => {

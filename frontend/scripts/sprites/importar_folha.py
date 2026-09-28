@@ -12,10 +12,10 @@ Importa folhas de sprites geradas por IA (fundo magenta) para o jogo.
 O que faz com a imagem, do jeito que a IA entregar:
   1. tira o fundo magenta;
   2. acha cada figura (colunas da referência ou células da grade);
-  3. reduz para a pixel art de verdade (média por área) com a altura padrão;
+  3. converte para a pixel art na resolução nativa (176 px de altura);
   4. prende as cores na paleta do personagem (tirada da referência), para
      todas as folhas terem as mesmas cores;
-  5. alinha o pé de todos os quadros no mesmo ponto do quadro 128×128;
+  5. alinha o pé de todos os quadros no mesmo ponto do quadro 224×224;
   6. põe contorno escuro de 1 pixel;
   7. salva em frontend/public/sprites/<personagem>/ e atualiza o manifesto.
 
@@ -30,10 +30,12 @@ import numpy as np
 from PIL import Image
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-QUADRO = 128
-PE = (64, 112)
-ALTURA = 104  # do pé ao topo do chapéu (≈96 sem o chapéu)
-CORES = 48
+QUADRO = 224
+PE = (112, 200)
+# resolução nativa da arte (a referência do almirante tem ~176 pixels de arte
+# do pé ao topo do quepe): não reduz a qualidade que a IA entregou
+ALTURA = 176
+CORES = 64
 DIRECOES = ['S', 'SE', 'E', 'NE', 'N']
 
 
@@ -138,7 +140,7 @@ def manifesto(personagem):
     if os.path.exists(caminho):
         with open(caminho) as f:
             return pasta, caminho, json.load(f)
-    return pasta, caminho, {'quadro': [QUADRO, QUADRO], 'pe': list(PE), 'anims': {}}
+    return pasta, caminho, {'quadro': [QUADRO, QUADRO], 'pe': list(PE), 'altura': ALTURA, 'anims': {}}
 
 
 def salvar_tira(pasta, nome, quadros):

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { DIRECOES, PE_X, PE_Y, QUADRO_A, QUADRO_L, type Folhas } from '../boneco/assador'
 import type { Direcao, EstadoVisual, InfoAnim, NomeAnim, Visual } from './personagem'
-import { posicionarPixel, texturaPixel } from './pixel'
+import { ESCALA_ARTE_ANTIGA, posicionarPixel, texturaPixel } from './pixel'
 import { texturaSombra } from './texturas'
 
 /**
@@ -16,7 +16,7 @@ export class VisualSprite implements Visual {
   readonly info: Record<NomeAnim, InfoAnim>
   readonly objetos: THREE.Object3D[]
   readonly altura = 2.3
-  readonly alturaPx = 118
+  readonly alturaPx = 118 * ESCALA_ARTE_ANTIGA
   private readonly sprite: THREE.Sprite
   private readonly sombra: THREE.Mesh
   private readonly texturas = new Map<string, THREE.Texture>()
@@ -52,7 +52,7 @@ export class VisualSprite implements Visual {
     this.sprite.center.set(espelha ? 1 - cx : cx, 1 - PE_Y / QUADRO_A)
     const k = e.clarao > 0 ? 3.2 : 1
     this.sprite.material.color.setRGB(k, k, k)
-    posicionarPixel(this.sprite, e.pos, QUADRO_L, QUADRO_A, camera, telaL, telaA, espelha)
+    posicionarPixel(this.sprite, e.pos, QUADRO_L * ESCALA_ARTE_ANTIGA, QUADRO_A * ESCALA_ARTE_ANTIGA, camera, telaL, telaA, espelha)
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)
     const s = 1 - Math.min(0.5, e.pos.y * 0.6)
     this.sombra.scale.set(s, s, 1)

@@ -7,7 +7,8 @@ import { texturaSombra } from './texturas'
  * Visual com as folhas desenhadas (pixel art estilo Ragnarok), importadas por
  * scripts/sprites/importar_folha.py para public/sprites/<personagem>/.
  *
- * Cada animação/direção é uma tira de quadros 128×128 com o pé em (64, 112).
+ * Cada animação/direção é uma tira de quadros (224×224, pé em 112,200 — ver o
+ * manifesto), desenhada na resolução nativa da arte.
  * Direções desenhadas: S, SE, E, NE, N; SW, W e NW são o espelho.
  * Enquanto uma animação não existe, usa a pose parada com um movimento
  * simples (balanço ao andar, investida no ataque, recuo no dano).
@@ -16,6 +17,7 @@ import { texturaSombra } from './texturas'
 type Manifesto = {
   quadro: [number, number]
   pe: [number, number]
+  altura?: number
   anims: Partial<Record<NomeAnim, Partial<Record<Direcao, { arquivo: string; quadros: number }>>>>
 }
 
@@ -48,7 +50,8 @@ function recurso(url: string) {
 function textura(url: string) {
   const t = carregador.load(recurso(url))
   t.magFilter = THREE.NearestFilter
-  t.minFilter = THREE.NearestFilter
+  // reduzido (tabuleiro inteiro): suaviza; ampliado (zoom): pixel nítido
+  t.minFilter = THREE.LinearFilter
   t.generateMipmaps = false
   t.colorSpace = THREE.SRGBColorSpace
   return t
@@ -58,7 +61,7 @@ export class VisualFolhas implements Visual {
   readonly info = {} as Record<NomeAnim, InfoAnim>
   readonly objetos: THREE.Object3D[]
   readonly altura: number
-  readonly alturaPx = 106
+  readonly alturaPx: number
   private readonly man: Manifesto
   private readonly base: string
   private readonly texturas = new Map<string, THREE.Texture>()
@@ -68,7 +71,8 @@ export class VisualFolhas implements Visual {
   private constructor(base: string, man: Manifesto) {
     this.base = base
     this.man = man
-    this.altura = (man.pe[1] / 48) * 0.95 // ~px de altura / px por casa
+    this.alturaPx = (man.altura ?? 104) + 2
+    this.altura = this.alturaPx / 60
     for (const [nome, t] of Object.entries(TEMPO) as [NomeAnim, (typeof TEMPO)[NomeAnim]][]) {
       const q = Object.values(man.anims[nome] ?? {})[0]?.quadros ?? QUADROS_PADRAO
       const poeira: InfoAnim['poeira'] = Array.from({ length: q }, (_, i) => (t.poeira?.includes(i) ? 'E' : undefined))
