@@ -174,7 +174,12 @@ def encaixar(cor, mascara, paleta):
     h, w = mascara.shape
     # centro do pé: meio dos pixels das 6 linhas de baixo
     ys, xs = np.nonzero(mascara[max(0, h - 6):])
-    cx = int(round(xs.mean())) if len(xs) else w // 2
+    pe = xs.mean() if len(xs) else w / 2
+    # cabeça (20% de cima): junto com os pés dá um eixo firme — a casaca
+    # abrindo não puxa o boneco para os lados
+    ys2, xs2 = np.nonzero(mascara[: max(1, h // 5)])
+    cabeca = xs2.mean() if len(xs2) else pe
+    cx = int(round((pe + cabeca) / 2))
     img = np.zeros((QUADRO, QUADRO, 4), np.uint8)
     ox = PE[0] - cx
     oy = PE[1] - h
