@@ -154,28 +154,35 @@ export class HakiRei {
     const alcance = (0.2 + 0.28 * Math.min(1, f * 5)) * PX
     for (let i = 0; i < n; i++) {
       // espalhados em volta, mais para cima e para os lados
-      let ang = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.7
+      let ang = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.9
       if (Math.sin(ang) > 0.45 && Math.random() < 0.5) ang = -ang
-      const comp = alcance * (0.6 + Math.random() * 0.4)
-      const r0 = PX * (0.03 + Math.random() * 0.04)
-      // zigue-zague: segmentos alternando para um lado e para o outro
-      const seg = 5 + Math.floor(Math.random() * 3)
+      // tamanhos bem diferentes: alguns curtos, a maioria média, poucos enormes
+      const sorte = Math.random()
+      const tam = sorte < 0.3 ? 0.3 + Math.random() * 0.25 : sorte < 0.85 ? 0.6 + Math.random() * 0.35 : 1.1 + Math.random() * 0.45
+      const comp = Math.min(alcance * tam, PX * 0.44) // não passa da borda do quadro
+      const r0 = PX * (0.02 + Math.random() * 0.05)
+      // formato: cada raio com seu jeito de quebrar
+      const estilo = Math.random()
+      const seg = estilo < 0.3 ? 3 + Math.floor(Math.random() * 2) : 5 + Math.floor(Math.random() * 5)
+      const quebraMax = estilo < 0.3 ? 0.35 : estilo < 0.7 ? 0.75 : 1.15
       const pts: [number, number][] = [[PX / 2 + Math.cos(ang) * r0, PX / 2 + Math.sin(ang) * r0 * 0.92]]
       let x = pts[0][0]
       let y = pts[0][1]
       let lado = Math.random() < 0.5 ? 1 : -1
+      let rumo = ang
       for (let k = 1; k <= seg; k++) {
-        const passo = (comp / seg) * (0.7 + Math.random() * 0.6)
-        const quebra = lado * (0.45 + Math.random() * 0.55)
-        lado = -lado
-        const a = ang + quebra
-        x += Math.cos(a) * passo
-        y += Math.sin(a) * passo * 0.92
+        // passos desiguais e quebras de tamanho variado; às vezes repete o lado
+        const passo = (comp / seg) * (0.35 + Math.random() * 1.3)
+        const quebra = lado * quebraMax * (0.3 + Math.random() * 0.7)
+        if (Math.random() < 0.75) lado = -lado
+        rumo = ang + quebra + (rumo - ang) * 0.25
+        x += Math.cos(rumo) * passo
+        y += Math.sin(rumo) * passo * 0.92
         pts.push([x, y])
       }
-      raios.push({ pts, larg: (16 + Math.random() * 14) * (0.6 + 0.4 * e), nasce: Math.random() * 0.25 })
+      raios.push({ pts, larg: (8 + Math.random() * 26) * (0.5 + 0.5 * tam) * (0.6 + 0.4 * e), nasce: Math.random() * 0.25 })
       // galho fino saindo de uma quebra
-      if (Math.random() < 0.55) {
+      if (pts.length > 3 && Math.random() < 0.6) {
         const j = 1 + Math.floor(Math.random() * (pts.length - 2))
         const ga = ang + (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.5)
         const gp: [number, number][] = [pts[j]]
@@ -184,8 +191,9 @@ export class HakiRei {
         for (let k = 0; k < 3; k++) {
           const a = ga + gl * 0.5
           gl = -gl
-          gx += Math.cos(a) * comp * 0.12
-          gy += Math.sin(a) * comp * 0.11
+          const gpasso = comp * (0.06 + Math.random() * 0.12)
+          gx += Math.cos(a) * gpasso
+          gy += Math.sin(a) * gpasso * 0.92
           gp.push([gx, gy])
         }
         raios.push({ pts: gp, larg: 7 + Math.random() * 5, nasce: 0.15 + Math.random() * 0.2 })
