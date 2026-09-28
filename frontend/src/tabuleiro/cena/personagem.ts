@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { centroCasa, cruzaVao, type Casa } from '../tabuleiro'
+import { LUZ_NEUTRA, type LuzPersonagem } from './luzSprite'
 
 /**
  * Um personagem no tabuleiro: estado, movimento e tempo das animações. Anda
@@ -15,7 +16,7 @@ export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 /** Tempo e marcas de uma animação. */
 export type InfoAnim = { quadros: number; fps: number; laco: boolean; impacto?: number; poeira: ('E' | 'D' | undefined)[] }
 
-export type EstadoVisual = { anim: NomeAnim; tAnim: number; dir: Direcao; clarao: number; pos: THREE.Vector3; dt: number }
+export type EstadoVisual = { anim: NomeAnim; tAnim: number; dir: Direcao; clarao: number; pos: THREE.Vector3; dt: number; luz: LuzPersonagem }
 
 export interface Visual {
   readonly info: Record<NomeAnim, InfoAnim>
@@ -205,8 +206,8 @@ export class Personagem {
     return new THREE.Vector3(this.pos.x + (dc / n) * 0.3, 0, this.pos.z + (dl / n) * 0.3)
   }
 
-  posicionar(camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
-    this.visual.mostrar({ anim: this.anim, tAnim: this.tAnim, dir: this.dir, clarao: this.clarao, pos: this.pos, dt: this.dtUltimo }, camera, telaL, telaA)
+  posicionar(camera: THREE.PerspectiveCamera, telaL: number, telaA: number, luz: LuzPersonagem = LUZ_NEUTRA) {
+    this.visual.mostrar({ anim: this.anim, tAnim: this.tAnim, dir: this.dir, clarao: this.clarao, pos: this.pos, dt: this.dtUltimo, luz }, camera, telaL, telaA)
   }
 
   /** Ponto no mundo logo acima da cabeça (barra de vida, números). */

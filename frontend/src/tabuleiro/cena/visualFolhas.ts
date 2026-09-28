@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { Direcao, EstadoVisual, InfoAnim, NomeAnim, Visual } from './personagem'
+import { atualizarLuz, materialIluminado } from './luzSprite'
 import { posicionarPixel } from './pixel'
 import { texturaSombra } from './texturas'
 
@@ -83,7 +84,7 @@ export class VisualFolhas implements Visual {
       const poeira: InfoAnim['poeira'] = Array.from({ length: q }, (_, i) => (t.poeira?.includes(i) ? 'E' : undefined))
       this.info[nome] = { quadros: q, fps: t.fps, laco: t.laco, impacto: t.impacto, poeira }
     }
-    this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ alphaTest: 0.5 }))
+    this.sprite = new THREE.Sprite(materialIluminado())
     texSombra ??= texturaSombra()
     this.sombra = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.38), new THREE.MeshBasicMaterial({ map: texSombra, transparent: true, depthWrite: false }))
     this.sombra.rotation.x = -Math.PI / 2
@@ -137,6 +138,8 @@ export class VisualFolhas implements Visual {
     const k = e.clarao > 0 ? 3.2 : 1
     mat.color.setRGB(k, k, k)
     const desvio = tira.propria ? ([0, 0] as [number, number]) : this.movimentoProvisorio(e, fase)
+    const peY = 1 - this.man.pe[1] / A
+    atualizarLuz(mat, tira.t, espelha, peY, peY + (this.man.altura ?? 104) / A, e.luz)
     posicionarPixel(this.sprite, e.pos, L / this.densidade, A / this.densidade, camera, telaL, telaA, espelha, 0.45, desvio)
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)
     const s = 1 - Math.min(0.5, e.pos.y * 0.6)

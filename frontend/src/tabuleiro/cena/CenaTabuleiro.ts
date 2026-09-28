@@ -8,6 +8,7 @@ import { Personagem } from './personagem'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
+import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
 
@@ -70,6 +71,10 @@ export class CenaTabuleiro {
   private readonly ouvintes = new Set<() => void>()
   private estado: EstadoTela
   private readonly pan = new THREE.Vector3()
+  /** direção para o sol (para saber quem está na sombra das velas/mastro) */
+  private readonly dirSol = new THREE.Vector3()
+  private readonly luzes = new Map<Personagem, LuzPersonagem>()
+  private readonly raioSol = new THREE.Raycaster()
   /** ZOOM_TUDO = tabuleiro inteiro; 1 = arte 1:1; até ZOOM_MAX */
   private zoom = ZOOM_TUDO
   /** para onde o zoom está indo (anima suave até lá) e o ponto da tela que fica parado */
@@ -101,6 +106,7 @@ export class CenaTabuleiro {
     this.cena.background = new THREE.Color(0x0b2a66)
     // sol da tarde vindo do fundo à esquerda (sombras para a frente/direita)
     const sol = new THREE.DirectionalLight(0xfff0d8, 2.4)
+    this.dirSol.copy(new THREE.Vector3(-14, 22, -12)).normalize()
     sol.position.set(-14, 22, -12)
     sol.castShadow = true
     sol.shadow.mapSize.set(2048, 2048)
@@ -352,7 +358,7 @@ export class CenaTabuleiro {
     } else this.moldura.visible = false
     this.camera.updateMatrixWorld()
     for (const p of this.personagens) {
-      p.posicionar(this.camera, this.largura, this.altura)
+      p.posicionar(this.camera, this.largura, this.altura, this.luzDe(p, dtReal))
       for (const pos of p.poeiras.splice(0)) {
         const po = new Poeira(pos)
         this.poeiras.push(po)
@@ -382,6 +388,33 @@ export class CenaTabuleiro {
     }
     p.needsUpdate = true
     geo.computeVertexNormals()
+  }
+
+  /** Sombra da cena (raios até o sol) e luz das lanternas próximas, suavizadas. */
+  private luzDe(p: Personagem, dt: number): LuzPersonagem {
+    let luz = this.luzes.get(p)
+    if (!luz) {
+      luz = { sombra: 0, quente: new THREE.Color(0, 0, 0) }
+      this.luzes.set(p, luz)
+    }
+    // pés, cintura e cabeça: fração dos três que está coberta
+    let cobertos = 0
+    for (const h of [0.25, 0.9, 1.6]) {
+      this.raioSol.set(p.pos.clone().setY(p.pos.y + h), this.dirSol)
+      this.raioSol.far = 40
+      if (this.raioSol.intersectObject(this.navios.grupo, true).length) cobertos++
+    }
+    luz.sombra = THREE.MathUtils.lerp(luz.sombra, cobertos / 3, 1 - Math.exp(-dt * 10))
+    const q = new THREE.Color(0, 0, 0)
+    const pos = new THREE.Vector3()
+    for (const l of this.navios.luzes) {
+      l.getWorldPosition(pos)
+      const d = pos.distanceTo(p.pos.clone().setY(p.pos.y + 1))
+      const k = Math.max(0, 1 - d / 3.5) ** 2 * l.intensity * 0.09
+      if (k > 0) q.add(l.color.clone().multiplyScalar(k))
+    }
+    luz.quente.copy(q)
+    return luz
   }
 
   // ------------------------------------------------------------ entrada
