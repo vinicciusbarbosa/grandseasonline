@@ -44,6 +44,9 @@ ALTURA = 176 * DENSIDADE
 QUADRO = 224 * DENSIDADE
 PE = (112 * DENSIDADE, 200 * DENSIDADE)
 CORES = 128
+# alinhar cada quadro pela cabeça/tronco ao molde da referência (desligado:
+# com as folhas da IA piorou o tremido)
+ALINHAR_PELO_MOLDE = False
 DIRECOES = ['S', 'SE', 'E', 'NE', 'N']
 
 
@@ -353,7 +356,7 @@ def importar_animacao(arquivos, personagem, anim, direcao):
     escala = ALTURA / altura
     quadros = [encaixar(*reduzir(c, a, escala), paleta) for c, a in celulas]
     molde = os.path.join(os.path.dirname(os.path.abspath(arquivos.split(',')[0])), 'moldes', f'{direcao}.png')
-    if os.path.exists(molde):
+    if ALINHAR_PELO_MOLDE and os.path.exists(molde):
         quadros = registrar(quadros, np.asarray(Image.open(molde).convert('RGBA')))
     # "parado:vento" = variação "vento" do parado (tocada de vez em quando)
     anim, _, variante = anim.partition(':')

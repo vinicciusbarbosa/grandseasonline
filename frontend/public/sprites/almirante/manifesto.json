@@ -12,13 +12,7 @@
   "parado": {
    "S": {
     "arquivo": "parado_S.png",
-    "quadros": 12,
-    "variantes": {
-     "vento": {
-      "arquivo": "parado-vento_S.png",
-      "quadros": 12
-     }
-    }
+    "quadros": 1
    },
    "SE": {
     "arquivo": "parado_SE.png",
