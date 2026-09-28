@@ -72,20 +72,36 @@ export const vizinhos8 = (a: Casa): Casa[] => {
 
 export const mesmaCasa = (a: Casa, b: Casa) => a.l === b.l && a.c === b.c
 
-/** Casas alcançáveis em até `passos` (retos ou diagonais), sem atravessar ocupadas. Guarda o caminho. */
+/**
+ * Casas alcançáveis em até `passos` (retos ou diagonais), sem atravessar ocupadas. Guarda o caminho.
+ * Entre caminhos com o mesmo número de passos, fica o mais curto de verdade
+ * (diagonal = √2): 2 casas à frente é reto, não zigue-zague por outra linha.
+ */
 export function alcance(de: Casa, passos: number, ocupada: (c: Casa) => boolean) {
   const chave = (c: Casa) => c.l * COLUNAS + c.c
   const veio = new Map<number, Casa | null>([[chave(de), null]])
   const dist = new Map<number, number>([[chave(de), 0]])
+  const trajeto = new Map<number, number>([[chave(de), 0]])
   const fila: Casa[] = [de]
   while (fila.length) {
     const a = fila.shift()!
     const d = dist.get(chave(a))!
     if (d >= passos) continue
+    const t = trajeto.get(chave(a))!
     for (const v of vizinhos8(a)) {
       const k = chave(v)
-      if (dist.has(k) || ocupada(v)) continue
+      const tv = t + (v.l !== a.l && v.c !== a.c ? Math.SQRT2 : 1)
+      if (dist.has(k)) {
+        // mesma camada: troca pelo trajeto mais curto (a camada d+1 ainda não foi expandida)
+        if (dist.get(k) === d + 1 && tv < trajeto.get(k)! - 1e-6) {
+          trajeto.set(k, tv)
+          veio.set(k, a)
+        }
+        continue
+      }
+      if (ocupada(v)) continue
       dist.set(k, d + 1)
+      trajeto.set(k, tv)
       veio.set(k, a)
       fila.push(v)
     }
