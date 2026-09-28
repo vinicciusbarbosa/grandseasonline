@@ -28,9 +28,9 @@ Tema: **piratas e Marinha**, inspirado em One Piece, com personagens originais.
 
 | item | valor |
 |---|---|
-| altura do personagem | **176 px** de arte (do pé ao topo do chapéu) |
-| quadro padrão | **224 × 224 px** |
-| ponto do pé (âncora) | **x = 112, y = 200** — meio entre os pés, no chão |
+| altura do personagem | **176 px** de arte (do pé ao topo do chapéu); no modo HD a arte é guardada com o dobro (352 px, sem forçar a grade de pixels) |
+| quadro padrão | **224 × 224 px** (HD: 448 × 448) |
+| ponto do pé (âncora) | **x = 112, y = 200** (HD: 224, 400) — meio entre os pés, no chão |
 | quadro de ataque/especial | **320 × 320 px**, âncora **x = 160, y = 288** |
 | largura do corpo | cabe nos ~108 px da casa; capa, arma e golpes podem passar |
 

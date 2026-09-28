@@ -18,6 +18,8 @@ type Manifesto = {
   quadro: [number, number]
   pe: [number, number]
   altura?: number
+  /** texels por pixel de arte do tabuleiro (2 = arte em HD) */
+  densidade?: number
   anims: Partial<Record<NomeAnim, Partial<Record<Direcao, { arquivo: string; quadros: number }>>>>
 }
 
@@ -50,9 +52,10 @@ function recurso(url: string) {
 function textura(url: string) {
   const t = carregador.load(recurso(url))
   t.magFilter = THREE.NearestFilter
-  // reduzido (tabuleiro inteiro): suaviza; ampliado (zoom): pixel nítido
-  t.minFilter = THREE.LinearFilter
-  t.generateMipmaps = false
+  // reduzido (tabuleiro inteiro): mipmaps suavizam sem serrilhar;
+  // ampliado (zoom): pixel nítido
+  t.minFilter = THREE.LinearMipmapLinearFilter
+  t.generateMipmaps = true
   t.colorSpace = THREE.SRGBColorSpace
   return t
 }
@@ -62,6 +65,7 @@ export class VisualFolhas implements Visual {
   readonly objetos: THREE.Object3D[]
   readonly altura: number
   readonly alturaPx: number
+  private readonly densidade: number
   private readonly man: Manifesto
   private readonly base: string
   private readonly texturas = new Map<string, THREE.Texture>()
@@ -71,7 +75,8 @@ export class VisualFolhas implements Visual {
   private constructor(base: string, man: Manifesto) {
     this.base = base
     this.man = man
-    this.alturaPx = (man.altura ?? 104) + 2
+    this.densidade = man.densidade ?? 1
+    this.alturaPx = (man.altura ?? 104) / this.densidade + 2
     this.altura = this.alturaPx / 60
     for (const [nome, t] of Object.entries(TEMPO) as [NomeAnim, (typeof TEMPO)[NomeAnim]][]) {
       const q = Object.values(man.anims[nome] ?? {})[0]?.quadros ?? QUADROS_PADRAO
@@ -132,7 +137,7 @@ export class VisualFolhas implements Visual {
     const k = e.clarao > 0 ? 3.2 : 1
     mat.color.setRGB(k, k, k)
     const desvio = tira.propria ? ([0, 0] as [number, number]) : this.movimentoProvisorio(e, fase)
-    posicionarPixel(this.sprite, e.pos, L, A, camera, telaL, telaA, espelha, 0.45, desvio)
+    posicionarPixel(this.sprite, e.pos, L / this.densidade, A / this.densidade, camera, telaL, telaA, espelha, 0.45, desvio)
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)
     const s = 1 - Math.min(0.5, e.pos.y * 0.6)
     this.sombra.scale.set(s, s, 1)

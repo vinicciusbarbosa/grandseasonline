@@ -30,11 +30,15 @@ import numpy as np
 from PIL import Image
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-QUADRO = 224
-PE = (112, 200)
-# resolução nativa da arte (a referência do almirante tem ~176 pixels de arte
-# do pé ao topo do quepe): não reduz a qualidade que a IA entregou
-ALTURA = 176
+# Modo "pixel art HD": guarda a arte como a IA entrega (só reduz para ~352 px
+# de altura), sem forçar a grade de pixels nem reduzir as cores — textos e
+# detalhes finos (MARINE no quepe) continuam legíveis. DENSIDADE = texels por
+# "pixel de arte" do tabuleiro (a casa mede 108 pixels de arte).
+HD = True
+DENSIDADE = 2 if HD else 1
+ALTURA = 176 * DENSIDADE
+QUADRO = 224 * DENSIDADE
+PE = (112 * DENSIDADE, 200 * DENSIDADE)
 CORES = 128
 DIRECOES = ['S', 'SE', 'E', 'NE', 'N']
 
@@ -42,8 +46,9 @@ DIRECOES = ['S', 'SE', 'E', 'NE', 'N']
 def carregar(caminho):
     rgb = np.asarray(Image.open(caminho).convert('RGB')).astype(np.int32)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-    # magenta: vermelho e azul altos, verde baixo
-    fundo = (r > 150) & (b > 150) & (g < 110) & (np.abs(r - b) < 90)
+    # magenta e as bordas misturadas com ele (rosado): vermelho e azul bem
+    # acima do verde
+    fundo = ((np.minimum(r, b) - g) > 60) & (np.abs(r - b) < 110)
     alfa = (~fundo).astype(np.uint8)
     # tira sujeira solta e franjas rosadas da borda
     alfa = cv2.morphologyEx(alfa, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
@@ -91,7 +96,7 @@ def reduzir(rgb, alfa, escala):
     um inteiro), acha o alinhamento da grade e pega a cor mais comum do miolo de
     cada bloco — sem misturar vizinhos. Senão, média por área."""
     b = round(1 / escala)
-    if b >= 2 and abs(1 / escala - b) < 0.3:
+    if not HD and b >= 2 and abs(1 / escala - b) < 0.3:
         # a IA quase nunca acerta o bloco exato (4,14 em vez de 4): ajusta a
         # figura para blocos inteiros antes de ler a grade
         if abs(1 / escala - b) > 0.02:
@@ -151,8 +156,8 @@ def contorno(img):
 
 
 def encaixar(cor, mascara, paleta):
-    """Põe a figura reduzida no quadro 128×128 com o pé na âncora."""
-    q = quantizar(cor, paleta).clip(0, 255).astype(np.uint8)
+    """Põe a figura reduzida no quadro com o pé na âncora."""
+    q = (cor if paleta is None else quantizar(cor, paleta)).clip(0, 255).astype(np.uint8)
     h, w = mascara.shape
     # centro do pé: meio dos pixels das 6 linhas de baixo
     ys, xs = np.nonzero(mascara[max(0, h - 6):])
@@ -177,8 +182,12 @@ def manifesto(personagem):
     caminho = os.path.join(pasta, 'manifesto.json')
     if os.path.exists(caminho):
         with open(caminho) as f:
-            return pasta, caminho, json.load(f)
-    return pasta, caminho, {'quadro': [QUADRO, QUADRO], 'pe': list(PE), 'altura': ALTURA, 'anims': {}}
+            man = json.load(f)
+        if man.get('densidade', 1) != DENSIDADE:
+            man['anims'] = {}  # folhas de outro modo não servem mais
+        man.update({'quadro': [QUADRO, QUADRO], 'pe': list(PE), 'altura': ALTURA, 'densidade': DENSIDADE})
+        return pasta, caminho, man
+    return pasta, caminho, {'quadro': [QUADRO, QUADRO], 'pe': list(PE), 'altura': ALTURA, 'densidade': DENSIDADE, 'anims': {}}
 
 
 def salvar_tira(pasta, nome, quadros):
@@ -199,7 +208,7 @@ def importar_referencia(arquivo, personagem):
     man['alturaFonte'] = altura
     for d, (c, m) in zip(DIRECOES, reduzidos):
         nome = f'parado_{d}.png'
-        salvar_tira(pasta, nome, [encaixar(c, m, paleta)])
+        salvar_tira(pasta, nome, [encaixar(c, m, None if HD else paleta)])
         man['anims'].setdefault('parado', {})[d] = {'arquivo': nome, 'quadros': 1}
     with open(cam, 'w') as f:
         json.dump(man, f, indent=1)
@@ -260,7 +269,7 @@ def importar_animacao(arquivos, personagem, anim, direcao):
     pasta, cam, man = manifesto(personagem)
     if 'paleta' not in man:
         sys.exit('importe a referência do personagem primeiro (ela define a paleta)')
-    paleta = np.array(man['paleta'], np.float32)
+    paleta = None if HD else np.array(man['paleta'], np.float32)
     celulas = []
     for arquivo in arquivos.split(','):
         rgb, alfa = carregar(arquivo)
