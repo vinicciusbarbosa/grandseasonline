@@ -91,6 +91,23 @@ desenho):
 
 Demais cores (dourado, botões, couro, metal) ficam como são.
 
+## Folhas geradas por IA (qualidade da referência)
+
+A arte fica com a qualidade da referência quando o boneco é desenhado **no
+mesmo tamanho dela**: ~700 px de altura na imagem, cada pixel da arte como um
+bloco de 4×4. Nesse tamanho cabem só **4 quadros por imagem** (1536×1024,
+lado a lado, uma linha, como a folha de referência). Uma animação de 12
+quadros = **3 imagens** (quadros 1–4, 5–8, 9–12), sempre anexando a
+referência. O importador junta as imagens na ordem:
+
+```
+python3 frontend/scripts/sprites/importar_folha.py animacao \
+  andar_S_1.png,andar_S_2.png,andar_S_3.png almirante andar S
+```
+
+Folhas com o boneco menor (ex.: 12 quadros numa imagem) funcionam, mas têm
+menos detalhe de origem.
+
 ## Animações
 
 | nome | quadros | fps | laço | notas |

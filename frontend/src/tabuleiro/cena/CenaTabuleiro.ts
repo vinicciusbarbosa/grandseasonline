@@ -33,8 +33,10 @@ const INCLINACAO = Math.asin(0.75) // casa de 64×48 px
 const INCLINACAO_PERTO = THREE.MathUtils.degToRad(28)
 /** zoom que mostra o tabuleiro inteiro (a casa com 64 px na tela) */
 const ZOOM_TUDO = 64 / PX_CASA
-/** zoom máximo: 2,5 pixels da tela por pixel da arte */
-const ZOOM_MAX = 2.5
+/** zoom máximo: cada pixel da arte vira um bloco de 4×4 (como a arte original) */
+const ZOOM_MAX = 4
+/** níveis onde o zoom para: inteiros deixam todo pixel da arte do mesmo tamanho */
+const NIVEIS = [ZOOM_TUDO, 1, 2, 3, 4]
 const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
 const DANO = [14, 22]
@@ -70,8 +72,13 @@ export class CenaTabuleiro {
   private readonly pan = new THREE.Vector3()
   /** ZOOM_TUDO = tabuleiro inteiro; 1 = arte 1:1; até ZOOM_MAX */
   private zoom = ZOOM_TUDO
+  /** para onde o zoom está indo (anima suave até lá) e o ponto da tela que fica parado */
+  private zoomAlvo = ZOOM_TUDO
+  private zoomAncora: [number, number] | undefined
+  private ultimaRoda = 0
   private readonly toques = new Map<number, { x: number; y: number }>()
   private pinca: { dist: number; zoom: number } | null = null
+  private pincaCentro: [number, number] | undefined
   private readonly ray = new THREE.Raycaster()
   private readonly plano = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 
@@ -182,7 +189,7 @@ export class CenaTabuleiro {
 
   /** Botões de zoom da tela. */
   zoomPasso(fator: number) {
-    this.aplicarZoom(fator === 0 ? ZOOM_TUDO : this.zoom * fator)
+    this.irParaNivel(fator === 0 ? -99 : fator > 1 ? 1 : -1)
   }
 
   setVelocidade(v: number) {
@@ -283,9 +290,30 @@ export class CenaTabuleiro {
     return this.ray.ray.intersectPlane(this.plano, p) ? p : null
   }
 
+  /** Vai para o nível de zoom vizinho (passo +1/-1; -99 = tabuleiro inteiro). */
+  private irParaNivel(passo: number, px?: number, py?: number) {
+    let i = NIVEIS.findIndex((n) => n >= this.zoomAlvo - 1e-3)
+    if (i < 0) i = NIVEIS.length - 1
+    i = passo === -99 ? 0 : THREE.MathUtils.clamp(i + passo, 0, NIVEIS.length - 1)
+    this.zoomAlvo = NIVEIS[i]
+    this.zoomAncora = px !== undefined && py !== undefined ? [px, py] : undefined
+  }
+
+  /** Nível mais próximo (ao soltar a pinça). */
+  private assentarZoom(px?: number, py?: number) {
+    let melhor = NIVEIS[0]
+    for (const n of NIVEIS) if (Math.abs(Math.log(n / this.zoom)) < Math.abs(Math.log(melhor / this.zoom))) melhor = n
+    this.zoomAlvo = melhor
+    this.zoomAncora = px !== undefined && py !== undefined ? [px, py] : undefined
+  }
+
   private aoRolar = (ev: WheelEvent) => {
     ev.preventDefault()
-    this.aplicarZoom(this.zoom * Math.exp(-ev.deltaY * 0.0015), ev.clientX, ev.clientY)
+    // um nível por "clique" da roda (touchpads mandam muitos eventos seguidos)
+    const agora = performance.now()
+    if (agora - this.ultimaRoda < 140 || Math.abs(ev.deltaY) < 2) return
+    this.ultimaRoda = agora
+    this.irParaNivel(ev.deltaY < 0 ? 1 : -1, ev.clientX, ev.clientY)
   }
 
   /** Arrasta a câmera (setas/WASD), sem sair de perto do tabuleiro. */
@@ -303,6 +331,14 @@ export class CenaTabuleiro {
     const dt = dtReal * this.velocidade
     this.tempo += dt
     this.mar.mat.uniforms.tempo.value = this.tempo
+    if (!this.pinca && Math.abs(this.zoomAlvo - this.zoom) > 1e-4) {
+      // aproxima suave (em escala log) e encaixa exato no nível
+      const k = 1 - Math.exp(-dtReal * 14)
+      let z = Math.exp(THREE.MathUtils.lerp(Math.log(this.zoom), Math.log(this.zoomAlvo), k))
+      if (Math.abs(Math.log(z / this.zoomAlvo)) < 0.004) z = this.zoomAlvo
+      const a = this.zoomAncora
+      this.aplicarZoom(z, a?.[0], a?.[1])
+    }
     for (const p of this.personagens) p.atualizar(dt)
     for (const l of this.navios.luzes) l.intensity = 2.6 + Math.sin(this.tempo * 9 + l.id) * 0.25 + Math.sin(this.tempo * 23 + l.id * 3) * 0.15
     for (const pano of this.navios.panos) this.ondular(pano)
@@ -395,7 +431,10 @@ export class CenaTabuleiro {
 
   private aoSoltar = (ev: PointerEvent) => {
     this.toques.delete(ev.pointerId)
-    if (this.toques.size < 2) this.pinca = null
+    if (this.toques.size < 2 && this.pinca) {
+      this.pinca = null
+      this.assentarZoom(...(this.pincaCentro ?? []))
+    }
     const a = this.arrasto
     if (this.toques.size > 0) return
     this.arrasto = null
@@ -408,6 +447,8 @@ export class CenaTabuleiro {
       const [p1, p2] = [...this.toques.values()]
       const d = Math.hypot(p1.x - p2.x, p1.y - p2.y)
       this.aplicarZoom(this.pinca.zoom * (d / Math.max(1, this.pinca.dist)), (p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
+      this.zoomAlvo = this.zoom
+      this.pincaCentro = [(p1.x + p2.x) / 2, (p1.y + p2.y) / 2]
       return
     }
     const a = this.arrasto
@@ -450,9 +491,9 @@ export class CenaTabuleiro {
     if (k === 'arrowright' || k === 'd') this.moverCamera(passo, 0)
     if (k === 'arrowup' || k === 'w') this.moverCamera(0, -passo)
     if (k === 'arrowdown' || k === 's') this.moverCamera(0, passo)
-    if (k === '+' || k === '=') this.aplicarZoom(this.zoom * 1.25)
-    if (k === '-') this.aplicarZoom(this.zoom / 1.25)
-    if (k === '0') this.aplicarZoom(ZOOM_TUDO)
+    if (k === '+' || k === '=') this.irParaNivel(1)
+    if (k === '-') this.irParaNivel(-1)
+    if (k === '0') this.irParaNivel(-99)
   }
 
   private aoClicar = (ev: PointerEvent) => {
