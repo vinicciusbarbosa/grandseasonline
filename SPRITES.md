@@ -40,7 +40,9 @@ Use o molde como camada de fundo no editor e apague antes de exportar.
 
 ## Direções
 
-Desenha-se **5 direções**; as outras 3 o jogo espelha:
+Desenha-se **8 direções** (decidido: espelhar inverte o texto do quepe e
+emblemas). Enquanto uma direção da esquerda não existir, o jogo usa o espelho
+da direita:
 
 | código | direção | desenhar? |
 |---|---|---|
@@ -49,7 +51,9 @@ Desenha-se **5 direções**; as outras 3 o jogo espelha:
 | `E` | de lado, olhando para a direita | sim |
 | `NE` | diagonal, costas-direita | sim |
 | `N` | de costas | sim |
-| `SW`, `W`, `NW` | — | não (espelho de SE, E, NE) |
+| `SW` | diagonal, frente-esquerda | sim |
+| `W` | de lado, olhando para a esquerda | sim |
+| `NW` | diagonal, costas-esquerda | sim |
 
 ## Camadas (customização)
 

@@ -10,7 +10,8 @@ import { texturaSombra } from './texturas'
  *
  * Cada animação/direção é uma tira de quadros (224×224, pé em 112,200 — ver o
  * manifesto), desenhada na resolução nativa da arte.
- * Direções desenhadas: S, SE, E, NE, N; SW, W e NW são o espelho.
+ * Direções: S, SE, E, NE, N e, se existirem, SW, W, NW desenhadas; sem
+ * elas, SW, W e NW são o espelho de SE, E e NE.
  * Enquanto uma animação não existe, usa a pose parada com um movimento
  * simples (balanço ao andar, investida no ataque, recuo no dano).
  */
@@ -135,8 +136,11 @@ export class VisualFolhas implements Visual {
   }
 
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
-    const espelha = e.dir in ESPELHO
-    const dir = ESPELHO[e.dir] ?? e.dir
+    // direção da esquerda desenhada de verdade (texto do quepe certo) tem
+    // prioridade; sem ela, usa o espelho da direita
+    const propria = !!this.man.anims[e.anim]?.[e.dir]
+    const espelha = !propria && e.dir in ESPELHO
+    const dir = espelha ? ESPELHO[e.dir]! : e.dir
     const info = this.info[e.anim]
     const dur = info.quadros / info.fps
     const fase = info.laco ? (e.tAnim / dur) % 1 : Math.min(1, e.tAnim / dur)
