@@ -162,36 +162,57 @@ def contorno(img):
     return out
 
 
-def encaixar(cor, mascara, paleta):
-    """Põe a figura reduzida no quadro com o pé na âncora."""
+def limpar(cor, mascara, paleta):
+    """Cores finais e máscara sem pedaços soltos (restos do quadro vizinho)."""
     q = (cor if paleta is None else quantizar(cor, paleta)).clip(0, 255).astype(np.uint8)
-    # descarta pedaços soltos pequenos (restos do quadro vizinho no corte)
     n, lab, st, _ = cv2.connectedComponentsWithStats(mascara.astype(np.uint8), connectivity=8)
     if n > 2:
         maior = st[1:, cv2.CC_STAT_AREA].max()
         manter = [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= maior * 0.03]
         mascara = np.isin(lab, manter)
+    return q, mascara
+
+
+def eixos(mascara):
+    """Centro dos pés (linhas de baixo) e da cabeça (20% de cima)."""
     h, w = mascara.shape
-    # centro do pé: meio dos pixels das 6 linhas de baixo
-    ys, xs = np.nonzero(mascara[max(0, h - 6):])
+    _, xs = np.nonzero(mascara[max(0, h - 6):])
     pe = xs.mean() if len(xs) else w / 2
-    # cabeça (20% de cima): junto com os pés dá um eixo firme — a casaca
-    # abrindo não puxa o boneco para os lados
-    ys2, xs2 = np.nonzero(mascara[: max(1, h // 5)])
-    cabeca = xs2.mean() if len(xs2) else pe
-    cx = int(round((pe + cabeca) / 2))
+    _, xs2 = np.nonzero(mascara[: max(1, h // 5)])
+    return pe, (xs2.mean() if len(xs2) else pe)
+
+
+def colocar(q, mascara, cx):
+    """Põe a figura no quadro: coluna `cx` da figura no x da âncora, base no chão."""
+    h, w = mascara.shape
     img = np.zeros((QUADRO, QUADRO, 4), np.uint8)
-    ox = PE[0] - cx
+    ox = PE[0] - int(round(cx))
     oy = PE[1] - h
-    for y in range(h):
-        for x in range(w):
-            if mascara[y, x]:
-                X, Y = x + ox, y + oy
-                if 0 <= X < QUADRO and 0 <= Y < QUADRO:
-                    img[Y, X, :3] = q[y, x]
-                    img[Y, X, 3] = 255
-    # a arte da IA já vem com contorno; não engrossa
+    ys, xs = np.nonzero(mascara)
+    X, Y = xs + ox, ys + oy
+    ok = (X >= 0) & (X < QUADRO) & (Y >= 0) & (Y < QUADRO)
+    img[Y[ok], X[ok], :3] = q[ys[ok], xs[ok]]
+    img[Y[ok], X[ok], 3] = 255
     return img
+
+
+def encaixar_folha(figuras, paleta):
+    """Encaixa todos os quadros de uma animação.
+
+    Cada quadro é firmado pela média cabeça+pés (a casaca abrindo não o puxa
+    para os lados); depois a folha inteira é deslocada de uma vez para os
+    PÉS caírem no centro da casa (na diagonal o corpo é inclinado, e a média
+    sozinha deixava os pés fora do centro)."""
+    limpas = [limpar(c, m, paleta) for c, m in figuras]
+    medidas = [eixos(m) for _, m in limpas]
+    firmes = [(pe + cab) / 2 for pe, cab in medidas]
+    ajuste = float(np.median([pe - f for (pe, _), f in zip(medidas, firmes)]))
+    return [colocar(q, m, f + ajuste) for (q, m), f in zip(limpas, firmes)]
+
+
+def encaixar(cor, mascara, paleta):
+    """Um quadro só (referência): pés no centro."""
+    return encaixar_folha([(cor, mascara)], paleta)[0]
 
 
 def manifesto(personagem):
@@ -359,7 +380,7 @@ def importar_animacao(arquivos, personagem, anim, direcao):
     # escala: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
-    quadros = [encaixar(*reduzir(c, a, escala), paleta) for c, a in celulas]
+    quadros = encaixar_folha([reduzir(c, a, escala) for c, a in celulas], paleta)
     molde = os.path.join(os.path.dirname(os.path.abspath(arquivos.split(',')[0])), 'moldes', f'{direcao}.png')
     if ALINHAR_PELO_MOLDE and os.path.exists(molde):
         quadros = registrar(quadros, np.asarray(Image.open(molde).convert('RGBA')))

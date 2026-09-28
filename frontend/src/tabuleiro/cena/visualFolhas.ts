@@ -89,7 +89,7 @@ export class VisualFolhas implements Visual {
     }
     this.sprite = new THREE.Sprite(materialIluminado())
     texSombra ??= texturaSombra()
-    this.sombra = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.38), new THREE.MeshBasicMaterial({ map: texSombra, transparent: true, depthWrite: false }))
+    this.sombra = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.5), new THREE.MeshBasicMaterial({ map: texSombra, transparent: true, depthWrite: false }))
     this.sombra.rotation.x = -Math.PI / 2
     this.objetos = [this.sprite, this.sombra]
   }

@@ -348,7 +348,7 @@ export function texturaSombra() {
     for (let x = 0; x < w; x++) {
       const d = Math.hypot((x + 0.5 - w / 2) / (w / 2), (y + 0.5 - h / 2) / (h / 2))
       if (d > 1) continue
-      g.fillStyle = d < 0.55 ? 'rgba(20,10,5,0.55)' : d < 0.8 ? 'rgba(20,10,5,0.38)' : 'rgba(20,10,5,0.2)'
+      g.fillStyle = d < 0.45 ? 'rgba(15,8,4,0.78)' : d < 0.75 ? 'rgba(15,8,4,0.55)' : 'rgba(15,8,4,0.28)'
       g.fillRect(x, y, 1, 1)
     }
   return textura(c)
