@@ -35,6 +35,10 @@
    "N": {
     "arquivo": "parado_N.png",
     "quadros": 1
+   },
+   "SW": {
+    "arquivo": "parado_SW.png",
+    "quadros": 12
    }
   }
  },
