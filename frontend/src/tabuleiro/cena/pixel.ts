@@ -15,10 +15,11 @@ export function posicionarPixel(
   telaA: number,
   espelha = false,
   paraCamera = 0.45,
+  desvio: [number, number] = [0, 0],
 ) {
   const ndc = apoio.clone().project(camera)
-  const px = Math.round(((ndc.x + 1) / 2) * telaL)
-  const py = Math.round(((1 - ndc.y) / 2) * telaA)
+  const px = Math.round(((ndc.x + 1) / 2) * telaL) + Math.round(desvio[0])
+  const py = Math.round(((1 - ndc.y) / 2) * telaA) + Math.round(desvio[1])
   const recuo = camera.position.clone().sub(apoio).normalize().multiplyScalar(paraCamera)
   const ndcZ = apoio.clone().add(recuo).project(camera).z
   const alinhado = new THREE.Vector3((px / telaL) * 2 - 1, 1 - (py / telaA) * 2, ndcZ).unproject(camera)

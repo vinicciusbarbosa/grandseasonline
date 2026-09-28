@@ -6,6 +6,7 @@ import { Assador } from '../boneco/assador'
 import { CAPITAES } from '../boneco/boneco'
 import { Personagem } from './personagem'
 import { VisualSprite } from './visualSprite'
+import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
 import { texturaMoldura } from './texturas'
 
@@ -126,7 +127,10 @@ export class CenaTabuleiro {
     const vir = (id: string, nome: string, casa: Casa, dir: 'SE' | 'NW') =>
       this.adicionar(new Personagem(id, nome, casa, 120, new VisualSprite(assador.assar(CAPITAES[id])), dir))
     vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE')
-    vir('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 'NW')
+    // o almirante já usa as folhas desenhadas (estilo Ragnarok)
+    void VisualFolhas.carregar('almirante')
+      .then((v) => this.adicionar(new Personagem('almirante', 'Almirante', { l: 7, c: 13 }, 120, v, 'NW')))
+      .catch(() => vir('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 'NW'))
 
     this.estado = this.montarEstado()
     this.redimensionar()
