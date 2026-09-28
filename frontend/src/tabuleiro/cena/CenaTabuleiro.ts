@@ -8,6 +8,7 @@ import { Personagem } from './personagem'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
+import { HakiRei } from './hakiRei'
 import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
@@ -23,6 +24,8 @@ export type Flutuante = { id: number; texto: string; x: number; y: number; t: nu
 export type EstadoTela = {
   personagens: { id: string; nome: string; vida: number; vidaMax: number; x: number; y: number; selecionado: boolean }[]
   flutuantes: Flutuante[]
+  /** 0–1: tela escurecendo em vermelho (Haki do Rei) */
+  aura: number
   velocidade: number
   escala: number
   dica: string
@@ -48,6 +51,7 @@ export class CenaTabuleiro {
   private readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 1, 200)
   private readonly personagens: Personagem[] = []
   private poeiras: Poeira[] = []
+  private hakis: HakiRei[] = []
   private readonly marcas = new THREE.Group()
   private readonly moldura: THREE.Mesh
   private readonly hover: THREE.Mesh
@@ -176,6 +180,8 @@ export class CenaTabuleiro {
   private adicionar(p: Personagem) {
     this.personagens.push(p)
     this.cena.add(...p.visual.objetos)
+    // personagem por cima dos efeitos de trás, por baixo dos da frente
+    for (const o of p.visual.objetos) if ((o as THREE.Sprite).isSprite) o.renderOrder = 2
   }
 
   destruir() {
@@ -193,6 +199,27 @@ export class CenaTabuleiro {
   }
   retrato = () => this.estado
 
+  /**
+   * Haki do Rei do personagem selecionado (ou do almirante): explosão de
+   * raios e ondas de choque; quem estiver até 4 casas cambaleia.
+   */
+  hakiDoRei() {
+    const p = this.selecionado ?? this.personagens.find((x) => x.id === 'almirante') ?? this.personagens[0]
+    if (!p) return
+    const h = new HakiRei(p.pos, p.visual.altura)
+    this.hakis.push(h)
+    this.cena.add(...h.objetos)
+    this.dica = `${p.nome} liberou o Haki do Rei!`
+    window.setTimeout(() => {
+      for (const o of this.personagens) {
+        if (o === p || o.pos.distanceTo(p.pos) > 4.5) continue
+        o.sofrer(0, p)
+        const s = this.naTela(o.topo(-0.35))
+        this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: 'Intimidado!', x: s.x, y: s.y, t: 0, cor: '#ff5a6e' }]
+      }
+    }, 250)
+  }
+
   /** Botões de zoom da tela. */
   zoomPasso(fator: number) {
     this.irParaNivel(fator === 0 ? -99 : fator > 1 ? 1 : -1)
@@ -209,6 +236,7 @@ export class CenaTabuleiro {
         return { id: p.id, nome: p.nome, vida: p.vida, vidaMax: p.vidaMax, x: s.x, y: s.y, selecionado: p === this.selecionado }
       }),
       flutuantes: this.flutuantes,
+      aura: this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0),
       velocidade: this.velocidade,
       escala: this.escala,
       dica: this.dica,
@@ -371,7 +399,23 @@ export class CenaTabuleiro {
     }
     this.poeiras = this.poeiras.filter((po) => po.vivo)
     this.flutuantes = this.flutuantes.map((f) => ({ ...f, t: f.t + dtReal })).filter((f) => f.t < 1.2)
+    for (const h of this.hakis) {
+      h.atualizar(dt)
+      if (!h.vivo) {
+        this.cena.remove(...h.objetos)
+        h.descartar()
+      }
+    }
+    this.hakis = this.hakis.filter((h) => h.vivo)
+    // tremor da câmera durante o Haki
+    const tremor = this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0)
+    const salva = this.camera.position.clone()
+    if (tremor > 0) {
+      const a = 0.06 * tremor * (1 / this.zoom + 0.3)
+      this.camera.position.add(new THREE.Vector3((Math.random() - 0.5) * a, (Math.random() - 0.5) * a, (Math.random() - 0.5) * a))
+    }
     this.renderer.render(this.cena, this.camera)
+    this.camera.position.copy(salva)
     this.estado = this.montarEstado()
     for (const f of this.ouvintes) f()
   }
@@ -527,6 +571,7 @@ export class CenaTabuleiro {
     if (k === '+' || k === '=') this.irParaNivel(1)
     if (k === '-') this.irParaNivel(-1)
     if (k === '0') this.irParaNivel(-99)
+    if (k === 'h') this.hakiDoRei()
   }
 
   private aoClicar = (ev: PointerEvent) => {

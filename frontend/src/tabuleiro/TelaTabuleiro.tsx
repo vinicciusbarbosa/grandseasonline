@@ -6,7 +6,7 @@ import { CenaTabuleiro, type EstadoTela } from './cena/CenaTabuleiro'
  * lado, tabuleiro 10×20 e os dois capitães animados. Roda sem API nem login.
  */
 
-const VAZIO: EstadoTela = { personagens: [], flutuantes: [], velocidade: 1, escala: 1, dica: '' }
+const VAZIO: EstadoTela = { personagens: [], flutuantes: [], aura: 0, velocidade: 1, escala: 1, dica: '' }
 const nada = () => () => {}
 
 export default function TelaTabuleiro() {
@@ -28,6 +28,17 @@ export default function TelaTabuleiro() {
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0b2a66', overflow: 'hidden', userSelect: 'none' }}>
       <div ref={hospedeiro} style={{ position: 'absolute', inset: 0 }} />
+      {/* Haki do Rei: a tela escurece em vermelho nas bordas */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          opacity: estado.aura,
+          background: 'radial-gradient(ellipse at center, rgba(120,0,20,0) 35%, rgba(60,0,12,0.55) 75%, rgba(10,0,4,0.85) 100%)',
+          mixBlendMode: 'multiply',
+        }}
+      />
 
       {estado.personagens.map((p) => (
         <div
@@ -88,6 +99,21 @@ export default function TelaTabuleiro() {
         <div style={{ opacity: 0.7, marginTop: 4 }}>
           {toque ? 'Toque para escolher · arraste move a câmera · pinça dá zoom.' : 'Esc cancela · setas/WASD movem · roda do mouse dá zoom.'}
         </div>
+        <button
+          onClick={() => cena?.hakiDoRei()}
+          style={{
+            marginTop: 8,
+            width: '100%',
+            font: '700 13px monospace',
+            padding: '6px 8px',
+            background: 'linear-gradient(#5a0a14, #2a0308)',
+            color: '#ffd6dc',
+            border: '1px solid #ff4a62',
+            cursor: 'pointer',
+          }}
+        >
+          Haki do Rei (H)
+        </button>
         <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
           <span>Zoom:</span>
           {([['−', 1 / 1.4], ['+', 1.4], ['tudo', 0]] as const).map(([r, f]) => (
