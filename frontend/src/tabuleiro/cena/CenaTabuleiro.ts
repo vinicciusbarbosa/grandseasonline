@@ -9,6 +9,7 @@ import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
 import { HakiRei } from './hakiRei'
+import { ImpactoHaki } from './impactoHaki'
 import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
@@ -218,6 +219,22 @@ export class CenaTabuleiro {
         this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: 'Intimidado!', x: s.x, y: s.y, t: 0, cor: '#ff5a6e' }]
       }
     }, 250)
+  }
+
+  /** Teste: madeira do convés arrebentando numa casa (sem o Haki). */
+  quebrarConves(l: number, c: number) {
+    const p = centroCasa(l, c)
+    const im = new ImpactoHaki(new THREE.Vector3(p.x, 0, p.z), 1.3)
+    this.cena.add(...im.objetos)
+    const passo = () => {
+      im.atualizar(1 / 60 * this.velocidade)
+      if (im.vivo) requestAnimationFrame(passo)
+      else {
+        this.cena.remove(...im.objetos)
+        im.descartar()
+      }
+    }
+    requestAnimationFrame(passo)
   }
 
   /** Botões de zoom da tela. */
