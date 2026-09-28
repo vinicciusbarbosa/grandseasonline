@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { alcance, casaEm, centroCasa, mesmaCasa, vizinhos, COLUNAS, METADE, VAO, type Casa } from '../tabuleiro'
+import { alcance, casaEm, centroCasa, mesmaCasa, vizinhos, COLUNAS, METADE, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
 import { montarNavios } from './navio'
 import { Assador } from '../boneco/assador'
@@ -26,6 +26,11 @@ export type EstadoTela = {
 }
 
 const PASSOS = 4
+/** largura (px da cena) de uma casa no meio do tabuleiro: o padrão dos sprites */
+export const PX_CASA = 64
+const INCLINACAO = Math.asin(0.75) // casa de 64×48 px
+const GIRO = THREE.MathUtils.degToRad(-8)
+const FOV = 22
 const DANO = [14, 22]
 
 export class CenaTabuleiro {
@@ -56,6 +61,7 @@ export class CenaTabuleiro {
   private dica = 'Clique num capitão para selecionar.'
   private readonly ouvintes = new Set<() => void>()
   private estado: EstadoTela
+  private readonly pan = new THREE.Vector3()
   private readonly ray = new THREE.Raycaster()
   private readonly plano = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 
@@ -187,8 +193,9 @@ export class CenaTabuleiro {
   private redimensionar = () => {
     const r = this.hospedeiro.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
-    // um pixel da cena = `escala` pixels do aparelho (inteiro sempre que dá)
-    this.escala = Math.max(1, Math.round((r.height * dpr) / 900))
+    // um pixel da cena = `escala` pixels do aparelho (sempre inteiro, para a
+    // pixel art não deformar); a cena tem pelo menos ~1500×820 pixels
+    this.escala = Math.max(1, Math.floor(Math.min((r.width * dpr) / 1500, (r.height * dpr) / 820)))
     this.largura = Math.max(320, Math.floor((r.width * dpr) / this.escala))
     this.altura = Math.max(180, Math.floor((r.height * dpr) / this.escala))
     this.renderer.setSize(this.largura, this.altura, false)
@@ -196,41 +203,29 @@ export class CenaTabuleiro {
     this.enquadrar()
   }
 
-  /** Câmera como na referência: de cima, inclinada ~50°, girada um pouco. */
+  /**
+   * Câmera isométrica com perspectiva suave: inclinada ~49°, girada um pouco,
+   * lente fechada (a casa do fundo quase do tamanho da da frente) e à
+   * distância certa para a casa do meio medir PX_CASA pixels de largura —
+   * o tamanho para o qual os sprites dos personagens são desenhados.
+   */
   private enquadrar() {
     const cam = this.camera
+    cam.fov = FOV
     cam.updateProjectionMatrix()
-    const inclinacao = THREE.MathUtils.degToRad(52)
-    const giro = THREE.MathUtils.degToRad(-8)
-    const dir = new THREE.Vector3(Math.sin(giro) * Math.cos(inclinacao), Math.sin(inclinacao), Math.cos(giro) * Math.cos(inclinacao))
-    const pontos: THREE.Vector3[] = []
-    for (const x of [-COLUNAS / 2 - 1.4, COLUNAS / 2 + 1.4])
-      for (const z of [-VAO / 2 - METADE - 1.2, VAO / 2 + METADE + 1.1]) for (const y of [0, 0.9]) pontos.push(new THREE.Vector3(x, y, z))
-    const alvo = new THREE.Vector3(0, 0, 0.2)
-    let dist = 20
-    for (let volta = 0; volta < 3; volta++) {
-      for (dist = 12; dist < 120; dist += 0.25) {
-        cam.position.copy(alvo).addScaledVector(dir, dist)
-        cam.lookAt(alvo)
-        cam.updateMatrixWorld()
-        if (pontos.every((p) => {
-          const n = p.clone().project(cam)
-          return Math.abs(n.x) < 0.97 && n.y < 0.84 && n.y > -0.96
-        }))
-          break
-      }
-      // centraliza horizontalmente o que sobrou
-      let minX = Infinity
-      let maxX = -Infinity
-      for (const p of pontos) {
-        const n = p.clone().project(cam)
-        minX = Math.min(minX, n.x)
-        maxX = Math.max(maxX, n.x)
-      }
-      const desvio = (minX + maxX) / 2
-      const direita = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0)
-      alvo.addScaledVector(direita, desvio * dist * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect)
-    }
+    const dir = new THREE.Vector3(Math.sin(GIRO) * Math.cos(INCLINACAO), Math.sin(INCLINACAO), Math.cos(GIRO) * Math.cos(INCLINACAO))
+    const dist = this.altura / (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * PX_CASA)
+    const alvo = new THREE.Vector3(0, 0, 0.3).add(this.pan)
+    cam.position.copy(alvo).addScaledVector(dir, dist)
+    cam.lookAt(alvo)
+    cam.updateMatrixWorld()
+  }
+
+  /** Arrasta a câmera (setas/WASD), sem sair de perto do tabuleiro. */
+  private moverCamera(dx: number, dz: number) {
+    this.pan.x = THREE.MathUtils.clamp(this.pan.x + dx, -COLUNAS / 2, COLUNAS / 2)
+    this.pan.z = THREE.MathUtils.clamp(this.pan.z + dz, -METADE - 1, METADE + 1)
+    this.enquadrar()
   }
 
   // ------------------------------------------------------------ laço
@@ -335,6 +330,12 @@ export class CenaTabuleiro {
 
   private aoTecla = (ev: KeyboardEvent) => {
     if (ev.key === 'Escape') this.selecionar(null)
+    const passo = 0.6
+    const k = ev.key.toLowerCase()
+    if (k === 'arrowleft' || k === 'a') this.moverCamera(-passo, 0)
+    if (k === 'arrowright' || k === 'd') this.moverCamera(passo, 0)
+    if (k === 'arrowup' || k === 'w') this.moverCamera(0, -passo)
+    if (k === 'arrowdown' || k === 's') this.moverCamera(0, passo)
   }
 
   private aoClicar = (ev: PointerEvent) => {

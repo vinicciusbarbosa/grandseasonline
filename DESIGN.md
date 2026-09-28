@@ -50,6 +50,11 @@ velas. Abordagem quando o inimigo está avariado, perto e devagar.
   cintura, calça, botas, arma), "fotografado" em pixel art em 8 direções
   (5 + espelho) com ciclos de 12 quadros. Trocar peça = assar de novo.
 
+- **Personagens em pixel art estilo Ragnarok** (decidido): sprites em camadas
+  (corpo+roupa, cabeça, rosto, cabelo, chapéu, arma, capa), 96 px de altura,
+  5 direções + espelho. Especificação completa em `SPRITES.md`. O tabuleiro já
+  usa câmera isométrica com perspectiva suave e casa de ~63×48 px no meio.
+
 ## Depois
 _(ideias que entram mais tarde)_
 
