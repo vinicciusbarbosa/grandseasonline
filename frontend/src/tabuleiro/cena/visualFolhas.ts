@@ -15,13 +15,15 @@ import { texturaSombra } from './texturas'
  * simples (balanço ao andar, investida no ataque, recuo no dano).
  */
 
+type Folha = { arquivo: string; quadros: number }
+
 type Manifesto = {
   quadro: [number, number]
   pe: [number, number]
   altura?: number
   /** texels por pixel de arte do tabuleiro (2 = arte em HD) */
   densidade?: number
-  anims: Partial<Record<NomeAnim, Partial<Record<Direcao, { arquivo: string; quadros: number }>>>>
+  anims: Partial<Record<NomeAnim, Partial<Record<Direcao, Folha & { variantes?: Record<string, Folha> }>>>>
 }
 
 const ESPELHO: Partial<Record<Direcao, Direcao>> = { SW: 'SE', W: 'E', NW: 'NE' }
@@ -104,9 +106,24 @@ export class VisualFolhas implements Visual {
     return new VisualFolhas(base, (await resp.json()) as Manifesto)
   }
 
+  /** chance de, a cada volta do parado, tocar uma variação (vento etc.) */
+  private static readonly CHANCE_VARIACAO = 0.3
+  private ciclo = -1
+  private voltas = 0
+  private faseAnterior = 0
+  private animAnterior = ''
+  private variacao: Folha | null = null
+
   /** Tira de quadros de uma animação numa direção (ou a pose parada). */
-  private tira(anim: NomeAnim, dir: Direcao) {
-    const a = this.man.anims[anim]?.[dir] ?? this.man.anims.parado?.[dir] ?? this.man.anims.parado?.S
+  private tira(anim: NomeAnim, dir: Direcao, ciclo: number) {
+    const base = this.man.anims[anim]?.[dir] ?? this.man.anims.parado?.[dir] ?? this.man.anims.parado?.S
+    // parado em laço: a cada volta sorteia se toca a normal ou uma variação
+    if (ciclo !== this.ciclo) {
+      this.ciclo = ciclo
+      const vs = Object.values(base?.variantes ?? {})
+      this.variacao = vs.length && this.variacao === null && Math.random() < VisualFolhas.CHANCE_VARIACAO ? vs[Math.floor(Math.random() * vs.length)] : null
+    }
+    const a = this.variacao ?? base
     if (!a) return null
     let t = this.texturas.get(a.arquivo)
     if (!t) {
@@ -120,11 +137,16 @@ export class VisualFolhas implements Visual {
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
     const espelha = e.dir in ESPELHO
     const dir = ESPELHO[e.dir] ?? e.dir
-    const tira = this.tira(e.anim, dir)
-    if (!tira) return
     const info = this.info[e.anim]
     const dur = info.quadros / info.fps
     const fase = info.laco ? (e.tAnim / dur) % 1 : Math.min(1, e.tAnim / dur)
+    // nova volta do laço (a fase recomeçou) ou outra animação: novo ciclo
+    if (e.anim !== this.animAnterior || fase < this.faseAnterior - 0.5) this.voltas++
+    this.animAnterior = e.anim
+    this.faseAnterior = fase
+    const ciclo = this.voltas
+    const tira = this.tira(e.anim, dir, ciclo)
+    if (!tira) return
     const q = tira.quadros > 1 ? Math.min(tira.quadros - 1, Math.floor(fase * tira.quadros)) : 0
     const mat = this.sprite.material
     if (mat.map !== tira.t) {

@@ -10,6 +10,10 @@ Importa folhas de sprites geradas por IA (fundo magenta) para o jogo.
     python3 frontend/scripts/sprites/importar_folha.py animacao \\
         frontend/scripts/sprites/fonte/almirante/andar_S.png almirante andar S
 
+    # variação sorteada de vez em quando (ex.: rajada de vento no parado)
+    python3 frontend/scripts/sprites/importar_folha.py animacao \\
+        .../parado_S_vento.png almirante parado:vento S
+
 O que faz com a imagem, do jeito que a IA entregar:
   1. tira o fundo magenta;
   2. acha cada figura (colunas da referência ou células da grade);
@@ -280,9 +284,15 @@ def importar_animacao(arquivos, personagem, anim, direcao):
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
     quadros = [encaixar(*reduzir(c, a, escala), paleta) for c, a in celulas]
-    nome = f'{anim}_{direcao}.png'
+    # "parado:vento" = variação "vento" do parado (tocada de vez em quando)
+    anim, _, variante = anim.partition(':')
+    nome = f'{anim}-{variante}_{direcao}.png' if variante else f'{anim}_{direcao}.png'
     salvar_tira(pasta, nome, quadros)
-    man['anims'].setdefault(anim, {})[direcao] = {'arquivo': nome, 'quadros': len(quadros)}
+    entrada = man['anims'].setdefault(anim, {}).setdefault(direcao, {'arquivo': nome, 'quadros': len(quadros)})
+    if variante:
+        entrada.setdefault('variantes', {})[variante] = {'arquivo': nome, 'quadros': len(quadros)}
+    else:
+        entrada.update({'arquivo': nome, 'quadros': len(quadros)})
     with open(cam, 'w') as f:
         json.dump(man, f, indent=1)
     print(f'{personagem} {anim} {direcao}: {len(quadros)} quadros, escala {escala:.3f} (bloco {1 / escala:.2f}px)')
