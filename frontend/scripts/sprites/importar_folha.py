@@ -225,9 +225,26 @@ def achar_quadros(alfa):
     H, W = alfa.shape
     quadros = []
     for y0, y1 in faixas(alfa.any(axis=1), 2):
-        for x0, x1 in faixas(alfa[y0:y1].any(axis=0), 3):
-            if alfa[y0:y1, x0:x1].sum() > 400:
-                quadros.append((x0, x1, y0, y1))
+        linha = [(x0, x1) for x0, x1 in faixas(alfa[y0:y1].any(axis=0), 3) if alfa[y0:y1, x0:x1].sum() > 400]
+        if not linha:
+            continue
+        # quadros encostados (casaca tocando o vizinho): um trecho com o dobro
+        # da largura típica é dividido na coluna mais vazia perto do meio
+        larg = float(np.median([x1 - x0 for x0, x1 in linha]))
+        if len(linha) > 1:
+            larg = min(larg, float(np.min([x1 - x0 for x0, x1 in linha])) * 1.25)
+        for x0, x1 in linha:
+            n = max(1, round((x1 - x0) / larg))
+            cortes = [x0]
+            ocup = alfa[y0:y1, x0:x1].sum(axis=0)
+            for k in range(1, n):
+                alvo = (x1 - x0) * k // n
+                janela = max(4, (x1 - x0) // (4 * n))
+                a, b = max(1, alvo - janela), min(x1 - x0 - 1, alvo + janela)
+                cortes.append(x0 + a + int(np.argmin(ocup[a:b])))
+            cortes.append(x1)
+            for c0, c1 in zip(cortes, cortes[1:]):
+                quadros.append((c0, c1, y0, y1))
     return quadros
 
 
