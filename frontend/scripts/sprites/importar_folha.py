@@ -339,12 +339,33 @@ def registrar(quadros, molde, busca=14):
     return saida
 
 
+def costura(ocup, alvo, j):
+    """Caminho vertical de menor ocupação (pode curvar 1px por linha) dentro de
+    alvo±j — separa figuras encostadas sem cortar a capa numa linha reta."""
+    h = ocup.shape[0]
+    faixa = ocup[:, alvo - j:alvo + j].astype(np.float64) + 1e-3
+    custo = faixa.copy()
+    for y in range(1, h):
+        ant = custo[y - 1]
+        viz = np.minimum(ant, np.minimum(np.r_[np.inf, ant[:-1]], np.r_[ant[1:], np.inf]))
+        custo[y] += viz
+    xs = np.empty(h, int)
+    xs[-1] = int(np.argmin(custo[-1]))
+    for y in range(h - 2, -1, -1):
+        x = xs[y + 1]
+        a, b = max(0, x - 1), min(2 * j, x + 2)
+        xs[y] = a + int(np.argmin(custo[y, a:b]))
+    return xs + alvo - j
+
+
 def grade_fixa(alfa, achados):
     """Folha de 12 quadros em grade (4 colunas × 3 linhas ou 3 × 4) quando a
-    detecção livre achou menos (quadros encostados, ex.: mangas ao vento).
-    Linhas pelas faixas vazias; colunas cortadas na coluna mais vazia perto de
-    cada divisão regular."""
-    if achados >= 12:
+    detecção livre não achou exatamente 12 (quadros encostados ou uma
+    manga partida em dois pedaços).
+    Linhas pelas faixas vazias; colunas separadas por costuras de menor
+    ocupação perto de cada divisão regular. Devolve (x0, x1, y0, y1, esq, dir):
+    esq/dir = x da costura em cada linha (a célula é o que fica entre elas)."""
+    if achados == 12:
         return None
     H, W = alfa.shape
     linhas = faixas(alfa.any(axis=1), 2)
@@ -353,16 +374,21 @@ def grade_fixa(alfa, achados):
             continue
         caixas = []
         for y0, y1 in linhas:
-            ocup = alfa[y0:y1].sum(axis=0)
-            cortes = [0]
-            for k in range(1, col):
-                alvo = W * k // col
-                j = max(8, W // (col * 6))
-                cortes.append(alvo - j + int(np.argmin(ocup[alvo - j:alvo + j])))
-            cortes.append(W)
-            caixas += [(c0, c1, y0, y1) for c0, c1 in zip(cortes, cortes[1:])]
+            ocup = alfa[y0:y1]
+            j = max(8, W // (col * 5))
+            cortes = [np.zeros(y1 - y0, int)]
+            cortes += [costura(ocup, W * k // col, j) for k in range(1, col)]
+            cortes.append(np.full(y1 - y0, W))
+            caixas += [(int(e.min()), int(d.max()), y0, y1, e, d) for e, d in zip(cortes, cortes[1:])]
         return caixas
     return None
+
+
+def recortar_costura(rgb, alfa, x0, x1, y0, y1, esq, dir):
+    a = alfa[y0:y1, x0:x1].copy()
+    xs = np.arange(x0, x1)[None, :]
+    a &= (xs >= esq[:, None]) & (xs < dir[:, None])
+    return recortar(rgb[y0:y1, x0:x1], a, 0, x1 - x0, 0, y1 - y0)
 
 
 def importar_animacao(arquivos, personagem, anim, direcao):
@@ -376,7 +402,10 @@ def importar_animacao(arquivos, personagem, anim, direcao):
         rgb, alfa = carregar(arquivo)
         caixas = achar_quadros(alfa)
         grade = grade_fixa(alfa, len(caixas))
-        celulas += [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in (grade or caixas)]
+        if grade:
+            celulas += [recortar_costura(rgb, alfa, *c) for c in grade]
+        else:
+            celulas += [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in caixas]
     # escala: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
