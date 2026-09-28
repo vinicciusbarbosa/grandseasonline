@@ -82,7 +82,13 @@ export class VisualFolhas implements Visual {
 
   static async carregar(personagem: string) {
     const base = `${import.meta.env.BASE_URL}sprites/${personagem}/`
-    const resp = await fetch(recurso(`${base}manifesto.json`))
+    const url = recurso(`${base}manifesto.json`)
+    // embutido na página: lê direto (algumas páginas bloqueiam fetch de data:)
+    if (url.startsWith('data:')) {
+      const texto = new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0)))
+      return new VisualFolhas(base, JSON.parse(texto) as Manifesto)
+    }
+    const resp = await fetch(url)
     if (!resp.ok) throw new Error(`sem manifesto de ${personagem}`)
     return new VisualFolhas(base, (await resp.json()) as Manifesto)
   }
