@@ -108,7 +108,7 @@ export class VisualFolhas implements Visual {
   }
 
   /** chance de, a cada volta do parado, tocar uma variação (vento etc.) */
-  private static readonly CHANCE_VARIACAO = 0.3
+  private static readonly CHANCE_VARIACAO = 0.08
   private ciclo = -1
   private voltas = 0
   private faseAnterior = 0
