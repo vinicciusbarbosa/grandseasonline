@@ -162,6 +162,12 @@ def contorno(img):
 def encaixar(cor, mascara, paleta):
     """Põe a figura reduzida no quadro com o pé na âncora."""
     q = (cor if paleta is None else quantizar(cor, paleta)).clip(0, 255).astype(np.uint8)
+    # descarta pedaços soltos pequenos (restos do quadro vizinho no corte)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(mascara.astype(np.uint8), connectivity=8)
+    if n > 2:
+        maior = st[1:, cv2.CC_STAT_AREA].max()
+        manter = [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= maior * 0.03]
+        mascara = np.isin(lab, manter)
     h, w = mascara.shape
     # centro do pé: meio dos pixels das 6 linhas de baixo
     ys, xs = np.nonzero(mascara[max(0, h - 6):])
@@ -270,6 +276,32 @@ def achar_quadros(alfa):
     return quadros
 
 
+def grade_fixa(alfa, achados):
+    """Folha de 12 quadros em grade (4 colunas × 3 linhas ou 3 × 4) quando a
+    detecção livre achou menos (quadros encostados, ex.: mangas ao vento).
+    Linhas pelas faixas vazias; colunas cortadas na coluna mais vazia perto de
+    cada divisão regular."""
+    if achados >= 12:
+        return None
+    H, W = alfa.shape
+    linhas = faixas(alfa.any(axis=1), 2)
+    for col in (4, 3):
+        if len(linhas) * col != 12:
+            continue
+        caixas = []
+        for y0, y1 in linhas:
+            ocup = alfa[y0:y1].sum(axis=0)
+            cortes = [0]
+            for k in range(1, col):
+                alvo = W * k // col
+                j = max(8, W // (col * 6))
+                cortes.append(alvo - j + int(np.argmin(ocup[alvo - j:alvo + j])))
+            cortes.append(W)
+            caixas += [(c0, c1, y0, y1) for c0, c1 in zip(cortes, cortes[1:])]
+        return caixas
+    return None
+
+
 def importar_animacao(arquivos, personagem, anim, direcao):
     """`arquivos`: uma ou mais imagens (separadas por vírgula), lidas em ordem."""
     pasta, cam, man = manifesto(personagem)
@@ -279,7 +311,9 @@ def importar_animacao(arquivos, personagem, anim, direcao):
     celulas = []
     for arquivo in arquivos.split(','):
         rgb, alfa = carregar(arquivo)
-        celulas += [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in achar_quadros(alfa)]
+        caixas = achar_quadros(alfa)
+        grade = grade_fixa(alfa, len(caixas))
+        celulas += [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in (grade or caixas)]
     # escala: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
