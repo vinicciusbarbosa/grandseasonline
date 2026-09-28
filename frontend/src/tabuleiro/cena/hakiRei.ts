@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ImpactoHaki } from './impactoHaki'
 
 /**
  * Haki do Rei (Haoshoku): explosão de vontade a partir do personagem.
@@ -15,6 +16,8 @@ import * as THREE from 'three'
 const DURACAO = 2.2 // s
 const TAM = 7 // lado (em casas) do quadro dos raios
 const PX = 1024 // resolução das camadas desenhadas
+/** camada dos raios gigantes: cobre boa parte do tabuleiro */
+const TAM_LONGE = 20
 
 type Raio = { pts: [number, number][]; larg: number; nasce: number }
 type Particula = { x: number; y: number; vx: number; vy: number; vida: number; t: number; tam: number; tipo: 'lasca' | 'faisca'; giro: number }
@@ -41,6 +44,9 @@ export class HakiRei {
   private readonly altura: number
   private readonly tras = camada()
   private readonly frente = camada()
+  private readonly longe = camada()
+  private readonly spriteLonge: THREE.Sprite
+  private gigantes: Raio[] = []
   private readonly spriteTras: THREE.Sprite
   private readonly spriteFrente: THREE.Sprite
   private readonly chao: THREE.Mesh
@@ -49,10 +55,19 @@ export class HakiRei {
   private ultimoRaio = -1
   private readonly particulas: Particula[] = []
   private emitidas = 0
+  /** raios que acertam o chão: ficam alguns relâmpagos seguidos */
+  private fixos: { raio: Raio; ciclos: number; longe: boolean }[] = []
+  private readonly impactos: ImpactoHaki[] = []
+  private readonly grupoImpactos = new THREE.Group()
+  private readonly centro: THREE.Vector3
+  private readonly pe: THREE.Vector3
+  private golpes = 0
 
   constructor(pe: THREE.Vector3, alturaPersonagem: number) {
     this.altura = alturaPersonagem
     const centro = pe.clone().setY(pe.y + alturaPersonagem * 0.42)
+    this.centro = centro
+    this.pe = pe.clone()
     const mk = (tex: THREE.Texture, ordem: number) => {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }))
       s.scale.set(TAM, TAM, 1)
@@ -61,6 +76,8 @@ export class HakiRei {
       return s
     }
     this.spriteTras = mk(this.tras.t, 1)
+    this.spriteLonge = mk(this.longe.t, 1)
+    this.spriteLonge.scale.set(TAM_LONGE, TAM_LONGE, 1)
     this.spriteFrente = mk(this.frente.t, 3)
 
     this.matChao = new THREE.ShaderMaterial({
@@ -111,7 +128,7 @@ export class HakiRei {
     this.chao.rotation.x = -Math.PI / 2
     this.chao.position.set(pe.x, 0.02, pe.z)
     this.chao.renderOrder = 0
-    this.objetos = [this.chao, this.spriteTras, this.spriteFrente]
+    this.objetos = [this.chao, this.spriteLonge, this.spriteTras, this.spriteFrente, this.grupoImpactos]
   }
 
   /** 0–1: quanto a cena deve tremer e escurecer agora. */
@@ -119,11 +136,19 @@ export class HakiRei {
     return envelope(this.t / DURACAO)
   }
 
-  atualizar(dt: number) {
+  atualizar(dt: number, camera: THREE.Camera) {
     this.t += dt
+    for (const im of this.impactos) im.atualizar(dt)
+    for (const im of this.impactos.filter((i) => !i.vivo)) {
+      this.grupoImpactos.remove(...im.objetos)
+      im.descartar()
+    }
+    this.impactos.splice(0, this.impactos.length, ...this.impactos.filter((i) => i.vivo))
     const f = this.t / DURACAO
     if (f >= 1) {
-      this.vivo = false
+      // só termina depois das rachaduras sumirem
+      if (!this.impactos.length) this.vivo = false
+      this.spriteTras.visible = this.spriteFrente.visible = this.spriteLonge.visible = this.chao.visible = false
       return
     }
     const e = envelope(f)
@@ -135,6 +160,14 @@ export class HakiRei {
     if (passo !== this.ultimoRaio) {
       this.ultimoRaio = passo
       this.raios = this.gerarRaios(e, f)
+      this.gigantes = f > 0.08 && f < 0.75 ? this.gerarGigantes(e) : []
+      // de vez em quando um raio desce e acerta o convés
+      if (f > 0.1 && f < 0.7 && this.golpes < 9 && Math.random() < 0.3) this.golpear(camera, Math.random() < 0.4)
+      for (const fx of this.fixos) {
+        ;(fx.longe ? this.gigantes : this.raios).push(fx.raio)
+        fx.ciclos--
+      }
+      this.fixos = this.fixos.filter((fx) => fx.ciclos > 0)
     }
     this.desenharTras(e, f)
     this.emitir(f, dt)
@@ -203,7 +236,7 @@ export class HakiRei {
   }
 
   /** Contorno de um raio que afina da base (larg) até a ponta (0). */
-  private forma(r: Raio, extra: number, cresce: number) {
+  private forma(r: Raio, extra: number, cresce: number, g = this.tras.g) {
     // só a parte já "crescida" do raio (ele avança do corpo para fora)
     const n = r.pts.length
     const ate = Math.max(1, Math.min(n - 1, (n - 1) * cresce))
@@ -231,7 +264,6 @@ export class HakiRei {
       esq.push([px + nx * w, py + ny * w])
       dir.push([px - nx * w, py - ny * w])
     }
-    const g = this.tras.g
     g.beginPath()
     g.moveTo(esq[0][0], esq[0][1])
     for (const [x, y] of esq.slice(1)) g.lineTo(x, y)
@@ -243,6 +275,7 @@ export class HakiRei {
   }
 
   private desenharTras(e: number, f: number) {
+    this.desenharLonge(e)
     const { g, t } = this.tras
     g.clearRect(0, 0, PX, PX)
     // névoa vermelha em volta do corpo
@@ -257,7 +290,7 @@ export class HakiRei {
     const idade = (this.t * 20) % 1 // fração desde o último "relâmpago"
     g.lineJoin = 'miter'
     for (const r of this.raios) {
-      const cresce = Math.min(1, Math.max(0, (idade * 3 - r.nasce) / 0.6) + (f > 0.15 ? 0.5 : 0))
+      const cresce = r.nasce < 0 ? 1 : Math.min(1, Math.max(0, (idade * 3 - r.nasce) / 0.6) + (f > 0.15 ? 0.5 : 0))
       g.shadowColor = 'rgba(255,20,50,1)'
       g.shadowBlur = 30
       g.fillStyle = `rgba(255,35,70,${alfa})`
@@ -279,6 +312,110 @@ export class HakiRei {
       g.fillRect(0, 0, PX, PX)
     }
     t.needsUpdate = true
+  }
+
+  /** 1 a 3 raios enormes, que atravessam boa parte do tabuleiro. */
+  private gerarGigantes(e: number): Raio[] {
+    const r: Raio[] = []
+    const n = e > 0.6 ? 1 + Math.floor(Math.random() * 3) : Math.random() < 0.5 ? 1 : 0
+    for (let i = 0; i < n; i++) {
+      let ang = Math.random() * Math.PI * 2
+      if (Math.sin(ang) > 0.4 && Math.random() < 0.5) ang = -ang
+      const comp = PX * (0.28 + Math.random() * 0.19)
+      const seg = 6 + Math.floor(Math.random() * 5)
+      const pts: [number, number][] = [[PX / 2, PX / 2]]
+      let [x, y] = pts[0]
+      let lado = Math.random() < 0.5 ? 1 : -1
+      let rumo = ang
+      for (let k = 1; k <= seg; k++) {
+        const passo = (comp / seg) * (0.4 + Math.random() * 1.2)
+        const quebra = lado * (0.25 + Math.random() * 0.7)
+        if (Math.random() < 0.75) lado = -lado
+        rumo = ang + quebra + (rumo - ang) * 0.25
+        x += Math.cos(rumo) * passo
+        y += Math.sin(rumo) * passo * 0.92
+        pts.push([x, y])
+      }
+      r.push({ pts, larg: 12 + Math.random() * 10, nasce: -1 })
+      // galhos no meio do caminho
+      for (let b = 0; b < 2; b++) {
+        if (Math.random() < 0.4) continue
+        const j = 2 + Math.floor(Math.random() * (pts.length - 3))
+        const ga = ang + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.6)
+        const gp: [number, number][] = [pts[j]]
+        let [gx, gy] = pts[j]
+        for (let k = 0; k < 3; k++) {
+          const a = ga + (k % 2 ? 0.4 : -0.4)
+          const p = comp * (0.05 + Math.random() * 0.07)
+          gx += Math.cos(a) * p
+          gy += Math.sin(a) * p * 0.92
+          gp.push([gx, gy])
+        }
+        r.push({ pts: gp, larg: 5 + Math.random() * 4, nasce: -1 })
+      }
+    }
+    return r
+  }
+
+  private desenharLonge(e: number) {
+    const { g, t } = this.longe
+    g.clearRect(0, 0, PX, PX)
+    const alfa = Math.min(1, e * 1.3)
+    g.lineJoin = 'miter'
+    for (const r of this.gigantes) {
+      g.shadowColor = 'rgba(255,20,50,1)'
+      g.shadowBlur = 18
+      g.fillStyle = `rgba(255,35,70,${alfa})`
+      this.forma(r, 6, 1, g)
+      g.fill()
+      g.shadowBlur = 0
+      g.fillStyle = `rgba(8,0,3,${alfa})`
+      this.forma(r, 0, 1, g)
+      g.fill()
+    }
+    t.needsUpdate = true
+  }
+
+  /** Ponto do mundo → coordenada no quadro dos raios (que encara a câmera). */
+  private noQuadro(q: THREE.Vector3, camera: THREE.Camera, tam = TAM): [number, number] {
+    const o = camera.getWorldPosition(new THREE.Vector3())
+    const fwd = camera.getWorldDirection(new THREE.Vector3())
+    const dir = q.clone().sub(o)
+    const k = this.centro.clone().sub(o).dot(fwd) / dir.dot(fwd)
+    const p = o.add(dir.multiplyScalar(k)).sub(this.centro)
+    const dirX = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0)
+    const dirY = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1)
+    return [PX / 2 + (p.dot(dirX) / tam) * PX, PX / 2 - (p.dot(dirY) / tam) * PX]
+  }
+
+  /** Um raio desce do corpo até um ponto do convés e explode lá. */
+  private golpear(camera: THREE.Camera, longe: boolean) {
+    const a = Math.random() * Math.PI * 2
+    const d = longe ? 3.5 + Math.random() * 4.5 : 1.2 + Math.random() * 1.8
+    const alvo = new THREE.Vector3(this.pe.x + Math.cos(a) * d, 0, this.pe.z + Math.sin(a) * d)
+    const [tx, ty] = this.noQuadro(alvo, camera, longe ? TAM_LONGE : TAM)
+    if (tx < 20 || tx > PX - 20 || ty < 20 || ty > PX - 20) return
+    // zigue-zague do centro até o ponto
+    const x0 = PX / 2
+    const y0 = PX / 2
+    const seg = 5 + Math.floor(Math.random() * 3)
+    const len = Math.hypot(tx - x0, ty - y0)
+    const nx = -(ty - y0) / len
+    const ny = (tx - x0) / len
+    const pts: [number, number][] = [[x0, y0]]
+    let lado = Math.random() < 0.5 ? 1 : -1
+    for (let k = 1; k < seg; k++) {
+      const u = k / seg
+      const desvio = lado * len * (0.05 + Math.random() * 0.1) * Math.sin(Math.PI * u)
+      lado = -lado
+      pts.push([x0 + (tx - x0) * u + nx * desvio, y0 + (ty - y0) * u + ny * desvio])
+    }
+    pts.push([tx, ty])
+    this.fixos.push({ raio: { pts, larg: longe ? 14 + Math.random() * 6 : 22 + Math.random() * 12, nasce: -1 }, ciclos: 5, longe })
+    this.golpes++
+    const im = new ImpactoHaki(alvo, longe ? 1.3 + Math.random() * 0.5 : 1 + Math.random() * 0.4)
+    this.impactos.push(im)
+    this.grupoImpactos.add(...im.objetos)
   }
 
   // ---------------------------------------------------------------- partículas
@@ -349,6 +486,8 @@ export class HakiRei {
   }
 
   descartar() {
+    for (const im of this.impactos) im.descartar()
+    this.longe.t.dispose()
     this.tras.t.dispose()
     this.frente.t.dispose()
     this.matChao.dispose()

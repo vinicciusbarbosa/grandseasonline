@@ -400,7 +400,7 @@ export class CenaTabuleiro {
     this.poeiras = this.poeiras.filter((po) => po.vivo)
     this.flutuantes = this.flutuantes.map((f) => ({ ...f, t: f.t + dtReal })).filter((f) => f.t < 1.2)
     for (const h of this.hakis) {
-      h.atualizar(dt)
+      h.atualizar(dt, this.camera)
       if (!h.vivo) {
         this.cena.remove(...h.objetos)
         h.descartar()
