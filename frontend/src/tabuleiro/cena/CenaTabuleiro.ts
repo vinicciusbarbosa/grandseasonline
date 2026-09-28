@@ -58,7 +58,7 @@ export class CenaTabuleiro {
   private velocidade = 1
   private flutuantes: Flutuante[] = []
   private idFlut = 0
-  private dica = 'Clique num capitão para selecionar.'
+  private dica = 'Escolha um capitão.'
   private readonly ouvintes = new Set<() => void>()
   private estado: EstadoTela
   private readonly pan = new THREE.Vector3()
@@ -131,8 +131,11 @@ export class CenaTabuleiro {
     this.estado = this.montarEstado()
     this.redimensionar()
     window.addEventListener('resize', this.redimensionar)
+    // toque ou mouse: tocar/clicar escolhe; arrastar move a câmera
+    cv.style.touchAction = 'none'
     cv.addEventListener('pointermove', this.aoMover)
-    cv.addEventListener('pointerdown', this.aoClicar)
+    cv.addEventListener('pointerdown', this.aoApertar)
+    cv.addEventListener('pointerup', this.aoSoltar)
     cv.addEventListener('contextmenu', this.aoDireito)
     window.addEventListener('keydown', this.aoTecla)
     this.quadro = requestAnimationFrame(this.laco)
@@ -195,7 +198,9 @@ export class CenaTabuleiro {
     const dpr = window.devicePixelRatio || 1
     // um pixel da cena = `escala` pixels do aparelho (sempre inteiro, para a
     // pixel art não deformar); a cena tem pelo menos ~1500×820 pixels
-    this.escala = Math.max(1, Math.floor(Math.min((r.width * dpr) / 1500, (r.height * dpr) / 820)))
+    const cabe = Math.min((r.width * dpr) / 1500, (r.height * dpr) / 820)
+    // telas pequenas (celular): a cena fica com ~1500 px e o navegador reduz
+    this.escala = cabe >= 1 ? Math.floor(cabe) : cabe
     this.largura = Math.max(320, Math.floor((r.width * dpr) / this.escala))
     this.altura = Math.max(180, Math.floor((r.height * dpr) / this.escala))
     this.renderer.setSize(this.largura, this.altura, false)
@@ -310,7 +315,36 @@ export class CenaTabuleiro {
     return { x0: x - meia, x1: x + meia, y0: topo, y1: y + 2 }
   }
 
+  private arrasto: { x: number; y: number; moveu: boolean } | null = null
+
+  private aoApertar = (ev: PointerEvent) => {
+    if (ev.button !== 0) return
+    this.arrasto = { x: ev.clientX, y: ev.clientY, moveu: false }
+    this.renderer.domElement.setPointerCapture(ev.pointerId)
+  }
+
+  private aoSoltar = (ev: PointerEvent) => {
+    const a = this.arrasto
+    this.arrasto = null
+    if (a && !a.moveu) this.aoClicar(ev)
+  }
+
   private aoMover = (ev: PointerEvent) => {
+    const a = this.arrasto
+    if (a) {
+      const dx = ev.clientX - a.x
+      const dy = ev.clientY - a.y
+      if (!a.moveu && Math.hypot(dx, dy) > 8) a.moveu = true
+      if (a.moveu) {
+        // pixels da tela → casas: a casa do meio mede PX_CASA pixels da cena
+        const r = this.renderer.domElement.getBoundingClientRect()
+        const k = this.largura / r.width / PX_CASA
+        this.moverCamera(-dx * k, -dy * k * (64 / 48))
+        a.x = ev.clientX
+        a.y = ev.clientY
+      }
+      return
+    }
     const alvo = this.pegar(ev)
     if (!alvo) {
       this.hover.visible = false
@@ -399,7 +433,7 @@ export class CenaTabuleiro {
     this.limparMarcas()
     this.alvosAlcance = null
     if (!p) {
-      this.dica = 'Clique num capitão para selecionar.'
+      this.dica = 'Escolha um capitão.'
       return
     }
     const ocupada = (c: Casa) => this.personagens.some((o) => o !== p && mesmaCasa(o.casa, c))
@@ -411,7 +445,7 @@ export class CenaTabuleiro {
       const perto = vizinhos(o.casa).some((v) => mesmaCasa(v, p.casa) || a.caminho(v))
       if (perto) this.marcar(o.casa, this.matAlvo)
     }
-    this.dica = `${p.nome}: clique numa casa azul para andar ou no inimigo para atacar.`
+    this.dica = `${p.nome}: casa azul anda, inimigo ataca.`
   }
 
   private marcar(c: Casa, mat: THREE.Material) {

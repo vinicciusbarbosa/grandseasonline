@@ -19,6 +19,10 @@ export default function TelaTabuleiro() {
     return () => c.destruir()
   }, [])
 
+  // celular: painel compacto no canto de baixo e textos de toque
+  const toque = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+  const pequena = typeof window !== 'undefined' && Math.min(window.innerWidth, window.innerHeight) < 560
+
   const estado = useSyncExternalStore(cena?.inscrever ?? nada, cena?.retrato ?? (() => VAZIO))
 
   return (
@@ -70,18 +74,20 @@ export default function TelaTabuleiro() {
         style={{
           position: 'absolute',
           left: 12,
-          top: 12,
+          ...(pequena ? { bottom: 12 } : { top: 12 }),
           padding: '10px 12px',
           background: 'rgba(20,12,8,0.78)',
           border: '2px solid #b58a4a',
           color: '#f3e3c3',
-          font: '12px/1.45 monospace',
-          maxWidth: 360,
+          font: pequena ? '11px/1.35 monospace' : '12px/1.45 monospace',
+          maxWidth: pequena ? 250 : 360,
         }}
       >
         <div style={{ font: '700 14px monospace', color: '#ffd88a', marginBottom: 4 }}>Teste de tabuleiro · 10×20</div>
         <div>{estado.dica}</div>
-        <div style={{ opacity: 0.7, marginTop: 4 }}>Botão direito ou Esc: cancelar.</div>
+        <div style={{ opacity: 0.7, marginTop: 4 }}>
+          {toque ? 'Toque para escolher · arraste para mover a câmera.' : 'Botão direito ou Esc: cancelar · setas/WASD movem a câmera.'}
+        </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
           <span>Velocidade:</span>
           {[1, 0.5, 0.25, 0.1].map((v) => (
