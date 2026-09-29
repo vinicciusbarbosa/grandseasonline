@@ -30,10 +30,12 @@ type Manifesto = {
 const ESPELHO: Partial<Record<Direcao, Direcao>> = { SW: 'SE', W: 'E', NW: 'NE' }
 
 /** Tempo de cada animação no jogo (12 quadros nas folhas completas). */
-const TEMPO: Record<NomeAnim, { fps: number; laco: boolean; impacto?: number; poeira?: number[] }> = {
+// `ciclo` (s): duração fixa do laço, qualquer que seja o número de quadros —
+// o andar dá um ciclo de passos por casa (8 ou 12 quadros, os pés não deslizam)
+const TEMPO: Record<NomeAnim, { fps: number; ciclo?: number; laco: boolean; impacto?: number; poeira?: number[] }> = {
   parado: { fps: 8, laco: true },
-  andar: { fps: 15, laco: true },
-  correr: { fps: 24, laco: true },
+  andar: { fps: 15, ciclo: 0.8, laco: true },
+  correr: { fps: 24, ciclo: 0.5, laco: true },
   frear: { fps: 16, laco: false, poeira: [0, 3] },
   atacar: { fps: 15, laco: false, impacto: 6 },
   dano: { fps: 16, laco: false },
@@ -85,7 +87,7 @@ export class VisualFolhas implements Visual {
     for (const [nome, t] of Object.entries(TEMPO) as [NomeAnim, (typeof TEMPO)[NomeAnim]][]) {
       const q = Object.values(man.anims[nome] ?? {})[0]?.quadros ?? QUADROS_PADRAO
       const poeira: InfoAnim['poeira'] = Array.from({ length: q }, (_, i) => (t.poeira?.includes(i) ? 'E' : undefined))
-      this.info[nome] = { quadros: q, fps: t.fps, laco: t.laco, impacto: t.impacto, poeira }
+      this.info[nome] = { quadros: q, fps: t.ciclo ? q / t.ciclo : t.fps, laco: t.laco, impacto: t.impacto, poeira }
     }
     this.sprite = new THREE.Sprite(materialIluminado())
     texSombra ??= texturaSombra()

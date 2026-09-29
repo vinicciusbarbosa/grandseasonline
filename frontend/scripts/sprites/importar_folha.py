@@ -361,19 +361,20 @@ def costura(ocup, alvo, j):
 
 
 def grade_fixa(alfa, achados):
-    """Folha de 12 quadros em grade (4 colunas × 3 linhas ou 3 × 4) quando a
-    detecção livre não achou exatamente 12 (quadros encostados ou uma
+    """Folha em grade (4 colunas × 3 linhas, 3 × 4, 4 × 2 ou 3 × 2) quando a
+    detecção livre não achou a conta certa (quadros encostados ou uma
     manga partida em dois pedaços).
     Linhas pelas faixas vazias; colunas separadas por costuras de menor
     ocupação perto de cada divisão regular. Devolve (x0, x1, y0, y1, esq, dir):
     esq/dir = x da costura em cada linha (a célula é o que fica entre elas)."""
-    if achados == 12:
-        return None
     H, W = alfa.shape
     linhas = faixas(alfa.any(axis=1), 2)
     for col in (4, 3):
-        if len(linhas) * col != 12:
+        # 12 (4×3 / 3×4), 8 (4×2) ou 6 (3×2) quadros
+        if len(linhas) * col not in (6, 8, 12):
             continue
+        if achados == len(linhas) * col:
+            return None
         caixas = []
         for y0, y1 in linhas:
             ocup = alfa[y0:y1]
