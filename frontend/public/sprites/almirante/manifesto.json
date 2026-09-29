@@ -113,6 +113,10 @@
    "N": {
     "arquivo": "correr_N.png",
     "quadros": 8
+   },
+   "NE": {
+    "arquivo": "correr_NE.png",
+    "quadros": 8
    }
   },
   "frear": {
