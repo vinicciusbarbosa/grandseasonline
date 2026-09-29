@@ -223,6 +223,34 @@ def cabeca_x(q):
     return xs.mean()
 
 
+def largura_quepe(m):
+    """Largura da figura 30 px abaixo do topo (quepe/cabeça: não muda com o passo)."""
+    ys = np.nonzero(m.any(axis=1))[0]
+    xs = np.nonzero(m[min(ys.min() + 30, ys.max())])[0]
+    return float(xs.max() - xs.min())
+
+
+def escalar_pelo_parado(celulas, origem, reduzidas, escala, pasta, direcao):
+    """Com as pernas abertas a figura fica mais baixa e a escala pela altura a
+    aumenta; no andar/correr cada imagem é escalada para o quepe ter a largura
+    do quepe do parado da mesma direção."""
+    arq = os.path.join(pasta, f'parado_{direcao}.png')
+    if not os.path.exists(arq):
+        return reduzidas
+    alvo = largura_quepe(np.asarray(Image.open(arq).convert('RGBA'))[:, :QUADRO, 3] > 0)
+    saida = list(reduzidas)
+    for n in sorted(set(origem)):
+        ids = [i for i, o in enumerate(origem) if o == n]
+        e = escala
+        for _ in range(3):
+            larg = np.median([largura_quepe(saida[i][1]) for i in ids])
+            e *= alvo / larg
+            for i in ids:
+                saida[i] = reduzir(*celulas[i], e)
+        print(f'  imagem {n + 1}: escala {e:.3f} (quepe {larg:.0f} → {alvo:.0f})')
+    return saida
+
+
 def alinhar_ao_parado(quadros, pasta, direcao):
     """Cabeça do andar/correr no mesmo x da do parado da direção: a troca
     parado ↔ andando não dá tranco para o lado."""
@@ -424,8 +452,8 @@ def importar_animacao(arquivos, personagem, anim, direcao, ordem=None):
     if 'paleta' not in man:
         sys.exit('importe a referência do personagem primeiro (ela define a paleta)')
     paleta = None if HD else np.array(man['paleta'], np.float32)
-    celulas = []
-    for arquivo in arquivos.split(','):
+    celulas, origem = [], []
+    for n, arquivo in enumerate(arquivos.split(',')):
         rgb, alfa = carregar(arquivo)
         caixas = achar_quadros(alfa)
         grade = grade_fixa(alfa, len(caixas))
@@ -433,13 +461,18 @@ def importar_animacao(arquivos, personagem, anim, direcao, ordem=None):
             celulas += [recortar_costura(rgb, alfa, *c) for c in grade]
         else:
             celulas += [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in caixas]
+        origem += [n] * (len(celulas) - len(origem))
     if ordem:
-        celulas = [celulas[int(i) - 1] for i in ordem.split(',')]
+        idx = [int(i) - 1 for i in ordem.split(',')]
+        celulas, origem = [celulas[i] for i in idx], [origem[i] for i in idx]
     # escala: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
     passos = anim.split(':')[0] in ('andar', 'correr', 'frear')
-    quadros = encaixar_folha([reduzir(c, a, escala) for c, a in celulas], paleta, passos)
+    reduzidas = [reduzir(c, a, escala) for c, a in celulas]
+    if passos:
+        reduzidas = escalar_pelo_parado(celulas, origem, reduzidas, escala, pasta, direcao)
+    quadros = encaixar_folha(reduzidas, paleta, passos)
     if passos:
         quadros = alinhar_ao_parado(quadros, pasta, direcao)
     molde = os.path.join(os.path.dirname(os.path.abspath(arquivos.split(',')[0])), 'moldes', f'{direcao}.png')
