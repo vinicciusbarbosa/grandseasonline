@@ -93,6 +93,10 @@
    "S": {
     "arquivo": "correr_S.png",
     "quadros": 8
+   },
+   "SE": {
+    "arquivo": "correr_SE.png",
+    "quadros": 12
    }
   },
   "frear": {
