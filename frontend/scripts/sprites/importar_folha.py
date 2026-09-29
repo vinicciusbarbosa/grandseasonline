@@ -196,16 +196,18 @@ def colocar(q, mascara, cx):
     return img
 
 
-def encaixar_folha(figuras, paleta):
+def encaixar_folha(figuras, paleta, pela_cabeca=False):
     """Encaixa todos os quadros de uma animação.
 
     Cada quadro é firmado pela média cabeça+pés (a casaca abrindo não o puxa
     para os lados); depois a folha inteira é deslocada de uma vez para os
     PÉS caírem no centro da casa (na diagonal o corpo é inclinado, e a média
-    sozinha deixava os pés fora do centro)."""
+    sozinha deixava os pés fora do centro).
+    `pela_cabeca`: animações com passos (um pé no ar puxa o "centro dos pés"
+    para o lado do pé apoiado) firmam só pela cabeça."""
     limpas = [limpar(c, m, paleta) for c, m in figuras]
     medidas = [eixos(m) for _, m in limpas]
-    firmes = [(pe + cab) / 2 for pe, cab in medidas]
+    firmes = [cab if pela_cabeca else (pe + cab) / 2 for pe, cab in medidas]
     ajuste = float(np.median([pe - f for (pe, _), f in zip(medidas, firmes)]))
     return [colocar(q, m, f + ajuste) for (q, m), f in zip(limpas, firmes)]
 
@@ -409,7 +411,8 @@ def importar_animacao(arquivos, personagem, anim, direcao):
     # escala: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
-    quadros = encaixar_folha([reduzir(c, a, escala) for c, a in celulas], paleta)
+    passos = anim.split(':')[0] in ('andar', 'correr', 'frear')
+    quadros = encaixar_folha([reduzir(c, a, escala) for c, a in celulas], paleta, passos)
     molde = os.path.join(os.path.dirname(os.path.abspath(arquivos.split(',')[0])), 'moldes', f'{direcao}.png')
     if ALINHAR_PELO_MOLDE and os.path.exists(molde):
         quadros = registrar(quadros, np.asarray(Image.open(molde).convert('RGBA')))
