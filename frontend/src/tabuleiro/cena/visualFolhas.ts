@@ -37,6 +37,7 @@ const TEMPO: Record<NomeAnim, { fps: number; ciclo?: number; laco: boolean; impa
   andar: { fps: 15, ciclo: 0.8, laco: true },
   correr: { fps: 15, ciclo: 0.64, laco: true },
   frear: { fps: 12, laco: false, poeira: [2, 4] }, // pé arrastando (derrapagem)
+  parar: { fps: 14, laco: false }, // parada brusca (corrida curta, 2 casas)
   atacar: { fps: 15, laco: false, impacto: 6 },
   dano: { fps: 16, laco: false },
 }
@@ -135,6 +136,10 @@ export class VisualFolhas implements Visual {
       this.texturas.set(a.arquivo, t)
     }
     return { t, quadros: a.quadros, propria: !!this.man.anims[anim]?.[dir] }
+  }
+
+  tem(anim: NomeAnim, dir: Direcao) {
+    return !!this.man.anims[anim]?.[dir] || (dir in ESPELHO && !!this.man.anims[anim]?.[ESPELHO[dir]!])
   }
 
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {

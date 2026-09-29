@@ -9,7 +9,7 @@ import { LUZ_NEUTRA, type LuzPersonagem } from './luzSprite'
  * que só recebe "qual animação, em que ponto, para onde olha".
  */
 
-export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'atacar' | 'dano'
+export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'parar' | 'atacar' | 'dano'
 export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 
 
@@ -27,6 +27,8 @@ export interface Visual {
   /** altura do sprite na tela (px da cena, sem zoom), do pé ao topo */
   readonly alturaPx: number
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number): void
+  /** a animação foi desenhada para essa direção? (sem isso, cai no que houver) */
+  tem?(anim: NomeAnim, dir: Direcao): boolean
 }
 const VEL_ANDAR = 1.25 // casas/s: um ciclo de passos por casa
 const VEL_CORRER = 3.1 // casas/s: ~2,5 casas por ciclo de passadas (0,8 s)
@@ -60,6 +62,8 @@ export class Personagem {
   private readonly info: Record<NomeAnim, InfoAnim>
   private caminho: Casa[] = []
   private correndo = false
+  /** corrida curta (2 casas): termina com uma parada brusca em vez de derrapar */
+  private curto = false
   private trecho: Trecho | null = null
   private freio: { de: THREE.Vector3; para: THREE.Vector3 } | null = null
   private aoChegar: (() => void) | null = null
@@ -82,7 +86,7 @@ export class Personagem {
   }
 
   get ocupado() {
-    return this.anim === 'atacar' || this.anim === 'dano' || this.anim === 'frear' || this.trecho !== null
+    return this.anim === 'atacar' || this.anim === 'dano' || this.anim === 'frear' || this.anim === 'parar' || this.trecho !== null
   }
 
   private tocar(anim: NomeAnim) {
@@ -101,6 +105,7 @@ export class Personagem {
     }
     this.caminho = [...caminho]
     this.correndo = caminho.length > 1
+    this.curto = caminho.length === 2
     this.aoChegar = aoChegar ?? null
     this.tocar(this.correndo ? 'correr' : 'andar')
     this.proximoTrecho()
@@ -160,7 +165,7 @@ export class Personagem {
         // correndo, o último trecho termina freando (arrastando o pé)
         this.trecho = null
         this.freio = { de: this.pos.clone(), para: tr.para.clone() }
-        this.tocar('frear')
+        this.tocar(this.curto && (this.visual.tem?.('parar', this.dir) ?? false) ? 'parar' : 'frear')
       } else if (tr.t >= 1) {
         if (tr.pulo) this.poeiras.push(this.pos.clone().setY(0))
         this.pos.copy(tr.para)
@@ -190,7 +195,7 @@ export class Personagem {
     }
     if (this.tAnim >= dur) {
       if (f.laco) this.tAnim %= dur
-      else if (this.anim === 'frear') {
+      else if (this.anim === 'frear' || this.anim === 'parar') {
         this.freio = null
         this.tocar('parado')
         this.chegou()
