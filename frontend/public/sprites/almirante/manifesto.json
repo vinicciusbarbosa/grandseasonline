@@ -75,6 +75,10 @@
    "W": {
     "arquivo": "andar_W.png",
     "quadros": 8
+   },
+   "NE": {
+    "arquivo": "andar_NE.png",
+    "quadros": 8
    }
   }
  },
