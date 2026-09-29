@@ -29,8 +29,8 @@ export interface Visual {
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number): void
 }
 const VEL_ANDAR = 1.25 // casas/s: um ciclo de passos por casa
-const VEL_CORRER = 4.4
-const FREIO = 0.55 // distância (casas) em que começa a frear
+const VEL_CORRER = 3.1 // casas/s: ~2,5 casas por ciclo de passadas (0,8 s)
+const FREIO = 0.7 // distância (casas) em que começa a frear
 const PASSO_DIR: Record<Direcao, [number, number]> = { S: [1, 0], SE: [1, 1], E: [0, 1], NE: [-1, 1], N: [-1, 0], NW: [-1, -1], W: [0, -1], SW: [1, -1] }
 
 /** Direção (8) a partir de um deslocamento no tabuleiro (linhas, colunas). */
