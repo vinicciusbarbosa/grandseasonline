@@ -25,7 +25,11 @@ def camadas(q):
     """(corpo, perna_longe, perna_perto) em RGBA do tamanho do quadro."""
     al = q[..., 3] > 0
     r, g, b = (q[..., i].astype(int) for i in range(3))
-    casaco = al & (((r > 170) & (g > 170) & (b > 170)) | ((r > 170) & (g > 120) & (b < 110)))
+    # casaco: branco ou dourado/laranja (inclui o dourado mais escuro da barra)
+    casaco = al & (((r > 170) & (g > 170) & (b > 170)) | ((r > 110) & (r > b + 40)))
+    # calça (azul) ou sapato (preto)
+    calca = al & (b > r + 25)
+    escuro = al & (np.maximum(np.maximum(r, g), b) < 70)
     ys = np.nonzero(al.any(axis=1))[0]
     chao = ys.max()
     altura = chao - ys.min()
@@ -36,7 +40,17 @@ def camadas(q):
         # (o brilho branco dos sapatos não é casaco: para antes deles)
         col = np.nonzero(casaco[faixa:chao - 22, x])[0]
         topo = faixa + col.max() + 1 if len(col) else faixa + 6
-        perna[topo:, x] = al[topo:, x]
+        # a perna começa no primeiro azul/preto (o contorno da barra fica no corpo)
+        # (preto só vale na altura dos sapatos: o contorno da barra também é escuro)
+        cp = np.nonzero(calca[topo:chao + 1, x])[0]
+        sp = np.nonzero(escuro[max(topo, chao - 22):chao + 1, x])[0]
+        if len(cp):
+            y0 = max(topo, topo + cp.min() - 1)
+        elif len(sp):
+            y0 = max(topo, chao - 22) + sp.min()
+        else:
+            continue
+        perna[y0:, x] = al[y0:, x]
     # o sabre (dourado/azul) pendurado abaixo da barra é do corpo
     dourado = al & (r > 170) & (g > 120) & (b < 110)
     xs_s = np.nonzero(dourado[faixa + 4:chao - 18].any(axis=0))[0]
@@ -53,6 +67,16 @@ def camadas(q):
                 if len(ys_p):
                     lim = min(lim, chao - 22 + ys_p.min())
                 perna[:lim, x0:x1] = False
+    import cv2
+    # contorno escuro colado na perna (lados da calça) vai junto com ela
+    kern = np.ones((3, 3), np.uint8)
+    for _ in range(2):
+        perna |= (cv2.dilate(perna.astype(np.uint8), kern) > 0) & escuro & ~casaco
+    # pedaços soltos (contorno do sabre etc.) voltam para o corpo
+    n, rot, st, _ = cv2.connectedComponentsWithStats(perna.astype(np.uint8), connectivity=8)
+    for k in range(1, n):
+        if st[k, cv2.CC_STAT_AREA] < 60:
+            perna[rot == k] = False
     # separa as duas pernas na coluna mais vazia entre elas
     ocup = perna.sum(axis=0)
     xs = np.nonzero(ocup)[0]
