@@ -97,9 +97,14 @@ def conferir_modelos():
             continue
         if nome in lista:
             continue
-        destinos = [d for d in (pastas.get(tipo) or [[]])[0] if d]
+        # formato: {"tipo": [["pasta1", ...], [extensões]]} ou {"tipo": ["pasta1", ...]}
+        v = pastas.get(tipo) or []
+        if v and isinstance(v[0], list):
+            v = v[0]
+        destinos = [d for d in v if isinstance(d, str) and os.path.isabs(d)]
         achado = procurar(nome)
-        if achado and destinos:
+        print(f'O ComfyUI procura {tipo} em: {destinos or "(não informou)"}')
+        if achado and destinos and os.path.dirname(achado) not in destinos:
             import shutil
             destino = destinos[0]
             os.makedirs(destino, exist_ok=True)
