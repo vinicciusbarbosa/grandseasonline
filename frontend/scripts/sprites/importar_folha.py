@@ -213,7 +213,19 @@ def encaixar_folha(figuras, paleta, pela_cabeca=False):
     medidas = [eixos(m) for _, m in limpas]
     firmes = [cab if pela_cabeca else (pe + cab) / 2 for pe, cab in medidas]
     ajuste = float(np.median([pe - f for (pe, _), f in zip(medidas, firmes)]))
-    return [colocar(q, m, f + ajuste) for (q, m), f in zip(limpas, firmes)]
+    quadros = [colocar(q, m, f + ajuste) for (q, m), f in zip(limpas, firmes)]
+    # centro da casa = meio entre os dois sapatos (na diagonal um fica mais
+    # baixo, e as linhas de baixo só pegavam ele)
+    meios = []
+    for q in quadros:
+        pes = q[PE[1] - 14:PE[1], :, 3] > 0
+        xs = np.nonzero(pes.any(axis=0))[0]
+        if len(xs):
+            meios.append((xs.min() + xs.max()) / 2)
+    if meios:
+        dx = int(round(PE[0] - np.median(meios)))
+        quadros = [np.roll(q, dx, axis=1) for q in quadros]
+    return quadros
 
 
 def cabeca_x(q):
@@ -232,22 +244,29 @@ def largura_quepe(m):
 
 def escalar_pelo_parado(celulas, origem, reduzidas, escala, pasta, direcao):
     """Com as pernas abertas a figura fica mais baixa e a escala pela altura a
-    aumenta; no andar/correr cada imagem é escalada para o quepe ter a largura
-    do quepe do parado da mesma direção."""
+    aumenta; no andar/correr cada imagem é escalada pelo parado da mesma
+    direção (largura do quepe e altura com os pés juntos)."""
     arq = os.path.join(pasta, f'parado_{direcao}.png')
     if not os.path.exists(arq):
         return reduzidas
-    alvo = largura_quepe(np.asarray(Image.open(arq).convert('RGBA'))[:, :QUADRO, 3] > 0)
+    m = np.asarray(Image.open(arq).convert('RGBA'))[:, :QUADRO, 3] > 0
+    alvo = largura_quepe(m)
+    ys = np.nonzero(m.any(axis=1))[0]
+    alvo_alt = ys.max() - ys.min() + 1
     saida = list(reduzidas)
     for n in sorted(set(origem)):
         ids = [i for i, o in enumerate(origem) if o == n]
         e = escala
-        for _ in range(3):
+        for _ in range(4):
             larg = np.median([largura_quepe(saida[i][1]) for i in ids])
-            e *= alvo / larg
+            # altura com os pés juntos (o quadro mais alto)
+            alt = max(saida[i][1].shape[0] for i in ids)
+            # a IA às vezes muda a proporção cabeça/corpo: meio-termo entre
+            # igualar o quepe e igualar a altura
+            e *= np.sqrt(alvo / larg * alvo_alt / alt)
             for i in ids:
                 saida[i] = reduzir(*celulas[i], e)
-        print(f'  imagem {n + 1}: escala {e:.3f} (quepe {larg:.0f} → {alvo:.0f})')
+        print(f'  imagem {n + 1}: escala {e:.3f} (quepe {larg:.0f}/{alvo:.0f}, altura {alt}/{alvo_alt})')
     return saida
 
 

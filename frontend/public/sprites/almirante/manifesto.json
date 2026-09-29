@@ -63,6 +63,10 @@
    "SE": {
     "arquivo": "andar_SE.png",
     "quadros": 8
+   },
+   "SW": {
+    "arquivo": "andar_SW.png",
+    "quadros": 8
    }
   }
  },
