@@ -99,18 +99,28 @@ ou reinicie.
 
 ---
 
-## 6. Como vai ser o uso (depois de instalado)
+## 6. Como usar (corrida já pronta)
+
+Os esqueletos e fluxos são gerados por
+`frontend/scripts/sprites/comfy_poses.py` (ex.: `... comfy_poses.py correr`).
+Prévia de todos os esqueletos: `docs/comfyui/poses/previa_correr.png`.
 
 1. `git pull` no projeto.
-2. No ComfyUI: **Workflow → Open** →
-   `C:\projsdev\sugoigame\docs\comfyui\sprite_pose.json`.
-3. No nó **Personagem (referência)**: carregue o `parado_<direção>.png` do
-   personagem (ex.: `docs\sprites\almirante\idle\parado_S.png`).
-4. No nó **Esqueletos**: aponte para a pasta da animação
-   (ex.: `docs\comfyui\poses\correr_S\`) — são 12 imagens, uma por quadro.
-5. **Run**. Sai um quadro por esqueleto em `output\`.
-6. Me manda os quadros (ou a pasta) — eu importo, igualo tamanho/cores com o
-   idle, reduzo para a pixel art do jogo e ponho no jogo.
+2. Copie **todo o conteúdo** de `C:\projsdev\sugoigame\docs\comfyui\entrada\`
+   para a pasta `input` do ComfyUI:
+   `C:\Users\<você>\AppData\Local\Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI\input\`
+   (são os esqueletos `pose_correr_<DIR>_NN.png` e as referências
+   `almirante_<DIR>.png`).
+3. No ComfyUI: **Workflow → Open** (ou arraste o arquivo para a tela) →
+   `docs\comfyui\fluxos\correr_S.json` (troque `S` pela direção).
+4. **Run**. Gera os 12 quadros, um de cada vez (leva alguns minutos).
+   Saem em `ComfyUI\output\correr_S\01.png … 12.png`.
+5. Me manda os 12 quadros (ou a pasta) — eu importo, igualo com o idle e
+   ponho no jogo.
+
+Dica: antes de gerar os 12, teste só um — clique com o botão direito nos
+nós **Gerar 2…12** → *Bypass* (ou Ctrl+B), rode, veja se ficou bom, e depois
+reative.
 
 ### Ajustes que você pode mexer
 | Controle | Efeito | Começar com |
