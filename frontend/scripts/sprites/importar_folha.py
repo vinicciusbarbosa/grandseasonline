@@ -216,6 +216,25 @@ def encaixar_folha(figuras, paleta, pela_cabeca=False):
     return [colocar(q, m, f + ajuste) for (q, m), f in zip(limpas, firmes)]
 
 
+def cabeca_x(q):
+    m = q[..., 3] > 0
+    ys = np.nonzero(m.any(axis=1))[0]
+    _, xs = np.nonzero(m[ys.min():ys.min() + (ys.max() - ys.min()) // 5])
+    return xs.mean()
+
+
+def alinhar_ao_parado(quadros, pasta, direcao):
+    """Cabeça do andar/correr no mesmo x da do parado da direção: a troca
+    parado ↔ andando não dá tranco para o lado."""
+    arq = os.path.join(pasta, f'parado_{direcao}.png')
+    if not os.path.exists(arq):
+        return quadros
+    parado = np.asarray(Image.open(arq).convert('RGBA'))[:, :QUADRO]
+    dx = int(round(cabeca_x(parado) - np.median([cabeca_x(q) for q in quadros])))
+    print('  alinhado ao parado: dx', dx)
+    return [np.roll(q, dx, axis=1) for q in quadros]
+
+
 def encaixar(cor, mascara, paleta):
     """Um quadro só (referência): pés no centro."""
     return encaixar_folha([(cor, mascara)], paleta)[0]
@@ -421,6 +440,8 @@ def importar_animacao(arquivos, personagem, anim, direcao, ordem=None):
     escala = ALTURA / altura
     passos = anim.split(':')[0] in ('andar', 'correr', 'frear')
     quadros = encaixar_folha([reduzir(c, a, escala) for c, a in celulas], paleta, passos)
+    if passos:
+        quadros = alinhar_ao_parado(quadros, pasta, direcao)
     molde = os.path.join(os.path.dirname(os.path.abspath(arquivos.split(',')[0])), 'moldes', f'{direcao}.png')
     if ALINHAR_PELO_MOLDE and os.path.exists(molde):
         quadros = registrar(quadros, np.asarray(Image.open(molde).convert('RGBA')))
