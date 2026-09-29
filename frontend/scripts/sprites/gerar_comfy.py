@@ -60,14 +60,27 @@ def achar_comfy():
 
 
 def conferir_modelos():
-    faltando = []
+    # nós do IP-Adapter carregados? (pacote instalado mas não carregado = aviso no ComfyUI)
+    try:
+        info = json.loads(api('/object_info/IPAdapterUnifiedLoader'))
+    except Exception:
+        info = {}
+    if 'IPAdapterUnifiedLoader' not in info:
+        sys.exit('O pacote ComfyUI_IPAdapter_plus não está carregado no ComfyUI.\n'
+                 'Feche o ComfyUI por completo (inclusive na bandeja do relógio) e abra de novo.\n'
+                 'Se continuar, no Manager desinstale e instale de novo o "ComfyUI_IPAdapter_plus" (autor matteo).')
+    faltando, avisos = [], []
     for pasta, nome in MODELOS.items():
         try:
             lista = json.loads(api(f'/models/{pasta}'))
         except Exception:
             continue  # versão sem essa rota: o erro aparece na geração
         if nome not in lista:
-            faltando.append(f'  {pasta}\\{nome}   (tem: {", ".join(lista) or "nada"})')
+            msg = f'  {pasta}\\{nome}   (o ComfyUI vê: {", ".join(lista) or "nada"})'
+            # ipadapter/clip_vision: a lista às vezes vem vazia mesmo com o arquivo lá — só avisa
+            (avisos if pasta in ('ipadapter', 'clip_vision') else faltando).append(msg)
+    if avisos:
+        print('Aviso (seguindo mesmo assim):\n' + '\n'.join(avisos))
     if faltando:
         sys.exit('Faltam modelos (ou estão com outro nome):\n' + '\n'.join(faltando))
 
