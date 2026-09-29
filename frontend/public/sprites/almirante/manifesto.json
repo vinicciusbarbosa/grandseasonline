@@ -109,6 +109,10 @@
    "W": {
     "arquivo": "correr_W.png",
     "quadros": 8
+   },
+   "N": {
+    "arquivo": "correr_N.png",
+    "quadros": 8
    }
   },
   "frear": {
