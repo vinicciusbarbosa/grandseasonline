@@ -97,6 +97,10 @@
    "SE": {
     "arquivo": "correr_SE.png",
     "quadros": 12
+   },
+   "SW": {
+    "arquivo": "correr_SW.png",
+    "quadros": 8
    }
   },
   "frear": {
