@@ -14,6 +14,10 @@ Importa folhas de sprites geradas por IA (fundo magenta) para o jogo.
     python3 frontend/scripts/sprites/importar_folha.py animacao \\
         .../parado_S_vento.png almirante parado:vento S
 
+    # quadros fora de ordem na folha: 6º argumento com a ordem (começa em 1)
+    python3 frontend/scripts/sprites/importar_folha.py animacao \\
+        .../andar_S_folha.png almirante andar S 1,2,3,8,5,6,7,4
+
 O que faz com a imagem, do jeito que a IA entregar:
   1. tira o fundo magenta;
   2. acha cada figura (colunas da referência ou células da grade);
@@ -394,8 +398,9 @@ def recortar_costura(rgb, alfa, x0, x1, y0, y1, esq, dir):
     return recortar(rgb[y0:y1, x0:x1], a, 0, x1 - x0, 0, y1 - y0)
 
 
-def importar_animacao(arquivos, personagem, anim, direcao):
-    """`arquivos`: uma ou mais imagens (separadas por vírgula), lidas em ordem."""
+def importar_animacao(arquivos, personagem, anim, direcao, ordem=None):
+    """`arquivos`: uma ou mais imagens (separadas por vírgula), lidas em ordem.
+    `ordem`: "1,2,3,8,..." reordena os quadros achados (a IA às vezes troca dois)."""
     pasta, cam, man = manifesto(personagem)
     if 'paleta' not in man:
         sys.exit('importe a referência do personagem primeiro (ela define a paleta)')
@@ -409,6 +414,8 @@ def importar_animacao(arquivos, personagem, anim, direcao):
             celulas += [recortar_costura(rgb, alfa, *c) for c in grade]
         else:
             celulas += [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in caixas]
+    if ordem:
+        celulas = [celulas[int(i) - 1] for i in ordem.split(',')]
     # escala: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
@@ -436,6 +443,6 @@ if __name__ == '__main__':
     if modo == 'referencia':
         importar_referencia(sys.argv[2], sys.argv[3])
     elif modo == 'animacao':
-        importar_animacao(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+        importar_animacao(*sys.argv[2:7])
     else:
         sys.exit(__doc__)

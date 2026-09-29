@@ -54,6 +54,12 @@
     "arquivo": "parado_NW.png",
     "quadros": 12
    }
+  },
+  "andar": {
+   "S": {
+    "arquivo": "andar_S.png",
+    "quadros": 8
+   }
   }
  },
  "paleta": [

@@ -140,8 +140,10 @@ export class VisualFolhas implements Visual {
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
     // direção da esquerda desenhada de verdade (texto do quepe certo) tem
     // prioridade; sem ela, usa o espelho da direita
-    const propria = !!this.man.anims[e.anim]?.[e.dir]
-    const espelha = !propria && e.dir in ESPELHO
+    // (só espelha se a direita tiver essa animação; senão cai no parado da
+    // própria direção, que já existe nas 8)
+    const tem = (d: Direcao) => !!this.man.anims[e.anim]?.[d]
+    const espelha = !tem(e.dir) && e.dir in ESPELHO && tem(ESPELHO[e.dir]!)
     const dir = espelha ? ESPELHO[e.dir]! : e.dir
     const info = this.info[e.anim]
     const dur = info.quadros / info.fps
