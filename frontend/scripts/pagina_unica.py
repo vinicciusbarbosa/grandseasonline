@@ -14,12 +14,17 @@ js = open(glob.glob(os.path.join(raiz, 'dist-teste', 'assets', '*.js'))[0], enco
 js = js.replace('</script', '<\\/script')
 emb = {}
 sem_sprites = '--sem-sprites' in sys.argv
+# --qualidade=N: WebP com perda (N de 1 a 100) — só para caber no limite da página publicada
+QUALIDADE = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--qualidade=')), 0)
 for arq in [] if sem_sprites else glob.glob(os.path.join(raiz, 'public', 'sprites', '**', '*.*'), recursive=True):
     rel = os.path.relpath(arq, os.path.join(raiz, 'public')).replace(os.sep, '/')
     if arq.endswith('.png'):
         # WebP sem perda: ~30% menor que o PNG (a página cabe no limite de 16 MB)
         b = io.BytesIO()
-        Image.open(arq).save(b, 'WEBP', lossless=True, method=6, quality=100)
+        if QUALIDADE:
+            Image.open(arq).save(b, 'WEBP', quality=QUALIDADE, method=6, alpha_quality=100)
+        else:
+            Image.open(arq).save(b, 'WEBP', lossless=True, method=6, quality=100)
         emb[rel] = 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
         continue
     tipo = 'application/json' if arq.endswith('.json') else 'application/octet-stream'
