@@ -161,11 +161,15 @@ export class Personagem {
       this.pos.lerpVectors(tr.de, tr.para, tr.t)
       this.pos.y = tr.pulo ? Math.sin(Math.PI * tr.t) * 0.7 : 0
       const falta = Math.hypot(tr.para.x - this.pos.x, tr.para.z - this.pos.z)
-      if (this.correndo && tr.ultimo && !tr.pulo && falta <= FREIO) {
+      // sem derrapagem/parada desenhada nessa direção: termina a corrida e fica parado
+      const freia = this.visual.tem ? this.visual.tem('frear', this.dir) || this.visual.tem('parar', this.dir) : true
+      if (this.correndo && freia && tr.ultimo && !tr.pulo && falta <= FREIO) {
         // correndo, o último trecho termina freando (arrastando o pé)
         this.trecho = null
         this.freio = { de: this.pos.clone(), para: tr.para.clone() }
-        this.tocar(this.curto && (this.visual.tem?.('parar', this.dir) ?? false) ? 'parar' : 'frear')
+        const parar = this.visual.tem?.('parar', this.dir) ?? false
+        const frear = this.visual.tem?.('frear', this.dir) ?? true
+        this.tocar((this.curto && parar) || !frear ? 'parar' : 'frear')
       } else if (tr.t >= 1) {
         if (tr.pulo) this.poeiras.push(this.pos.clone().setY(0))
         this.pos.copy(tr.para)
