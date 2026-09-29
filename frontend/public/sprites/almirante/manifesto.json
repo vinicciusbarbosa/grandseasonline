@@ -88,6 +88,18 @@
     "arquivo": "andar_N.png",
     "quadros": 8
    }
+  },
+  "correr": {
+   "S": {
+    "arquivo": "correr_S.png",
+    "quadros": 12
+   }
+  },
+  "frear": {
+   "S": {
+    "arquivo": "frear_S.png",
+    "quadros": 12
+   }
   }
  },
  "paleta": [

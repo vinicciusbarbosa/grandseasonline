@@ -36,7 +36,7 @@ const TEMPO: Record<NomeAnim, { fps: number; ciclo?: number; laco: boolean; impa
   parado: { fps: 8, laco: true },
   andar: { fps: 15, ciclo: 0.8, laco: true },
   correr: { fps: 24, ciclo: 0.5, laco: true },
-  frear: { fps: 16, laco: false, poeira: [0, 3] },
+  frear: { fps: 16, laco: false, poeira: [2, 4] }, // pé arrastando (derrapagem)
   atacar: { fps: 15, laco: false, impacto: 6 },
   dano: { fps: 16, laco: false },
 }
