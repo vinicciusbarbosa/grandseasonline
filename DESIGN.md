@@ -36,6 +36,52 @@ De costado, sem trocar de modo: baterias de bombordo/boreste (Q/E), arco e
 alcance, recarga, acerto pior com distância/velocidade/tempestade, casco e
 velas. Abordagem quando o inimigo está avariado, perto e devagar.
 
+### Mundo e navegação
+**Escala.** Ilhas bem maiores que o navio (~10×, 2–3× o tamanho de hoje),
+com casas, árvores e marcos na proporção certa em relação ao navio (casa ≈
+1/3 do navio), na ilha inteira. Costa e porto bem detalhados; o interior na
+mesma escala, com menos coisa (morros, floresta, estradas e os marcos). Ao
+atracar, a cidade abre em outra tela, em escala real.
+Técnica: a ilha é gerada em blocos (só o que aparece na tela) e com nível de
+detalhe pela distância; uma imagem única por ilha não cabe na memória.
+
+**Fidelidade ao anime.** Cada ilha mantém o contorno, os marcos e o clima do
+anime (Shells Town com a base e o muro circular, Foosha com o moinho e o bar
+da Makino, Orange Town com o circo do Buggy, Baratie, Arlong Park com a casa
+da Nami, Loguetown com o cadafalso). Com a escala maior, cabem os detalhes
+que hoje ficaram de fora. Rever cada ilha contra cenas do anime antes.
+
+**Mapa.** O mar cresce bastante: viagens longas fazem parte do jogo. As
+ilhas mantêm as posições do mapa oficial de One Piece (mesma direção e
+proporção entre elas, distâncias maiores). Meta inicial: 3–8 min entre ilhas
+vizinhas sem eventos; ajustar testando.
+
+**Mar com conteúdo.** Navios NPC (Marinha, piratas, mercantes) em rotas,
+encontros aleatórios, Reis do Mar (mais comuns longe das rotas seguras),
+baús flutuantes e destroços com recompensa, clima (tempestade, neblina,
+redemoinho). Algo à vista ou perto a cada 30–60 s de navegação — mar grande
+sem conteúdo cansa.
+
+**Exploração.** O mapa começa escondido (névoa); só a região inicial aparece.
+Ilhas só entram no mapa depois de avistadas. Cartas náuticas (lojas, baús) e
+NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
+
+**Tripulação e orientação.**
+- **Sem cartógrafo:** sem minimapa, navega às cegas; no mapa-múndi só as ilhas
+  visitadas (sem contorno da costa nem rotas).
+- **Com cartógrafo:** minimapa, e o mapa vai sendo desenhado por onde o navio
+  passa (a névoa some e fica registrada).
+- **Navegador:** prevê o clima (tempestade, redemoinho) antes de acontecer e
+  deixa o navio mais rápido/estável. Sem ele, o clima pega de surpresa.
+- **East Blue:** bússola comum funciona (só aponta o norte). Log Pose não é
+  necessário, como no anime.
+- **Grand Line** (depois da Reverse Mountain): a bússola gira sem direção.
+  **Log Pose** grava o magnetismo da ilha: depois de um tempo mínimo nela
+  (cada ilha com o seu), trava apontando para a próxima; sair antes = sem
+  direção. Ilhas com mais de uma rota apontam conforme a ilha de origem (as
+  7 rotas da entrada). **Eternal Pose**: item raro (baú, missão) que aponta
+  sempre para uma ilha.
+
 ---
 
 ## Agora
