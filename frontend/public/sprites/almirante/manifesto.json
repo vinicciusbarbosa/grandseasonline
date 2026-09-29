@@ -117,6 +117,10 @@
    "NE": {
     "arquivo": "correr_NE.png",
     "quadros": 8
+   },
+   "NW": {
+    "arquivo": "correr_NW.png",
+    "quadros": 8
    }
   },
   "frear": {
