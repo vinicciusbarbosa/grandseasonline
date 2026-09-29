@@ -59,8 +59,27 @@ def achar_comfy():
     sys.exit('Não achei o ComfyUI aberto (portas %s). Abra o ComfyUI e rode de novo.' % PORTAS)
 
 
+def pastas_do_comfy():
+    """Pastas que o ComfyUI usa para cada tipo de modelo."""
+    try:
+        return json.loads(api('/internal/folder_paths'))
+    except Exception:
+        return {}
+
+
+def procurar(nome):
+    """Acha um arquivo de modelo em qualquer lugar provável do PC."""
+    raizes = [os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Comfy-Desktop'),
+              os.path.join(os.path.expanduser('~'), 'Documents', 'ComfyUI'),
+              os.path.join(os.path.expanduser('~'), 'Downloads')]
+    for r in raizes:
+        for base, _, arquivos in os.walk(r):
+            if nome in arquivos:
+                return os.path.join(base, nome)
+    return None
+
+
 def conferir_modelos():
-    # nós do IP-Adapter carregados? (pacote instalado mas não carregado = aviso no ComfyUI)
     try:
         info = json.loads(api('/object_info/IPAdapterUnifiedLoader'))
     except Exception:
@@ -69,20 +88,28 @@ def conferir_modelos():
         sys.exit('O pacote ComfyUI_IPAdapter_plus não está carregado no ComfyUI.\n'
                  'Feche o ComfyUI por completo (inclusive na bandeja do relógio) e abra de novo.\n'
                  'Se continuar, no Manager desinstale e instale de novo o "ComfyUI_IPAdapter_plus" (autor matteo).')
-    faltando, avisos = [], []
-    for pasta, nome in MODELOS.items():
+    pastas = pastas_do_comfy()
+    faltando = []
+    for tipo, nome in MODELOS.items():
         try:
-            lista = json.loads(api(f'/models/{pasta}'))
+            lista = json.loads(api(f'/models/{tipo}'))
         except Exception:
-            continue  # versão sem essa rota: o erro aparece na geração
-        if nome not in lista:
-            msg = f'  {pasta}\\{nome}   (o ComfyUI vê: {", ".join(lista) or "nada"})'
-            # ipadapter/clip_vision: a lista às vezes vem vazia mesmo com o arquivo lá — só avisa
-            (avisos if pasta in ('ipadapter', 'clip_vision') else faltando).append(msg)
-    if avisos:
-        print('Aviso (seguindo mesmo assim):\n' + '\n'.join(avisos))
+            continue
+        if nome in lista:
+            continue
+        destinos = [d for d in (pastas.get(tipo) or [[]])[0] if d]
+        achado = procurar(nome)
+        if achado and destinos:
+            import shutil
+            destino = destinos[0]
+            os.makedirs(destino, exist_ok=True)
+            print(f'Copiando {nome}\n  de   {os.path.dirname(achado)}\n  para {destino}  (a pasta que o ComfyUI usa)')
+            shutil.copy2(achado, os.path.join(destino, nome))
+            continue
+        onde = ' ou '.join(destinos) or f'models\\{tipo}'
+        faltando.append(f'  {nome}\n     coloque em: {onde}')
     if faltando:
-        sys.exit('Faltam modelos (ou estão com outro nome):\n' + '\n'.join(faltando))
+        sys.exit('Faltam modelos:\n' + '\n'.join(faltando))
 
 
 def enviar(arquivo):
