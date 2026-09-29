@@ -29,12 +29,29 @@ function envelope(t: number) {
   return Math.max(0, 1 - (t - 0.62) / 0.38) ** 1.5
 }
 
-function camada() {
+/**
+ * Qualidade das camadas (fração de PX). Começa cheia; se o desenho passar do
+ * limite (PC mais fraco), cai para a metade — 4× menos pixels e brilho — e
+ * fica assim nas próximas vezes que o Haki for ligado.
+ */
+let qualidade = 1
+const LIMITE_MS = 9
+
+type Camada = { c: HTMLCanvasElement; g: CanvasRenderingContext2D; t: THREE.CanvasTexture }
+
+function dimensionar(k: Camada) {
+  k.c.width = k.c.height = Math.round(PX * qualidade)
+  // desenho continua em coordenadas de PX
+  k.g.setTransform(qualidade, 0, 0, qualidade, 0, 0)
+}
+
+function camada(): Camada {
   const c = document.createElement('canvas')
-  c.width = c.height = PX
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
-  return { c, g: c.getContext('2d')!, t }
+  const k = { c, g: c.getContext('2d')!, t }
+  dimensionar(k)
+  return k
 }
 
 export class HakiRei {
@@ -213,8 +230,10 @@ export class HakiRei {
     this.acumDesenho += dt
     if (this.acumDesenho >= 1 / 30) {
       this.acumDesenho = 0
+      const t0 = performance.now()
       this.desenharTras(e, f)
       this.desenharFrente(dt)
+      this.medirDesenho(performance.now() - t0)
     }
   }
 
@@ -438,11 +457,28 @@ export class HakiRei {
     return dy > PX * 0.015
   }
 
+  private tempoDesenho = 0
+  private desenhos = 0
+
+  /** Média do tempo de desenho; acima do limite, cai para meia resolução. */
+  private medirDesenho(ms: number) {
+    this.desenhos++
+    this.tempoDesenho = this.desenhos === 1 ? ms : this.tempoDesenho * 0.85 + ms * 0.15
+    if (qualidade === 1 && this.desenhos > 8 && this.tempoDesenho > LIMITE_MS) {
+      qualidade = 0.5
+      for (const k of [this.tras, this.frente, this.longe, this.raiosFrente, this.longeFrente]) {
+        dimensionar(k)
+        k.t.dispose() // textura com o tamanho novo
+        k.t.needsUpdate = true
+      }
+    }
+  }
+
   private pintarRaio(g: CanvasRenderingContext2D, r: Raio, cresce: number, e: number, extra: number, brilho: number) {
     const alfa = Math.min(1, e * 1.3)
     g.lineJoin = 'miter'
     g.shadowColor = 'rgba(255,20,50,1)'
-    g.shadowBlur = brilho
+    g.shadowBlur = brilho * qualidade // o borrão é em pixels reais do canvas
     g.fillStyle = `rgba(255,35,70,${alfa})`
     this.forma(r, extra, cresce, g)
     g.fill()
