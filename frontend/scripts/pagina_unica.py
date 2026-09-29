@@ -3,11 +3,12 @@ para publicar e abrir em qualquer lugar, inclusive no celular.
 
     npm --prefix frontend run build:teste && python3 frontend/scripts/pagina_unica.py saida.html
 
-Com `--sem-sprites` os sprites não são embutidos (a página os busca em
-./sprites/..., publicados como arquivos ao lado dela — acima de ~12 MB de
-sprites a página única passaria do limite).
+Os PNG entram como WebP sem perda (menores). Com `--sem-sprites` não são
+embutidos (a página os busca em ./sprites/...) — mas publicados como arquivos
+separados as texturas não carregam no artifact (boneco invisível).
 """
-import base64, glob, json, os, sys
+import base64, glob, io, json, os, sys
+from PIL import Image
 raiz = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 js = open(glob.glob(os.path.join(raiz, 'dist-teste', 'assets', '*.js'))[0], encoding='utf8').read()
 js = js.replace('</script', '<\\/script')
@@ -15,7 +16,13 @@ emb = {}
 sem_sprites = '--sem-sprites' in sys.argv
 for arq in [] if sem_sprites else glob.glob(os.path.join(raiz, 'public', 'sprites', '**', '*.*'), recursive=True):
     rel = os.path.relpath(arq, os.path.join(raiz, 'public')).replace(os.sep, '/')
-    tipo = 'application/json' if arq.endswith('.json') else 'image/png'
+    if arq.endswith('.png'):
+        # WebP sem perda: ~30% menor que o PNG (a página cabe no limite de 16 MB)
+        b = io.BytesIO()
+        Image.open(arq).save(b, 'WEBP', lossless=True, method=6, quality=100)
+        emb[rel] = 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
+        continue
+    tipo = 'application/json' if arq.endswith('.json') else 'application/octet-stream'
     emb[rel] = f'data:{tipo};base64,' + base64.b64encode(open(arq, 'rb').read()).decode()
 html = f'''<title>Tabuleiro Pirata</title>
 <style>
