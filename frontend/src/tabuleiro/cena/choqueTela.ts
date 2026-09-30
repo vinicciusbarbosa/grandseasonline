@@ -122,6 +122,24 @@ export class ChoqueTela {
     g.fillStyle = tinta
     g.fillRect(0, 0, W, H)
 
+    // ondas de choque translúcidas: bolhas que se abrem distorcendo o ar
+    // (miolo transparente, borda clara e rosada)
+    for (const t0 of [0, 0.18, 0.4]) {
+      const q = entre(f, t0, t0 + 0.6)
+      if (q <= 0 || q >= 1) continue
+      const R = H * (0.06 + (1 - (1 - q) ** 2) * 0.8)
+      const bolha = g.createRadialGradient(c.x, c.y, R * 0.55, c.x, c.y, R)
+      bolha.addColorStop(0, 'rgba(255,200,230,0)')
+      bolha.addColorStop(0.75, 'rgba(255,190,220,0.10)')
+      bolha.addColorStop(0.93, 'rgba(255,235,245,0.32)')
+      bolha.addColorStop(1, 'rgba(255,255,255,0)')
+      g.globalAlpha = (1 - q) * (1 - entre(f, 0.75, 1))
+      g.fillStyle = bolha
+      g.beginPath()
+      g.arc(c.x, c.y, R, 0, Math.PI * 2)
+      g.fill()
+    }
+
     // anéis brancos translúcidos (grandes, se abrindo)
     for (const t0 of [0, 0.08, 0.2, 0.36]) {
       const q = entre(f, t0, t0 + 0.55)
@@ -159,11 +177,11 @@ export class ChoqueTela {
     // raios finos de luz saindo do impacto
     g.globalAlpha = forca
     const rr = rng(Math.floor(t * 30) + 7)
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 28; i++) {
       const a = rr() * Math.PI * 2
       const L = H * (0.08 + rr() ** 2 * 0.5)
       const w = H * (0.002 + rr() * 0.006)
-      g.fillStyle = i % 4 ? 'rgba(255,255,255,0.9)' : 'rgba(255,170,210,0.9)'
+      g.fillStyle = i % 3 ? 'rgba(255,230,240,0.45)' : 'rgba(255,150,190,0.45)'
       g.beginPath()
       g.moveTo(c.x + Math.cos(a + 1.57) * w, c.y + Math.sin(a + 1.57) * w)
       g.lineTo(c.x + Math.cos(a) * L, c.y + Math.sin(a) * L)
@@ -173,18 +191,18 @@ export class ChoqueTela {
     // traço horizontal do clarão (lens flare)
     const fl = g.createLinearGradient(c.x - H * 0.6, 0, c.x + H * 0.6, 0)
     fl.addColorStop(0, 'rgba(255,200,230,0)')
-    fl.addColorStop(0.5, 'rgba(255,255,255,0.95)')
+    fl.addColorStop(0.5, 'rgba(255,230,240,0.45)')
     fl.addColorStop(1, 'rgba(255,200,230,0)')
     g.fillStyle = fl
     g.fillRect(c.x - H * 0.6, c.y - H * 0.004, H * 1.2, H * 0.008)
 
     // miolo branco pulsando
     const pul = 1 + Math.sin(t * 45) * 0.1
-    const R0 = H * 0.13 * pul * (1 + entre(f, 0, 0.05) * 0.4)
+    const R0 = H * 0.07 * pul * (1 + entre(f, 0, 0.05) * 0.4)
     const nuc = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, R0)
-    nuc.addColorStop(0, 'rgba(255,255,255,1)')
-    nuc.addColorStop(0.3, 'rgba(255,250,252,0.95)')
-    nuc.addColorStop(0.6, 'rgba(255,150,200,0.45)')
+    nuc.addColorStop(0, 'rgba(255,245,250,0.75)')
+    nuc.addColorStop(0.3, 'rgba(255,200,225,0.55)')
+    nuc.addColorStop(0.6, 'rgba(255,120,170,0.3)')
     nuc.addColorStop(1, 'rgba(255,40,100,0)')
     g.fillStyle = nuc
     g.beginPath()

@@ -49,7 +49,7 @@ export interface Palco {
   flutuar(p: Personagem, texto: string, cor: string, linha?: number): void
   sumir(p: Personagem): void
   /** efeito visual; resolve quando termina (ou o projétil chega) */
-  efeito(tipo: TipoEfeito, paleta: Paleta, de: THREE.Vector3, op?: { para?: THREE.Vector3; dur?: number; escala?: number }): Promise<void>
+  efeito(tipo: TipoEfeito, paleta: Paleta, de: THREE.Vector3, op?: { para?: THREE.Vector3; dur?: number; escala?: number; alongar?: number; direcao?: THREE.Vector3 }): Promise<void>
   /** ponto do peito do personagem / centro da casa (mundo) */
   peito(p: Personagem): THREE.Vector3
   centro(c: Casa): THREE.Vector3
@@ -63,6 +63,10 @@ export interface Palco {
   focar(pontos: THREE.Vector3[] | null): void
   /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
   choqueRei(ponto: THREE.Vector3): void
+  /** desliza o personagem até um ponto (null = volta ao lugar) */
+  deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
+  /** Ice Age: o tabuleiro inteiro congela por um tempo */
+  congelarMapa(dur: number): void
   /** choque de Haki do Rei desenhado na tela inteira (raios, anéis, clarão) */
   choqueTela(ponto: THREE.Vector3): void
   /** quadro de impacto do anime: a tela pisca (negro/vermelho ou branco) */
@@ -73,7 +77,7 @@ export interface Palco {
 const JOGADOR: Lado = 'piratas'
 
 /** Como cada skill aparece: animação do corpo e efeito. */
-type Visual = { efeito: TipoEfeito; modo: 'perto' | 'projetil' | 'area' | 'si'; escala?: number; tiros?: number }
+type Visual = { efeito: TipoEfeito; modo: 'perto' | 'projetil' | 'area' | 'si' | 'especial'; escala?: number; tiros?: number }
 const VISUAL: Record<string, Visual> = {
   corte: { efeito: 'impacto', modo: 'perto' },
   'corte-duplo': { efeito: 'impacto', modo: 'perto' },
@@ -98,18 +102,31 @@ const VISUAL: Record<string, Visual> = {
   'primeiros-socorros': { efeito: 'aura', modo: 'area', escala: 1.2 },
   'nuvem-fumaca': { efeito: 'fumaca', modo: 'area', escala: 1.2 },
   'prisao-fumaca': { efeito: 'fumaca', modo: 'area', escala: 1.3 },
-  'punho-fogo': { efeito: 'fogo', modo: 'projetil', escala: 0.9 },
-  'imperador-chamas': { efeito: 'fogo', modo: 'area', escala: 1.4 },
-  'raio-luz': { efeito: 'luz', modo: 'projetil', escala: 1 },
-  'chuva-luz': { efeito: 'luz', modo: 'area', escala: 1.3 },
-  'lanca-gelo': { efeito: 'gelo', modo: 'projetil', escala: 0.9 },
-  'era-gelo': { efeito: 'gelo', modo: 'area', escala: 1.3 },
-  pistola: { efeito: 'punho', modo: 'projetil', escala: 0.8 },
-  metralhadora: { efeito: 'punho', modo: 'perto', escala: 0.8 },
-  'forma-hibrida': { efeito: 'aura', modo: 'si', escala: 1.8 },
+  // Mera Mera (Ace)
+  hiken: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
+  hotarubi: { efeito: 'explosaoFogo', modo: 'especial', escala: 1 },
+  enjomo: { efeito: 'pilarFogo', modo: 'especial', escala: 2.4 },
+  entei: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.6 },
+  // Pika Pika (Kizaru)
+  'sabre-luz': { efeito: 'orbeLuz', modo: 'si', escala: 1.4 },
+  yasakani: { efeito: 'orbeLuz', modo: 'especial', escala: 0.5 },
+  'chute-luz': { efeito: 'feixeLuz', modo: 'especial', escala: 1 },
+  'raio-luz': { efeito: 'feixeLuz', modo: 'especial', escala: 0.8 },
+  // Hie Hie (Aokiji)
+  'lanca-gelo': { efeito: 'espinhoGelo', modo: 'especial', escala: 1.4 },
+  'ice-saber': { efeito: 'corte', modo: 'perto', escala: 1.2 },
+  'ice-time': { efeito: 'espinhoGelo', modo: 'especial', escala: 1.6 },
+  'era-gelo': { efeito: 'espinhoGelo', modo: 'especial', escala: 1.6 },
+  // Gomu Gomu (Luffy)
+  pistola: { efeito: 'punho', modo: 'projetil', escala: 0.9 },
+  gatling: { efeito: 'punho', modo: 'especial', escala: 0.7 },
+  'gear-second': { efeito: 'vapor', modo: 'si', escala: 2 },
+  'forma-hibrida': { efeito: 'poeira', modo: 'si', escala: 2 },
 }
+/** aparência de cada transformação/buff */
+const FORMAS: Record<string, 'zoan' | 'gear' | 'sabre'> = { bisao: 'zoan', borracha: 'gear', luz: 'sabre' }
 /** Efeitos de fruta não mudam de cor com o Haki; os de arma sim. */
-const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura'])
+const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura', 'chama', 'bolaFogo', 'explosaoFogo', 'pilarFogo', 'vagalume', 'orbeLuz', 'feixeLuz', 'sabreLuz', 'espinhoGelo', 'vapor', 'poeira'])
 
 // ------------------------------------------------------------ preparação
 // ------------------------------------------------------------ HUD
@@ -291,6 +308,7 @@ export class ControleBatalha {
       p.vida = c.hp
       // o Haki ligado fica aparecendo na arma
       p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
+      p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
     }
     this.animando = false
     if (this.estado.vez !== vezAntes || this.estado.vencedor) this.novaVez()
@@ -542,7 +560,9 @@ export class ControleBatalha {
         case 'transformou': {
           const p = P(e.id)
           if (p) {
-            this.palco.flutuar(p, 'Forma Híbrida!', '#ffcf6a', 1)
+            const fr = porId(antes, e.id)?.akuma?.fruta ?? ''
+            p.forma = FORMAS[fr] ?? null
+            this.palco.flutuar(p, fr === 'borracha' ? 'Gear Second!' : fr === 'luz' ? 'Espada de Luz!' : 'Forma Híbrida!', fr === 'borracha' ? '#ff6a5a' : '#ffcf6a', 1)
             await this.palco.efeito('aura', 'normal', this.palco.peito(p), { dur: 0.8, escala: 1.8 })
           }
           this.registrar(`${nome(e.id)} se transforma (${e.vezes} vezes).`)
@@ -618,7 +638,10 @@ export class ControleBatalha {
     const origem = this.palco.peito(a)
     const fim = e.casas.length ? e.casas[e.casas.length - 1] : alvoCasa
     const ate = pAlvo ? this.palco.peito(pAlvo) : this.palco.centro(v.modo === 'projetil' && s.area === 'linha' ? fim : alvoCasa)
-    if (v.modo === 'projetil') {
+    if (v.modo === 'especial') {
+      const hits = resto.filter((x) => x.t === 'golpe').map((x) => this.palco.personagem((x as { alvo: string }).alvo)).filter((p): p is Personagem => !!p)
+      await this.especial(s.id, a, origem, ate, e.casas.map((x) => this.palco.centro(x)), hits)
+    } else if (v.modo === 'projetil') {
       const tiros = v.tiros ?? 1
       const alvos = s.area === 'leque' ? e.casas.map((x) => this.palco.centro(x)) : Array(tiros).fill(ate)
       await Promise.all(
@@ -638,6 +661,138 @@ export class ControleBatalha {
     // resultados, um por um
     for (const r of resto) if (r !== clash) await this.resultado(antes, r, v, paleta)
     a.haki = false
+  }
+
+  /** Animações próprias das skills de Akuma no Mi (como no anime). */
+  private async especial(id: string, a: Personagem, origem: THREE.Vector3, ate: THREE.Vector3, casas: THREE.Vector3[], hits: Personagem[]) {
+    const P = this.palco
+    const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
+    const chao = (v: THREE.Vector3) => v.clone().setY(0.55)
+    const dir = ate.clone().sub(origem)
+    switch (id) {
+      case 'hiken': {
+        // jato de fogo saindo da mão e correndo até o fim da linha
+        const fim = casas.length ? casas[casas.length - 1] : ate
+        const n = 12
+        for (let i = 0; i < n; i++) {
+          const pt = origem.clone().lerp(fim, (i + 1) / n)
+          void P.efeito('chama', 'normal', pt, { dur: 0.55, escala: 0.9 + i * 0.06, direcao: dir })
+          await esperar(28)
+        }
+        for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.6, escala: 1.4 })
+        P.tremer(0.25)
+        await esperar(300)
+        break
+      }
+      case 'hotarubi': {
+        // vaga-lumes verdes flutuam até a área e explodem juntos
+        const voos = casas.flatMap((c) => [c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3, (Math.random() - 0.5) * 0.6))])
+        await Promise.all(voos.map((c, i) => new Promise<void>((r) => setTimeout(() => void P.efeito('vagalume', 'normal', origem.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.4 + Math.random() * 0.6, 0)), { para: chao(c), dur: 0.9 + Math.random() * 0.3, escala: 0.35 }).then(r), i * 30))))
+        await esperar(150)
+        P.lampejo('branco', 0.12)
+        for (const c of casas) void P.efeito('explosaoFogo', 'normal', chao(c), { dur: 0.7, escala: 1.1 })
+        P.tremer(0.35)
+        await esperar(350)
+        break
+      }
+      case 'enjomo': {
+        // coluna de fogo subindo do chão no alvo
+        const h = 2.4 * 1.5
+        const base = ate.clone().setY(0)
+        void P.efeito('explosaoFogo', 'normal', base.clone().setY(0.3), { dur: 0.6, escala: 1.2 })
+        void P.efeito('pilarFogo', 'normal', base.clone().setY(h * 0.45), { dur: 1.1, escala: 2.4 })
+        P.tremer(0.4)
+        await esperar(550)
+        break
+      }
+      case 'entei': {
+        // sol de fogo gigante sobre a cabeça, arremessado, explosão enorme
+        const cima = a.pos.clone().setY(a.visual.altura + 1.3)
+        void P.efeito('aura', 'normal', origem, { dur: 0.9, escala: 1.4 })
+        await P.efeito('bolaFogo', 'normal', cima, { dur: 0.9, escala: 2.4 })
+        await P.efeito('bolaFogo', 'normal', cima, { para: chao(ate), dur: 0.45, escala: 2.4 })
+        P.lampejo('branco', 0.2)
+        P.tremer(0.8)
+        void P.efeito('explosaoFogo', 'normal', chao(ate), { dur: 1.1, escala: 4.2 })
+        for (const c of casas) if (Math.random() < 0.5) void P.efeito('fogo', 'normal', chao(c), { dur: 0.9, escala: 1 })
+        await esperar(500)
+        break
+      }
+      case 'yasakani': {
+        // dezenas de bolas de luz caindo na área
+        const cima = a.pos.clone().setY(a.visual.altura + 1)
+        const tiros = Array.from({ length: 22 }, () => casas[Math.floor(Math.random() * casas.length)] ?? ate)
+        await Promise.all(
+          tiros.map((c, i) => new Promise<void>((r) => setTimeout(() => {
+            const pt = chao(c).add(new THREE.Vector3((Math.random() - 0.5) * 0.7, 0, (Math.random() - 0.5) * 0.7))
+            void P.efeito('orbeLuz', 'normal', cima, { para: pt, dur: 0.22, escala: 0.5 }).then(() => {
+              void P.efeito('luz', 'normal', pt, { dur: 0.35, escala: 0.8 })
+              r()
+            })
+          }, i * 40))),
+        )
+        P.tremer(0.3)
+        break
+      }
+      case 'chute-luz': {
+        // vira luz, chega no alvo num instante, chuta e volta
+        const alvo = hits[0]
+        const para = alvo ? alvo.pos.clone().lerp(a.pos, 0.35) : ate
+        const meio = origem.clone().lerp(ate, 0.5)
+        void P.efeito('feixeLuz', 'normal', meio, { dur: 0.35, escala: 0.6, alongar: Math.max(1, origem.distanceTo(ate) / 0.9), direcao: dir })
+        a.tinta = new THREE.Color(2, 1.9, 1.2)
+        await P.deslizar(a, para, 0.07)
+        void P.efeito('impacto', 'normal', ate, { dur: 0.35, escala: 1.4 })
+        void P.efeito('luz', 'normal', ate, { dur: 0.4, escala: 1.2 })
+        P.tremer(0.3)
+        await esperar(220)
+        await P.deslizar(a, null, 0.07)
+        a.tinta = null
+        break
+      }
+      case 'raio-luz': {
+        const fim = casas.length ? casas[casas.length - 1] : ate
+        const meio = origem.clone().lerp(fim, 0.5)
+        void P.efeito('feixeLuz', 'normal', meio, { dur: 0.45, escala: 0.6, alongar: Math.max(1, origem.distanceTo(fim) / 0.9), direcao: fim.clone().sub(origem) })
+        for (const h of hits) void P.efeito('luz', 'normal', P.peito(h), { dur: 0.4, escala: 1 })
+        await esperar(250)
+        break
+      }
+      case 'lanca-gelo': {
+        for (let i = 0; i < 3; i++) void P.efeito('gelo', 'normal', origem.clone().add(new THREE.Vector3(0, i * 0.15 - 0.15, 0)), { para: ate, dur: 0.25 + i * 0.05, escala: 0.7 })
+        await esperar(280)
+        void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
+        break
+      }
+      case 'ice-time': {
+        void P.efeito('espinhoGelo', 'normal', ate.clone().setY(1.1), { dur: 1.1, escala: 1.6 })
+        void P.efeito('gelo', 'normal', ate, { dur: 0.7, escala: 1.4 })
+        await esperar(300)
+        break
+      }
+      case 'era-gelo': {
+        // Ice Age: o mapa inteiro congela, espinhos em cada inimigo
+        P.lampejo('branco', 0.25)
+        P.congelarMapa(2.2)
+        P.tremer(0.5)
+        void P.efeito('espinhoGelo', 'normal', origem.clone().setY(1), { dur: 1.2, escala: 1.8 })
+        for (const h of hits) void P.efeito('espinhoGelo', 'normal', h.pos.clone().setY(1.1), { dur: 1.4, escala: 1.7 })
+        await esperar(600)
+        break
+      }
+      case 'gatling': {
+        // chuva de socos esticados
+        for (let i = 0; i < 18; i++) {
+          const pt = ate.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.3))
+          void P.efeito('punho', 'normal', origem, { para: pt, dur: 0.1, escala: 0.6 }).then(() => {
+            if (i % 3 === 0) void P.efeito('impacto', 'normal', pt, { dur: 0.25, escala: 0.6 })
+          })
+          await esperar(45)
+        }
+        P.tremer(0.2)
+        break
+      }
+    }
   }
 
   /**

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { casaEm, centroCasa, mesmaCasa, COLUNAS, METADE, type Casa } from '../tabuleiro'
+import { casaEm, centroCasa, mesmaCasa, COLUNAS, LINHAS, METADE, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
 import { montarNavios } from './navio'
 import { Assador } from '../boneco/assador'
@@ -55,6 +55,14 @@ const NIVEIS = [ZOOM_TUDO, 1, 2, 3, 4]
 const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
 
+
+const entre01 = (x: number, a: number, b: number) => Math.max(0, Math.min(1, (x - a) / (b - a)))
+/** cor das formas (multiplica o sprite) */
+const TINTA = {
+  zoan: new THREE.Color(0.95, 0.72, 0.52),
+  gear: new THREE.Color(1.45, 0.62, 0.55),
+  sabre: new THREE.Color(1.25, 1.18, 0.8),
+}
 
 export class CenaTabuleiro {
   readonly renderer: THREE.WebGLRenderer
@@ -249,7 +257,7 @@ export class CenaTabuleiro {
       this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto, x: s.x, y: s.y, t: 0, cor }]
     },
     sumir: (p: Personagem) => this.sumindo.push({ p, t: 0.8 }),
-    efeito: (tipo: TipoEfeito, paleta: Paleta, de: THREE.Vector3, op: { para?: THREE.Vector3; dur?: number; escala?: number } = {}) =>
+    efeito: (tipo: TipoEfeito, paleta: Paleta, de: THREE.Vector3, op: { para?: THREE.Vector3; dur?: number; escala?: number; alongar?: number; direcao?: THREE.Vector3 } = {}) =>
       new Promise<void>((r) => {
         const ef = new Efeito(tipo, paleta, de, { ...op, aoChegar: r })
         this.efeitos.push(ef)
@@ -276,6 +284,12 @@ export class CenaTabuleiro {
     lampejo: (tipo: 'rei' | 'branco', dur: number) => {
       this.lampejoAtual = { tipo, t: 0, dur }
     },
+    deslizar: (p: Personagem, para: THREE.Vector3 | null, dur: number) => {
+      const de = p.deslize.clone()
+      const alvo = para ? para.clone().setY(0).sub(p.pos.clone().setY(0)) : new THREE.Vector3()
+      return this.animarPor(dur, (f) => p.deslize.lerpVectors(de, alvo, f))
+    },
+    congelarMapa: (dur: number) => this.congelarMapa(dur),
     choqueTela: (ponto: THREE.Vector3) => {
       this.choques.push(new ChoqueTela(ponto.clone()))
     },
@@ -290,6 +304,87 @@ export class CenaTabuleiro {
       const id = this.retratoBatalha?.selecionado?.id
       this.selecionado = id ? (this.personagens.find((p) => p.id === id) ?? null) : null
     },
+  }
+
+  /**
+   * Ice Age: o tabuleiro inteiro vira gelo (camada azul com rachaduras que
+   * aparece, fica e derrete).
+   */
+  private congelarMapa(dur: number) {
+    const cv = document.createElement('canvas')
+    cv.width = 1024
+    cv.height = 512
+    const g = cv.getContext('2d')!
+    const gr = g.createLinearGradient(0, 0, 1024, 512)
+    gr.addColorStop(0, 'rgba(200,240,255,0.85)')
+    gr.addColorStop(0.5, 'rgba(150,215,255,0.8)')
+    gr.addColorStop(1, 'rgba(210,245,255,0.85)')
+    g.fillStyle = gr
+    g.fillRect(0, 0, 1024, 512)
+    // rachaduras e brilhos
+    g.strokeStyle = 'rgba(255,255,255,0.9)'
+    for (let i = 0; i < 60; i++) {
+      let x = Math.random() * 1024
+      let y = Math.random() * 512
+      g.lineWidth = 1 + Math.random() * 2
+      g.beginPath()
+      g.moveTo(x, y)
+      for (let k = 0; k < 5; k++) {
+        x += (Math.random() - 0.5) * 90
+        y += (Math.random() - 0.5) * 60
+        g.lineTo(x, y)
+      }
+      g.stroke()
+    }
+    g.fillStyle = 'rgba(40,120,200,0.25)'
+    for (let i = 0; i < 40; i++) g.fillRect(Math.random() * 1024, Math.random() * 512, 30 + Math.random() * 80, 3)
+    const tex = new THREE.CanvasTexture(cv)
+    tex.colorSpace = THREE.SRGBColorSpace
+    const a = centroCasa(0, 0)
+    const b = centroCasa(LINHAS - 1, COLUNAS - 1)
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(Math.abs(b.x - a.x) + 1.4, Math.abs(b.z - a.z) + 1.4),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }),
+    )
+    m.rotation.x = -Math.PI / 2
+    m.position.set((a.x + b.x) / 2, 0.03, (a.z + b.z) / 2)
+    m.renderOrder = 1
+    this.cena.add(m)
+    void this.animarPor(dur, (f) => {
+      ;(m.material as THREE.MeshBasicMaterial).opacity = Math.min(1, f * 6) * (1 - entre01(f, 0.75, 1))
+      if (f >= 1) {
+        this.cena.remove(m)
+        tex.dispose()
+        ;(m.material as THREE.Material).dispose()
+        m.geometry.dispose()
+      }
+    })
+  }
+
+  /** partículas das formas (vapor do Gear Second, poeira da Zoan, brilho da luz) */
+  private tForma = 0
+  private atualizarFormas(dt: number) {
+    this.tForma += dt
+    const soltar = this.tForma > 0.2
+    if (soltar) this.tForma = 0
+    for (const p of this.personagens) {
+      if (p.forma === 'zoan') {
+        p.escala = 1.3
+        p.tinta = TINTA.zoan
+        if (soltar && Math.random() < 0.35) void this.palco.efeito('poeira', 'normal', p.pos.clone().setY(0.25), { dur: 0.7, escala: 0.7 })
+      } else if (p.forma === 'gear') {
+        p.escala = 1
+        p.tinta = TINTA.gear
+        if (soltar) void this.palco.efeito('vapor', 'normal', p.pos.clone().setY(p.visual.altura * (0.4 + Math.random() * 0.5)).add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0, 0)), { dur: 0.8, escala: 0.6 })
+      } else if (p.forma === 'sabre') {
+        p.escala = 1
+        p.tinta = TINTA.sabre
+        if (soltar && Math.random() < 0.6) void this.palco.efeito('orbeLuz', 'normal', p.pos.clone().setY(p.visual.altura * (0.3 + Math.random() * 0.6)).add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0, 0)), { dur: 0.4, escala: 0.25 })
+      } else if (p.escala !== 1 || (p.tinta && Object.values(TINTA).includes(p.tinta))) {
+        p.escala = 1
+        p.tinta = null
+      }
+    }
   }
 
   /** câmera de antes do foco (choque de Haki) */
@@ -625,6 +720,7 @@ export class CenaTabuleiro {
       this.aplicarZoom(z, a?.[0], a?.[1])
     }
     for (const p of this.personagens) p.atualizar(dt)
+    this.atualizarFormas(dt)
     for (const l of this.navios.luzes) l.intensity = 2.6 + Math.sin(this.tempo * 9 + l.id) * 0.25 + Math.sin(this.tempo * 23 + l.id * 3) * 0.15
     for (const pano of this.navios.panos) this.ondular(pano)
     // molduras
