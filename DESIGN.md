@@ -111,6 +111,11 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   dentro dela — só passivas, buffs, slots de gemas e nós notáveis que
   modificam as skills da arma (a árvore não dá skills). Akuma no Mi tem
   árvore própria.
+  **Itens com afixos aleatórios (prefixos/sufixos, como no Path of Exile 2)**,
+  em vez dos itens predefinidos do Sugoi. Relíquias também têm afixos
+  aleatórios; só a skill única delas é fixa. (Sugestão ainda a confirmar:
+  quantidade de afixos crescendo com a raridade, lista inicial pequena de
+  afixos, destino para itens sobrando — vender, desmontar para o Ferreiro.)
   Em aberto: atributos (base do Sugoi, modificada?) e
   árvore de habilidades (estilo Path of Exile?).
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
