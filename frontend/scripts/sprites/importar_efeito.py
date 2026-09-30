@@ -5,6 +5,7 @@ Uso: python3 importar_efeito.py <folha> <nome> <linhas> <colunas> <direcoes> [fp
   grade: quadros em grade uniforme (senão acha as colunas pelo desenho)
   girar: uma linha só, desenhada apontando para → (o jogo gira para as 8 direções)
   unico: uma linha só, igual para todas as direções (explosão, pilar, aura)
+  sequencia: as linhas são uma animação só, lida linha por linha (direcoes = -)
   direcoes: as linhas da folha em ordem, separadas por vírgula (ex.: E,SE,NE,S,N)
 
 Tira o magenta (chroma key) calculando a transparência de cada pixel e
@@ -73,7 +74,7 @@ def faixas_ocupadas(perfil):
     return [f for f in faixas if f[1] - f[0] > 3]
 
 
-def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False, modo='direcoes'):
+def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False, modo='direcoes', sequencia=False):
     im = np.asarray(Image.open(folha).convert('RGB')).astype(np.float32)
     H, W = im.shape[:2]
     ch = H / linhas
@@ -86,6 +87,15 @@ def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False, modo='dir
         b = r * ch
         y0, y1 = int(b - 0.35 * ch), int(b + 0.35 * ch)
         lim_l[r] = costura(alfa[y0:y1].T, b - y0) + y0
+    # se as linhas têm faixas vazias entre elas, corta no meio das faixas
+    # (as linhas não precisam ter a mesma altura)
+    bandas = faixas_ocupadas(alfa.sum(1))
+    bandas = [b for b in bandas if b[1] - b[0] > 0.2 * ch]
+    if len(bandas) == linhas:
+        for r in range(1, linhas):
+            lim_l[r] = np.full(W, (bandas[r - 1][1] + bandas[r][0]) / 2)
+    else:
+        bandas = [(int(li * ch), int((li + 1) * ch)) for li in range(linhas)]
     masc_l = [(yy >= lim_l[li][None, :]) & (yy < lim_l[li + 1][None, :]) for li in range(linhas)]
     # colunas do artista (não é grade uniforme: os quadros pequenos ficam mais
     # juntos): os `colunas` picos de desenho de uma linha, com espaçamento
@@ -137,7 +147,8 @@ def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False, modo='dir
             x0, x1 = int(max(0, b - meia)), int(min(W, b + meia))
             lim_c.append(costura(a_l[:, x0:x1], b - x0) + x0)
         lim_c.append(np.full(H, W))
-        cy = (li + 0.5) * ch
+        # âncora vertical: o chão (fim da faixa) — a base não pula entre linhas
+        cy = bandas[li][1]
         qs = []
         for ci in range(colunas):
             m = masc_l[li] & (xx >= lim_c[ci][:, None]) & (xx < lim_c[ci + 1][:, None]) & (rgba[..., 3] > 0)
@@ -145,20 +156,36 @@ def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False, modo='dir
             cx = centros[ci]
             if len(xs):
                 meia_l = max(meia_l, np.abs(xs - cx).max())
-                meia_a = max(meia_a, np.abs(ys - cy).max())
+                meia_a = max(meia_a, (cy - ys).max())
             qs.append((ys, xs, cx, cy))
         quadros.append(qs)
     # mesmo tamanho para todos; cada quadro ancorado no centro da sua coluna
     # (o movimento desenhado dentro da folha continua na animação)
-    L, A = int(meia_l * 2) + 6, int(meia_a * 2) + 6
+    L, A = int(meia_l * 2) + 6, int(meia_a) + 10
     raiz = os.path.dirname(os.path.abspath(__file__))
     pasta = os.path.join(raiz, '..', '..', 'public', 'sprites', 'efeitos', nome)
     os.makedirs(pasta, exist_ok=True)
+    if sequencia:
+        # as linhas são a continuação umas das outras (uma animação longa):
+        # grava uma imagem só, em grade (colunas × linhas), lida em ordem
+        atlas = np.zeros((A * linhas, L * colunas, 4), np.uint8)
+        for li in range(linhas):
+            for ci, (ys, xs, cx, cy) in enumerate(quadros[li]):
+                qx = (xs - cx + L / 2).astype(int)
+                qy = (ys - cy + A - 6).astype(int)
+                ok = (qx >= 0) & (qx < L) & (qy >= 0) & (qy < A)
+                atlas[qy[ok] + li * A, qx[ok] + ci * L] = rgba[ys[ok], xs[ok]]
+        Image.fromarray(atlas).save(os.path.join(pasta, 'S.png'), optimize=True)
+        man = {'quadro': [L, A], 'quadros': colunas * linhas, 'grade': [colunas, linhas], 'fps': fps, 'direcoes': ['S'], 'modo': 'unico'}
+        with open(os.path.join(pasta, 'manifesto.json'), 'w') as f:
+            json.dump(man, f, indent=1)
+        print(nome, man)
+        return
     for li, d in enumerate(direcoes):
         tira = np.zeros((A, L * colunas, 4), np.uint8)
         for ci, (ys, xs, cx, cy) in enumerate(quadros[li]):
             qx = (xs - cx + L / 2).astype(int)
-            qy = (ys - cy + A / 2).astype(int)
+            qy = (ys - cy + A - 6).astype(int)
             ok = (qx >= 0) & (qx < L) & (qy >= 0) & (qy < A)
             tira[qy[ok], qx[ok] + ci * L] = rgba[ys[ok], xs[ok]]
         Image.fromarray(tira).save(os.path.join(pasta, f'{d}.png'), optimize=True)
@@ -171,4 +198,4 @@ def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False, modo='dir
 if __name__ == '__main__':
     a = sys.argv[1:]
     modo = 'girar' if 'girar' in a[6:] else 'unico' if 'unico' in a[6:] else 'direcoes'
-    importar(a[0], a[1], int(a[2]), int(a[3]), a[4].split(','), int(a[5]) if len(a) > 5 else 16, 'grade' in a[6:], modo)
+    importar(a[0], a[1], int(a[2]), int(a[3]), a[4].split(','), int(a[5]) if len(a) > 5 else 16, 'grade' in a[6:], modo, 'sequencia' in a[6:])

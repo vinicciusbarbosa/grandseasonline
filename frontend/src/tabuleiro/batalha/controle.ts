@@ -66,7 +66,7 @@ export interface Palco {
   /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
   choqueRei(ponto: THREE.Vector3): void
   /** efeito desenhado à mão (spritesheet); resolve false se a folha não existe */
-  efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void }): Promise<boolean>
+  efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean }): Promise<boolean>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
   deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
   /** Ice Age: o tabuleiro inteiro congela por um tempo */
@@ -127,6 +127,11 @@ const VISUAL: Record<string, Visual> = {
   'gear-second': { efeito: 'vapor', modo: 'si', escala: 2 },
   'forma-hibrida': { efeito: 'poeira', modo: 'si', escala: 2 },
 }
+/** tamanho dos efeitos de Akuma no Mi (os desenhados por código) */
+const ESCALA_FRUTA = 1.6
+const ESCALA_ULTIMATE = 2.4
+/** poderes máximos de cada fruta */
+const ULTIMATES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca'])
 /** segundos de preparação (ligar o Haki) antes da batalha */
 const PREPARO = 10
 /** aparência de cada transformação/buff */
@@ -773,7 +778,9 @@ export class ControleBatalha {
     if (!a) return
     const c = porId(antes, e.id)!
     const s = skillsDe(c).find((x) => x.id === e.skill) as Skill
-    const v = VISUAL[s.id] ?? { efeito: 'impacto', modo: 'perto' }
+    const v0 = VISUAL[s.id] ?? { efeito: 'impacto', modo: 'perto' }
+    const daFruta = !!c.akuma && FRUTAS[c.akuma.fruta].skills.some((x) => x.id === s.id)
+    const v: Visual = daFruta && v0.modo !== 'especial' ? { ...v0, escala: (v0.escala ?? 1) * (ULTIMATES.has(s.id) ? ESCALA_ULTIMATE : ESCALA_FRUTA) } : v0
     const paleta: Paleta = ELEMENTAIS.has(v.efeito) ? 'normal' : e.rei ? 'rei' : e.armamento ? 'armamento' : 'normal'
     const comHaki = !s.livre && s.mult > 0
     this.registrar(`${c.nome} usa ${s.nome}${comHaki && e.rei ? ' com Haki do Rei' : comHaki && e.armamento ? ' com Haki de armamento' : ''}.`)
@@ -832,7 +839,9 @@ export class ControleBatalha {
 
   /** Animações próprias das skills de Akuma no Mi (como no anime). */
   private async especial(id: string, a: Personagem, origem: THREE.Vector3, ate: THREE.Vector3, casas: THREE.Vector3[], hits: Personagem[], dirF: DirEfeito): Promise<void> {
-    const P = this.palco
+    // poderes de Akuma no Mi maiores que os personagens; os ultimates, bem maiores
+    const k = ULTIMATES.has(id) ? ESCALA_ULTIMATE : ESCALA_FRUTA
+    const P: Palco = { ...this.palco, efeito: (t, pal, de, op) => this.palco.efeito(t, pal, de, { ...op, escala: (op?.escala ?? 1) * k }) }
     const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
     const chao = (v: THREE.Vector3) => v.clone().setY(0.55)
     const dir = ate.clone().sub(origem)
@@ -840,48 +849,37 @@ export class ControleBatalha {
       case 'hiken': {
         // uma skill só: a 1 casa, o punho explode à queima-roupa; mais longe, é arremessado
         if (origem.distanceTo(ate) > 1.6) return this.especial('hiken-distancia', a, origem, ate, casas, hits, dirF)
-        // Hiken de perto: o punho de fogo (arte desenhada) explode no alvo
+        // Hiken de perto: só a arte desenhada (sem efeito a mais)
         const pt = origem.clone().lerp(ate, 0.62)
-        const tocou = P.efeitoFolha('hiken-perto', dirF, pt, { largura: 2.6 })
+        void P.efeitoFolha('hiken-perto', dirF, pt, { largura: 4.2 })
         await esperar(380)
-        P.tremer(0.35)
-        for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.5, escala: 0.9 })
-        void tocou
         break
       }
       case 'hiken-distancia': {
-        // Hiken à distância: o punho de fogo voa até o alvo (arte desenhada,
-        // se já existir; senão o jato de fogo)
+        // Hiken à distância: o punho de fogo (arte desenhada) voa até o alvo
         const alvoFim = casas.length ? casas[casas.length - 1] : ate
-        const desenhado = await P.efeitoFolha('hiken-distancia', dirF, origem, { para: alvoFim, largura: 2.6, voo: [3, 8] })
-        if (desenhado) {
-          for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.6, escala: 1.3 })
-          P.tremer(0.3)
-          break
-        }
-        // jato de fogo saindo da mão e correndo até o fim da linha
-        const fim = casas.length ? casas[casas.length - 1] : ate
+        const desenhado = await P.efeitoFolha('hiken-distancia', dirF, origem, { para: alvoFim, largura: 4.2, voo: [3, 8] })
+        if (desenhado) break
+        // sem a folha: jato de fogo por código
         const n = 12
         for (let i = 0; i < n; i++) {
-          const pt = origem.clone().lerp(fim, (i + 1) / n)
+          const pt = origem.clone().lerp(alvoFim, (i + 1) / n)
           void P.efeito('chama', 'normal', pt, { dur: 0.55, escala: 0.9 + i * 0.06, direcao: dir })
           await esperar(28)
         }
-        for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.6, escala: 1.4 })
-        P.tremer(0.25)
         await esperar(300)
         break
       }
       case 'hotarubi': {
-        // Hotarubi (arte desenhada): os vaga-lumes voam para a área e explodem em chamas
+        // Hotarubi (arte desenhada, 56 quadros): os vaga-lumes se juntam, voam,
+        // explodem e a fogueira queima — só a arte (sem efeito a mais)
         const centro = casas.length ? casas.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / casas.length) : ate
-        const desenhado = P.efeitoFolha('hotarubi', dirF, centro.clone().setY(1.2), { largura: 3.4 })
-        await esperar(470)
-        P.lampejo('branco', 0.1)
-        P.tremer(0.4)
-        for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.5, escala: 0.8 })
-        if (await desenhado) break
-        // sem a folha: vaga-lumes desenhados por código
+        let tem: boolean | null = null
+        void P.efeitoFolha('hotarubi', dirF, centro.clone().setY(0.02), { largura: 5.6, chao: true }).then((v) => (tem = v))
+        // o dano aparece no quadro da explosão (quadro 26, a 24 por segundo)
+        await esperar(1080)
+        if (tem !== false) break
+        // sem a folha: vaga-lumes por código
         const voos = casas.flatMap((c) => [c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3, (Math.random() - 0.5) * 0.6))])
         await Promise.all(voos.map((c, i) => new Promise<void>((r) => setTimeout(() => void P.efeito('vagalume', 'normal', origem.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.4 + Math.random() * 0.6, 0)), { para: chao(c), dur: 0.9 + Math.random() * 0.3, escala: 0.35 }).then(r), i * 30))))
         for (const c of casas) void P.efeito('explosaoFogo', 'normal', chao(c), { dur: 0.7, escala: 1.1 })

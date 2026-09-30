@@ -1,15 +1,16 @@
 {
  "quadro": [
-  192,
-  217
+  173,
+  183
  ],
- "quadros": 13,
- "fps": 14,
+ "quadros": 56,
+ "grade": [
+  14,
+  4
+ ],
+ "fps": 24,
  "direcoes": [
-  "E",
-  "SE",
-  "S",
-  "SW",
-  "NW"
- ]
+  "S"
+ ],
+ "modo": "unico"
 }

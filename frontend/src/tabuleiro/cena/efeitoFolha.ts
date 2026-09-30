@@ -18,7 +18,8 @@ export type DirEfeito = 'E' | 'SE' | 'NE' | 'S' | 'N' | 'W' | 'SW' | 'NW'
  * qualquer direção) ou 'unico' (uma linha só, igual para todas — explosão,
  * pilar, aura).
  */
-type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico' }
+/** grade: [colunas, linhas] quando a animação é longa e vem em várias linhas (lida em ordem) */
+type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico'; grade?: [number, number] }
 
 /** vetor na tela (x para a direita, y para cima) de cada direção do tabuleiro */
 const TELA: Record<DirEfeito, [number, number]> = {
@@ -87,7 +88,7 @@ export class EfeitoFolha {
    * @param largura largura no mundo (casas)
    * @param voo quadros entre os quais o efeito voa de `de` até `para`
    */
-  constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void } = {}) {
+  constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean } = {}) {
     this.man = man
     const modo = man.modo ?? 'direcoes'
     let [d, espelha] = modo === 'direcoes' ? escolher(man.direcoes, dir) : [man.direcoes[0] as DirEfeito, false]
@@ -112,7 +113,8 @@ export class EfeitoFolha {
     }
     const t = tex.clone()
     t.needsUpdate = true
-    t.repeat.set((this.espelha ? -1 : 1) / man.quadros, 1)
+    const [gc, gl] = man.grade ?? [man.quadros, 1]
+    t.repeat.set((this.espelha ? -1 : 1) / gc, 1 / gl)
     this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }))
     const L = op.largura ?? 2
     this.sprite.scale.set(L, (L * man.quadro[1]) / man.quadro[0], 1)
@@ -123,12 +125,15 @@ export class EfeitoFolha {
     this.voo = op.voo ?? [0, man.quadros - 1]
     this.aoChegar = op.aoChegar
     this.sprite.position.copy(de)
+    // a folha vem ancorada no chão (base do desenho no pé do quadro)
+    if (op.chao) this.sprite.center.set(0.5, 6 / man.quadro[1])
     this.mostrar(0)
   }
 
   private mostrar(q: number) {
     const m = this.sprite.material.map!
-    m.offset.set((q + (this.espelha ? 1 : 0)) / this.man.quadros, 0)
+    const [gc, gl] = this.man.grade ?? [this.man.quadros, 1]
+    m.offset.set(((q % gc) + (this.espelha ? 1 : 0)) / gc, 1 - (Math.floor(q / gc) + 1) / gl)
   }
 
   /** duração total (s) */
