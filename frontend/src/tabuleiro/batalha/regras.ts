@@ -313,6 +313,8 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
   let fimDaVez = false
   /** observação já usada neste ataque, por alvo (true = previu e esquiva de tudo) */
   const observados = new Map<string, boolean>()
+  /** Logias em que o armamento já pagou o uso extra neste ataque */
+  const pagouLogia = new Set<string>()
   const clashes = new Map<string, 'venceu' | 'perdeu' | 'empate'>()
 
   /** Um golpe de `c` em `alvo`. */
@@ -334,6 +336,15 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     // elemento do golpe vença o da fruta (fogo derrete gelo)
     const elemAlvo = alvo.akuma ? FRUTAS[alvo.akuma.fruta].elemento : undefined
     const venceElemento = !!(s.elemento && elemAlvo && VENCE[s.elemento]?.includes(elemAlvo))
+    // tocar a Logia com Haki custa 1 uso a mais de armamento (uma vez por
+    // ataque); sem esse uso, o golpe atravessa como se não tivesse Haki
+    if (alvo.logia && alvo.logia.cargas > 0 && armamento && !venceElemento && !pagouLogia.has(alvo.id)) {
+      const arm = c.haki.armamento
+      if (arm && arm.usos > 0) {
+        arm.usos--
+        pagouLogia.add(alvo.id)
+      } else armamento = false
+    }
     if (alvo.logia && !armamento && !venceElemento) {
       if (alvo.logia.cargas > 0) {
         alvo.logia.cargas--
@@ -472,6 +483,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
         if (!alvo || alvo === c || (s.area === 'alvo' && alvo.lado === c.lado)) continue
         for (let g = 0; g < (s.golpes ?? 1) && alvo.hp > 0 && c.hp > 0; g++) golpear(c, alvo, s, armamento, rei)
       }
+      if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
       break
     }
     case 'passar':
@@ -511,7 +523,9 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       espirito(c, ESPIRITO_POR_VEZ)
       // armamento recupera com espírito
       const arm = c.haki.armamento
-      if (arm && arm.usos < arm.max && c.espirito >= RECUPERA_ARMAMENTO.espirito) {
+      // quem tem o Rei só usa o espírito que sobra acima do custo do Rei imbuído
+      const reserva = c.haki.rei ? REI_IMBUIDO.espirito : 0
+      if (arm && arm.usos < arm.max && c.espirito >= RECUPERA_ARMAMENTO.espirito + reserva) {
         c.espirito -= RECUPERA_ARMAMENTO.espirito
         arm.usos = Math.min(arm.max, arm.usos + RECUPERA_ARMAMENTO.usos)
         ev.push({ t: 'recuperou', id: c.id, usos: arm.usos })

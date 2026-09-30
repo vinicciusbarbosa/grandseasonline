@@ -28,7 +28,8 @@ function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number,
   const def = Math.min(60, alvo.at.def)
   let d = c.at.atk * FORCA * mult * golpes * (1 - def / 100)
   if (armamento) d *= c.haki.armamento?.avancado ? 1.4 : 1.25
-  if (alvo.logia && alvo.logia.cargas > 0 && !armamento) d *= 0.1
+  // Logia: o armamento precisa de 2 usos (um a mais para tocar a Logia)
+  if (alvo.logia && alvo.logia.cargas > 0 && (!armamento || (c.haki.armamento?.usos ?? 0) < 2)) d *= 0.1
   // prefere terminar quem está quase caindo
   if (d >= alvo.hp) d = alvo.hp + 25
   return d
