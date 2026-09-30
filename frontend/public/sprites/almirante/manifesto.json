@@ -134,6 +134,12 @@
     "arquivo": "parar_S.png",
     "quadros": 12
    }
+  },
+  "atacar": {
+   "S": {
+    "arquivo": "atacar_S.png",
+    "quadros": 12
+   }
   }
  },
  "paleta": [

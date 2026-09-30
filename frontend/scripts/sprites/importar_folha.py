@@ -487,7 +487,7 @@ def importar_animacao(arquivos, personagem, anim, direcao, ordem=None):
     # escala: altura típica (mediana) das figuras ≈ ALTURA
     altura = float(np.median([a.shape[0] for _, a in celulas]))
     escala = ALTURA / altura
-    passos = anim.split(':')[0] in ('andar', 'correr', 'frear')
+    passos = anim.split(':')[0] in ('andar', 'correr', 'frear', 'parar', 'atacar', 'dano')
     reduzidas = [reduzir(c, a, escala) for c, a in celulas]
     if passos:
         reduzidas = escalar_pelo_parado(celulas, origem, reduzidas, escala, pasta, direcao)
