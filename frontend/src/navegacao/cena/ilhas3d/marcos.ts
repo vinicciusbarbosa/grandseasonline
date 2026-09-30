@@ -49,7 +49,7 @@ export function casco(p: Pecas, comp: number, larg: number, alto: number, cor: n
 }
 
 /** Mastro com vela quadrada virada para o lado (+Z) e bandeira opcional. */
-function mastro(p: Pecas, x: number, y: number, altura: number, vela: number, larguraVela: number, bandeira?: { cor: number; simbolo: number }) {
+export function mastro(p: Pecas, x: number, y: number, altura: number, vela: number, larguraVela: number, bandeira?: { cor: number; simbolo: number }) {
   p.cilindro(1.1, 1.4, altura, COR.madeiraEscura, x, y, 0, 6)
   if (larguraVela > 0) {
     // Vergas braceadas (~40°): vela de pano redondo de frente para o vento — e
