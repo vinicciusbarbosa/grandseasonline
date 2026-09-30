@@ -121,8 +121,11 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   Em aberto: atributos (base do Sugoi, modificada?) e
   árvore de habilidades (estilo Path of Exile?).
 - **Batalha — turno e Haki (conversa de 30/09, segunda parte)**:
-  - Turno **simultâneo**, mas **sem postura secreta por enquanto** (fica para
-    depois). Cada tripulação tem um **número limitado de ações por turno**,
+  - Turno **alternado** (mudou: o simultâneo não combina com o tabuleiro —
+    o movimento de um estragaria o plano do outro). Quem começa depende da
+    **agilidade**; um lado age enquanto o outro assiste, e a vez passa na
+    hora. Postura secreta fica para depois. Cada tripulação tem um
+    **número limitado de ações por turno**,
     usadas como o jogador quiser (ex.: 5 ações = atacar 5 vezes com o mesmo
     tripulante), desde que ele tenha os recursos (energia, espírito...).
   - **Movimento com orçamento separado** das ações (casas por turno da
@@ -142,8 +145,15 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   - **O Haki mais forte prevalece**: em disputas em que o Haki conta, o mais
     forte tem grande chance de vencer o mais fraco. **Duelo de Haki** pelo
     **overall** (média de todos os tipos; cálculo a definir).
-  - **Logia**: não pode ser atingido, a menos que o golpe tenha Haki de
-    armamento (a confirmar se desequilibra).
+  - **Logia**: intangível contra golpes sem Haki de armamento e sem
+    Kairoseki, com **cargas de intangibilidade por batalha** (recurso só
+    dela, não gasta energia nem ações): cada golpe que atravessaria gasta 1.
+    Quantidade pela raridade da fruta (ex.: Comum 3, Rara 5, Épica 8,
+    Lendária 12, Mítica 16, Divina 20) + bônus de maestria da Akuma. Sem
+    cargas, fica "desgastado" e toma os golpes. Haki e Kairoseki sempre
+    atingem, sem gastar carga.
+  - **Sem vontade da tripulação** (a do Sugoi sai): cada personagem tem o
+    próprio **espírito**.
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
   determinístico pela semente — o servidor do multiplayer usa o mesmo):
   cada um anda até 3 casas e age; ordem por AGL. Golpes: comum, pesado
