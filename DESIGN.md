@@ -103,8 +103,14 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   **Habilidades das armas**: cada **tipo** de arma dá as mesmas habilidades
   (toda katana dá as skills A, B e C); raridade maior = mais dano; **Lendária**
   e **Relíquia** dão habilidades a mais. Relíquias são as armas que existem em
-  One Piece (Wado Ichimonji, Yoru...). A árvore de habilidades (estilo PoE,
-  enxuta) modifica e fortalece; Akuma no Mi tem árvore própria.
+  One Piece (Wado Ichimonji, Yoru...), com habilidades únicas (não são únicas
+  no servidor, por enquanto). A skill extra da Lendária é sorteada entre
+  algumas opções. **Não dá para trocar de arma na batalha.**
+  **Árvore de habilidades** (estilo Path of Exile): uma árvore **por classe**
+  (espadachim, combatente, atirador, cientista), com vários caminhos/builds
+  dentro dela — só passivas, buffs, slots de gemas e nós notáveis que
+  modificam as skills da arma (a árvore não dá skills). Akuma no Mi tem
+  árvore própria.
   Em aberto: atributos (base do Sugoi, modificada?) e
   árvore de habilidades (estilo Path of Exile?).
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
