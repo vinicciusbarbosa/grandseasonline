@@ -16,7 +16,8 @@ import { texturaSombra } from './texturas'
  * simples (balanço ao andar, investida no ataque, recuo no dano).
  */
 
-type Folha = { arquivo: string; quadros: number }
+/** `quadro`/`pe`: tamanho e pé próprios desta tira (golpes largos da LPC têm quadro maior) */
+type Folha = { arquivo: string; quadros: number; quadro?: [number, number]; pe?: [number, number] }
 
 type Manifesto = {
   quadro: [number, number]
@@ -25,6 +26,10 @@ type Manifesto = {
   /** texels por pixel de arte do tabuleiro (2 = arte em HD) */
   densidade?: number
   anims: Partial<Record<NomeAnim, Partial<Record<Direcao, Folha & { variantes?: Record<string, Folha> }>>>>
+  /** folhas com só 4 direções (LPC): diagonal → direção desenhada mais próxima */
+  apelidos?: Partial<Record<Direcao, Direcao>>
+  /** ajustes de tempo por animação (folhas com outro número de quadros) */
+  tempos?: Partial<Record<NomeAnim, { fps?: number; impacto?: number }>>
 }
 
 const ESPELHO: Partial<Record<Direcao, Direcao>> = { SW: 'SE', W: 'E', NW: 'NE' }
@@ -88,7 +93,8 @@ export class VisualFolhas implements Visual {
     for (const [nome, t] of Object.entries(TEMPO) as [NomeAnim, (typeof TEMPO)[NomeAnim]][]) {
       const q = Object.values(man.anims[nome] ?? {})[0]?.quadros ?? QUADROS_PADRAO
       const poeira: InfoAnim['poeira'] = Array.from({ length: q }, (_, i) => (t.poeira?.includes(i) ? 'E' : undefined))
-      this.info[nome] = { quadros: q, fps: t.ciclo ? q / t.ciclo : t.fps, laco: t.laco, impacto: t.impacto, poeira }
+      const aj = man.tempos?.[nome]
+      this.info[nome] = { quadros: q, fps: aj?.fps ?? (t.ciclo ? q / t.ciclo : t.fps), laco: t.laco, impacto: aj?.impacto ?? t.impacto, poeira }
     }
     this.sprite = new THREE.Sprite(materialIluminado())
     texSombra ??= texturaSombra()
@@ -136,10 +142,11 @@ export class VisualFolhas implements Visual {
       t.repeat.set(1 / a.quadros, 1)
       this.texturas.set(a.arquivo, t)
     }
-    return { t, quadros: a.quadros, propria: !!this.man.anims[anim]?.[dir] }
+    return { t, quadros: a.quadros, propria: !!this.man.anims[anim]?.[dir], quadro: a.quadro ?? this.man.quadro, pe: a.pe ?? this.man.pe }
   }
 
   tem(anim: NomeAnim, dir: Direcao) {
+    dir = this.man.apelidos?.[dir] ?? dir
     return !!this.man.anims[anim]?.[dir] || (dir in ESPELHO && !!this.man.anims[anim]?.[ESPELHO[dir]!])
   }
 
@@ -149,8 +156,9 @@ export class VisualFolhas implements Visual {
     // (só espelha se a direita tiver essa animação; senão cai no parado da
     // própria direção, que já existe nas 8)
     const tem = (d: Direcao) => !!this.man.anims[e.anim]?.[d]
-    const espelha = !tem(e.dir) && e.dir in ESPELHO && tem(ESPELHO[e.dir]!)
-    const dir = espelha ? ESPELHO[e.dir]! : e.dir
+    const eDir = this.man.apelidos?.[e.dir] ?? e.dir
+    const espelha = !tem(eDir) && eDir in ESPELHO && tem(ESPELHO[eDir]!)
+    const dir = espelha ? ESPELHO[eDir]! : eDir
     const info = this.info[e.anim]
     const dur = info.quadros / info.fps
     const fase = info.laco ? (e.tAnim / dur) % 1 : Math.min(1, e.tAnim / dur)
@@ -170,13 +178,13 @@ export class VisualFolhas implements Visual {
     // espelho pela textura (o shader de sprite ignora escala negativa)
     tira.t.repeat.set((espelha ? -1 : 1) / tira.quadros, 1)
     tira.t.offset.set((q + (espelha ? 1 : 0)) / tira.quadros, 0)
-    const [L, A] = this.man.quadro
-    const cx = this.man.pe[0] / L
-    this.sprite.center.set(espelha ? 1 - cx : cx, 1 - this.man.pe[1] / A)
+    const [L, A] = tira.quadro
+    const cx = tira.pe[0] / L
+    this.sprite.center.set(espelha ? 1 - cx : cx, 1 - tira.pe[1] / A)
     const k = e.clarao > 0 ? 3.2 : 1
     mat.color.setRGB(k, k, k)
     const desvio = tira.propria ? ([0, 0] as [number, number]) : this.movimentoProvisorio(e, fase)
-    const peY = 1 - this.man.pe[1] / A
+    const peY = 1 - tira.pe[1] / A
     atualizarLuz(mat, tira.t, espelha, peY, peY + (this.man.altura ?? 104) / A, e.luz)
     posicionarPixel(this.sprite, e.pos, L / this.densidade, A / this.densidade, camera, telaL, telaA, false, 0.45, desvio)
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)

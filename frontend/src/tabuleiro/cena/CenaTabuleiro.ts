@@ -4,7 +4,7 @@ import { criarMar } from './mar'
 import { montarNavios } from './navio'
 import { Assador } from '../boneco/assador'
 import { CAPITAES } from '../boneco/boneco'
-import { Personagem } from './personagem'
+import { Personagem, type Direcao } from './personagem'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
@@ -48,6 +48,20 @@ const NIVEIS = [ZOOM_TUDO, 1, 2, 3, 4]
 const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
 const DANO = [14, 22]
+
+/** Personagens do teste: 5 piratas (linhas 0–4) contra 5 da Marinha (5–9). */
+const TRIPULACOES: { id: string; nome: string; casa: Casa; dir: Direcao }[] = [
+  { id: 'pirata-capitao', nome: 'Capitão', casa: { l: 3, c: 9 }, dir: 'S' },
+  { id: 'pirata-espadachim', nome: 'Espadachim', casa: { l: 4, c: 7 }, dir: 'S' },
+  { id: 'pirata-lutador', nome: 'Lutador', casa: { l: 4, c: 11 }, dir: 'S' },
+  { id: 'pirata-atiradora', nome: 'Atiradora', casa: { l: 2, c: 6 }, dir: 'S' },
+  { id: 'pirata-medico', nome: 'Médico', casa: { l: 2, c: 12 }, dir: 'S' },
+  { id: 'marinha-almirante', nome: 'Comandante', casa: { l: 6, c: 10 }, dir: 'N' },
+  { id: 'marinha-oficial', nome: 'Oficial', casa: { l: 5, c: 8 }, dir: 'N' },
+  { id: 'marinha-soldado', nome: 'Soldado', casa: { l: 5, c: 12 }, dir: 'N' },
+  { id: 'marinha-arqueiro', nome: 'Arqueiro', casa: { l: 7, c: 7 }, dir: 'N' },
+  { id: 'marinha-enfermeira', nome: 'Enfermeira', casa: { l: 7, c: 13 }, dir: 'N' },
+]
 
 export class CenaTabuleiro {
   readonly renderer: THREE.WebGLRenderer
@@ -154,17 +168,19 @@ export class CenaTabuleiro {
     }
     this.cena.add(this.marcas)
 
-    // os dois capitães da arte de referência, um em cada navio
-    // os bonecos são "fotografados" em pixel art aqui mesmo, na placa de vídeo
+    // as duas tripulações (arte provisória da LPC, ampliada 2×): piratas no
+    // navio de cima, Marinha no de baixo. Se as folhas não carregarem, os
+    // capitães em boneco 3D "fotografado" em pixel art entram no lugar.
     const assador = new Assador(this.renderer)
     const vir = (id: string, nome: string, casa: Casa, dir: 'SE' | 'NW') =>
       this.adicionar(new Personagem(id, nome, casa, 120, new VisualSprite(assador.assar(CAPITAES[id])), dir))
-    vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE')
-    // o almirante já usa as folhas desenhadas (estilo Ragnarok)
-    void VisualFolhas.carregar('almirante')
-      .then((v) => this.adicionar(new Personagem('almirante', 'Almirante', { l: 7, c: 13 }, 120, v, 'SW')))
+    void Promise.all(
+      TRIPULACOES.map(async (t) => new Personagem(t.id, t.nome, t.casa, 120, await VisualFolhas.carregar(t.id), t.dir)),
+    )
+      .then((ps) => ps.forEach((p) => this.adicionar(p)))
       .catch((e) => {
-        console.error('almirante não carregou', e)
+        console.error('tripulações não carregaram', e)
+        vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE')
         vir('capitao-negro', 'Capitão Negro', { l: 7, c: 13 }, 'NW')
       })
 
@@ -211,7 +227,7 @@ export class CenaTabuleiro {
    * raios e ondas de choque; quem estiver até 4 casas cambaleia.
    */
   hakiDoRei() {
-    const p = this.selecionado ?? this.personagens.find((x) => x.id === 'almirante') ?? this.personagens[0]
+    const p = this.selecionado ?? this.personagens.find((x) => x.id === 'marinha-almirante') ?? this.personagens[0]
     if (!p) return
     // liga/desliga: se já está soltando Haki, desliga
     const ligado = this.hakis.find((h) => h.dono === p && h.ligado)
@@ -238,7 +254,7 @@ export class CenaTabuleiro {
    * desliga. Ligado, a espada fica negra e o golpe estala raios vermelhos.
    */
   hakiArmamento() {
-    const p = this.selecionado ?? this.personagens.find((x) => x.id === 'almirante') ?? this.personagens[0]
+    const p = this.selecionado ?? this.personagens.find((x) => x.id === 'marinha-almirante') ?? this.personagens[0]
     if (!p) return
     p.haki = !p.haki
     const s = this.acimaDe(p, 1.25)
@@ -280,7 +296,7 @@ export class CenaTabuleiro {
         return { id: p.id, nome: p.nome, vida: p.vida, vidaMax: p.vidaMax, x: s.x, y: s.y, selecionado: p === this.selecionado }
       }),
       flutuantes: this.flutuantes,
-      hakiArmamento: (this.selecionado ?? this.personagens.find((x) => x.id === 'almirante'))?.haki ?? false,
+      hakiArmamento: (this.selecionado ?? this.personagens.find((x) => x.id === 'marinha-almirante'))?.haki ?? false,
       aura: this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0),
       velocidade: this.velocidade,
       escala: this.escala,

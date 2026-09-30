@@ -1,0 +1,102 @@
+{
+ "quadro": [
+  128,
+  128
+ ],
+ "pe": [
+  64,
+  124
+ ],
+ "densidade": 1,
+ "apelidos": {
+  "SE": "E",
+  "NE": "E",
+  "SW": "W",
+  "NW": "W"
+ },
+ "tempos": {
+  "parado": {
+   "fps": 2
+  },
+  "atacar": {
+   "fps": 16,
+   "impacto": 9
+  }
+ },
+ "fonte": "LPC (Universal LPC Spritesheet Character Generator) — ver creditos.csv",
+ "anims": {
+  "parado": {
+   "N": {
+    "arquivo": "parado_N.png",
+    "quadros": 2
+   },
+   "W": {
+    "arquivo": "parado_W.png",
+    "quadros": 2
+   },
+   "S": {
+    "arquivo": "parado_S.png",
+    "quadros": 2
+   },
+   "E": {
+    "arquivo": "parado_E.png",
+    "quadros": 2
+   }
+  },
+  "andar": {
+   "N": {
+    "arquivo": "andar_N.png",
+    "quadros": 8
+   },
+   "W": {
+    "arquivo": "andar_W.png",
+    "quadros": 8
+   },
+   "S": {
+    "arquivo": "andar_S.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "andar_E.png",
+    "quadros": 8
+   }
+  },
+  "correr": {
+   "N": {
+    "arquivo": "correr_N.png",
+    "quadros": 8
+   },
+   "W": {
+    "arquivo": "correr_W.png",
+    "quadros": 8
+   },
+   "S": {
+    "arquivo": "correr_S.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "correr_E.png",
+    "quadros": 8
+   }
+  },
+  "atacar": {
+   "N": {
+    "arquivo": "atacar_N.png",
+    "quadros": 13
+   },
+   "W": {
+    "arquivo": "atacar_W.png",
+    "quadros": 13
+   },
+   "S": {
+    "arquivo": "atacar_S.png",
+    "quadros": 13
+   },
+   "E": {
+    "arquivo": "atacar_E.png",
+    "quadros": 13
+   }
+  }
+ },
+ "altura": 112
+}

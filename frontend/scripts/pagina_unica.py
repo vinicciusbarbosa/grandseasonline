@@ -16,7 +16,11 @@ emb = {}
 sem_sprites = '--sem-sprites' in sys.argv
 # --qualidade=N: WebP com perda (N de 1 a 100) — só para caber no limite da página publicada
 QUALIDADE = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--qualidade=')), 0)
+# --pular=a,b: pastas de sprites que não entram (personagens fora do tabuleiro)
+PULAR = next((a.split('=')[1].split(',') for a in sys.argv if a.startswith('--pular=')), [])
 for arq in [] if sem_sprites else glob.glob(os.path.join(raiz, 'public', 'sprites', '**', '*.*'), recursive=True):
+    if arq.endswith('.csv') or os.path.relpath(arq, os.path.join(raiz, 'public', 'sprites')).split(os.sep)[0] in PULAR:
+        continue
     rel = os.path.relpath(arq, os.path.join(raiz, 'public')).replace(os.sep, '/')
     if arq.endswith('.png'):
         # WebP sem perda: ~30% menor que o PNG (a página cabe no limite de 16 MB)

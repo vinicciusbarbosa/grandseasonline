@@ -86,6 +86,16 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
 
 ## Agora
 - Protótipo das posturas + vontade na abordagem (contra a IA), depois no PvP.
+- **Batalha completa prototipada** (decidido para o protótipo): **5 contra 5**
+  (capitão, espadachim, atirador, médico, lutador × comandante, oficial,
+  soldado, arqueiro, enfermeira), **turnos simultâneos + postura secreta**
+  (como acima) e **contra a IA**.
+- **Arte provisória**: personagens montados no gerador LPC (Liberated Pixel
+  Cup, CC-BY-SA/GPL — créditos em `public/sprites/<nome>/creditos.csv`),
+  ampliados 2× (~96 px, tamanho de Ragnarok), 4 direções (diagonais usam a
+  lateral). Importador: `frontend/scripts/sprites/importar_lpc.py`; lista das
+  tripulações em `frontend/scripts/sprites/fonte/lpc/tripulacoes.json`.
+  A arte final será desenhada à mão depois (mesmo formato de manifesto).
 - **Teste de tabuleiro em pixel art** (`/teste-tabuleiro`): tabuleiro 10×20 em
   dois conveses de 5×20 (um navio de cada lado, água entre eles), câmera de
   cima inclinada como na referência. Andar 1 casa = caminhada; mais de 1 =

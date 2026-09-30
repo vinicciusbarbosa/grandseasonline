@@ -1,0 +1,134 @@
+{
+ "quadro": [
+  128,
+  128
+ ],
+ "pe": [
+  64,
+  124
+ ],
+ "densidade": 1,
+ "apelidos": {
+  "SE": "E",
+  "NE": "E",
+  "SW": "W",
+  "NW": "W"
+ },
+ "tempos": {
+  "parado": {
+   "fps": 2
+  },
+  "atacar": {
+   "fps": 12,
+   "impacto": 3
+  }
+ },
+ "fonte": "LPC (Universal LPC Spritesheet Character Generator) — ver creditos.csv",
+ "anims": {
+  "parado": {
+   "N": {
+    "arquivo": "parado_N.png",
+    "quadros": 2
+   },
+   "W": {
+    "arquivo": "parado_W.png",
+    "quadros": 2
+   },
+   "S": {
+    "arquivo": "parado_S.png",
+    "quadros": 2
+   },
+   "E": {
+    "arquivo": "parado_E.png",
+    "quadros": 2
+   }
+  },
+  "andar": {
+   "N": {
+    "arquivo": "andar_N.png",
+    "quadros": 8
+   },
+   "W": {
+    "arquivo": "andar_W.png",
+    "quadros": 8
+   },
+   "S": {
+    "arquivo": "andar_S.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "andar_E.png",
+    "quadros": 8
+   }
+  },
+  "correr": {
+   "N": {
+    "arquivo": "correr_N.png",
+    "quadros": 8
+   },
+   "W": {
+    "arquivo": "correr_W.png",
+    "quadros": 8
+   },
+   "S": {
+    "arquivo": "correr_S.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "correr_E.png",
+    "quadros": 8
+   }
+  },
+  "atacar": {
+   "N": {
+    "arquivo": "atacar_N.png",
+    "quadros": 6,
+    "quadro": [
+     384,
+     384
+    ],
+    "pe": [
+     192,
+     252
+    ]
+   },
+   "W": {
+    "arquivo": "atacar_W.png",
+    "quadros": 6,
+    "quadro": [
+     384,
+     384
+    ],
+    "pe": [
+     192,
+     252
+    ]
+   },
+   "S": {
+    "arquivo": "atacar_S.png",
+    "quadros": 6,
+    "quadro": [
+     384,
+     384
+    ],
+    "pe": [
+     192,
+     252
+    ]
+   },
+   "E": {
+    "arquivo": "atacar_E.png",
+    "quadros": 6,
+    "quadro": [
+     384,
+     384
+    ],
+    "pe": [
+     192,
+     252
+    ]
+   }
+  }
+ },
+ "altura": 94
+}
