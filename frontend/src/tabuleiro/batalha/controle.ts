@@ -66,7 +66,7 @@ export interface Palco {
   /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
   choqueRei(ponto: THREE.Vector3): void
   /** efeito desenhado à mão (spritesheet); resolve false se a folha não existe */
-  efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean }): Promise<boolean>
+  efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number }): Promise<boolean>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
   deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
   /** Ice Age: o tabuleiro inteiro congela por um tempo */
@@ -896,7 +896,15 @@ export class ControleBatalha {
         break
       }
       case 'entei': {
-        // sol de fogo gigante sobre a cabeça, arremessado, explosão enorme
+        // folhas 99–102: círculos de fogo no chão, o fogo sobe, a bola cresce e
+        // gira sobre a cabeça, é arremessada e explode no alvo (só a arte)
+        const pe = (v: THREE.Vector3) => v.clone().setY(0.02)
+        if (await P.efeitoFolha('entei-carga', 'S', pe(a.pos), { escala: k })) {
+          await P.efeitoFolha('entei-bola', 'S', pe(a.pos), { para: pe(ate), escala: k })
+          await P.efeitoFolha('entei-explosao', 'S', pe(ate), { escala: k })
+          break
+        }
+        // sem as folhas: sol de fogo gigante sobre a cabeça, arremessado, explosão enorme
         const cima = a.pos.clone().setY(a.visual.altura + 1.3)
         void P.efeito('aura', 'normal', origem, { dur: 0.9, escala: 1.4 })
         await P.efeito('bolaFogo', 'normal', cima, { dur: 0.9, escala: 2.4 })

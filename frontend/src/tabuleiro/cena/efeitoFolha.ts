@@ -19,7 +19,7 @@ export type DirEfeito = 'E' | 'SE' | 'NE' | 'S' | 'N' | 'W' | 'SW' | 'NW'
  * pilar, aura).
  */
 /** grade: [colunas, linhas] quando a animação é longa e vem em várias linhas (lida em ordem) */
-type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico'; grade?: [number, number]; centro?: [number, number]; voo?: [number, number] }
+type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico'; grade?: [number, number]; centro?: [number, number]; voo?: [number, number]; largura?: number }
 
 /** vetor na tela (x para a direita, y para cima) de cada direção do tabuleiro */
 const TELA: Record<DirEfeito, [number, number]> = {
@@ -82,13 +82,14 @@ export class EfeitoFolha {
   private readonly para: THREE.Vector3 | null
   private readonly voo: [number, number]
   private readonly aoChegar?: () => void
+  private readonly aoAcabar?: () => void
   private chegou = false
 
   /**
    * @param largura largura no mundo (casas)
    * @param voo quadros entre os quais o efeito voa de `de` até `para`
    */
-  constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean } = {}) {
+  constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoAcabar?: () => void } = {}) {
     this.man = man
     const modo = man.modo ?? 'direcoes'
     let [d, espelha] = modo === 'direcoes' ? escolher(man.direcoes, dir) : [man.direcoes[0] as DirEfeito, false]
@@ -116,7 +117,7 @@ export class EfeitoFolha {
     const [gc, gl] = man.grade ?? [man.quadros, 1]
     t.repeat.set((this.espelha ? -1 : 1) / gc, 1 / gl)
     this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }))
-    const L = op.largura ?? 2
+    const L = (op.largura ?? man.largura ?? 2) * (op.escala ?? 1)
     this.sprite.scale.set(L, (L * man.quadro[1]) / man.quadro[0], 1)
     this.sprite.material.rotation = espelha ? -giro : giro
     this.sprite.renderOrder = 7
@@ -124,6 +125,7 @@ export class EfeitoFolha {
     this.para = op.para?.clone() ?? null
     this.voo = op.voo ?? man.voo ?? [0, man.quadros - 1]
     this.aoChegar = op.aoChegar
+    this.aoAcabar = op.aoAcabar
     this.sprite.position.copy(de)
     // a folha vem ancorada no chão (base do desenho no pé do quadro)
     if (man.centro) this.sprite.center.set(man.centro[0], man.centro[1])
@@ -161,6 +163,7 @@ export class EfeitoFolha {
         this.chegou = true
         this.aoChegar?.()
       }
+      this.aoAcabar?.()
     }
   }
 

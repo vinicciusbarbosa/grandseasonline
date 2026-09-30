@@ -287,14 +287,14 @@ export class CenaTabuleiro {
       this.lampejoAtual = { tipo, t: 0, dur }
     },
     /** efeito desenhado (spritesheet); false se a folha não existe */
-    efeitoFolha: async (nome: string, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean } = {}) => {
+    efeitoFolha: async (nome: string, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number } = {}) => {
       const man = await manifestoEfeito(nome)
       if (!man) return false
       await new Promise<void>((r) => {
-        const ef = new EfeitoFolha(nome, man, dir, de, { ...op, aoChegar: () => (op.aoChegar?.(), r()) })
+        // com destino, termina ao chegar; sem, quando o último quadro acaba
+        const ef = new EfeitoFolha(nome, man, dir, de, op.para ? { ...op, aoChegar: () => (op.aoChegar?.(), r()) } : { ...op, aoAcabar: r })
         this.efeitos.push(ef)
         this.cenaFx.add(ef.sprite)
-        if (!op.para) window.setTimeout(r, (ef.duracao * 1000) / this.velocidade)
       })
       return true
     },

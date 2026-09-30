@@ -55,8 +55,9 @@ def _cortes(perfil, n):
     return sorted(ch)
 
 
-def quadros_linhas(folha, contagem):
-    """Uma lista por linha; `contagem` = quadros de cada linha."""
+def quadros_linhas(folha, contagem, fixos=None):
+    """Uma lista por linha; `contagem` = quadros de cada linha;
+    `fixos` = {linha: [colunas de corte]} quando os vales enganam."""
     rgba = _rgba(folha)
     a = rgba[..., 3].astype(np.float32) / 255
     linhas = [b for b in ie.faixas_ocupadas(a.sum(1)) if b[1] - b[0] > 15]
@@ -66,7 +67,7 @@ def quadros_linhas(folha, contagem):
     out = []
     for r, n in enumerate(contagem):
         y0, y1 = lim[r], lim[r + 1]
-        corte = [0] + _cortes(a[y0:y1].sum(0), n) + [a.shape[1]]
+        corte = [0] + ((fixos or {}).get(r) or _cortes(a[y0:y1].sum(0), n)) + [a.shape[1]]
         out.append([rgba[y0:y1, corte[i]:corte[i + 1]] for i in range(n)])
     return out
 
