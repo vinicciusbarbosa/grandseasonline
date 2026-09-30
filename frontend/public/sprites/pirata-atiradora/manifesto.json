@@ -16,8 +16,8 @@
  },
  "tempos": {
   "atacar": {
-   "fps": 16,
-   "impacto": 9
+   "fps": 12,
+   "impacto": 5
   }
  },
  "fonte": "LPC (Universal LPC Spritesheet Character Generator) — ver creditos.csv",
@@ -109,41 +109,41 @@
   "atacar": {
    "N": {
     "arquivo": "atacar_N.png",
-    "quadros": 13,
+    "quadros": 8,
     "variantes": {
      "haki": {
       "arquivo": "atacar-haki_N.png",
-      "quadros": 13
+      "quadros": 8
      }
     }
    },
    "W": {
     "arquivo": "atacar_W.png",
-    "quadros": 13,
+    "quadros": 8,
     "variantes": {
      "haki": {
       "arquivo": "atacar-haki_W.png",
-      "quadros": 13
+      "quadros": 8
      }
     }
    },
    "S": {
     "arquivo": "atacar_S.png",
-    "quadros": 13,
+    "quadros": 8,
     "variantes": {
      "haki": {
       "arquivo": "atacar-haki_S.png",
-      "quadros": 13
+      "quadros": 8
      }
     }
    },
    "E": {
     "arquivo": "atacar_E.png",
-    "quadros": 13,
+    "quadros": 8,
     "variantes": {
      "haki": {
       "arquivo": "atacar-haki_E.png",
-      "quadros": 13
+      "quadros": 8
      }
     }
    }

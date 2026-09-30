@@ -5,7 +5,10 @@ Character Generator, liberatedpixelcup.github.io) para o jogo.
 No gerador: monte o personagem e baixe "ZIP: Split by animation and item"
 (cada peça numa imagem separada). Depois:
 
-    python3 frontend/scripts/sprites/importar_lpc.py <pasta-ou-zip> <nome>
+    python3 frontend/scripts/sprites/importar_lpc.py <pasta-ou-zip> <nome> [arma_extra]
+
+(arma_extra: arma no padrão LPC fora do gerador, ex. espingarda — ver
+fonte/lpc/armas/LEIAME.md)
 
 Gera public/sprites/<nome>/ com as tiras de cada animação por direção,
 ampliadas 2× com suavização de pixel art (EPX): o boneco de ~48 px vira
@@ -49,6 +52,12 @@ PE_64 = (32, 62)
 BRACO = ('body', 'clothes', 'jacket', 'gloves', 'arms', 'wrists', 'sleeves', 'bracers')
 CABECA = ('head', 'expression', 'hair', 'hat', 'hat_trim', 'hat_overlay', 'hat_accessory', 'beard', 'facial_eyes')
 ARCOS = ('normal', 'recurve', 'great', 'crossbow', 'slingshot')
+# armas no padrão LPC que não estão no gerador (fonte/lpc/armas/): linhas da
+# folha de 21 linhas usadas por animação
+ARMAS_EXTRAS = {
+    'espingarda': {'walk': 8, 'thrust': 4, 'ataque': ('standard/thrust', 64, {'fps': 12, 'impacto': 5})},
+}
+PASTA_ARMAS = os.path.join(os.path.dirname(__file__), 'fonte', 'lpc', 'armas')
 # alcance do endurecimento a partir da mão (px da arte LPC): mão e punho da
 # manga — mais que isso entra no peito quando a mão está na frente do corpo
 ALCANCE = 5
@@ -78,7 +87,19 @@ def tipos_das_camadas(personagem):
     return {arquivo_do_item(s['name']): tipo for tipo, s in personagem['selections'].items()}
 
 
-def ler_camadas(pasta, tipos):
+def camadas_da_arma_extra(nome, anim):
+    """Peça de arma extra para uma animação: por cima do corpo, e por trás
+    dele na linha de costas (N) — [(z, tipo, item, imagem)]."""
+    info = ARMAS_EXTRAS[nome]
+    folha = np.asarray(Image.open(os.path.join(PASTA_ARMAS, f'{nome}.png')).convert('RGBA'))
+    ini = info[anim] * 64
+    bloco = folha[ini:ini + 4 * 64]
+    frente, tras = bloco.copy(), np.zeros_like(bloco)
+    tras[:64], frente[:64] = bloco[:64], 0  # linha 0 = costas
+    return [(5, 'weapon', f'{nome}-tras', tras), (140, 'weapon', nome, frente)]
+
+
+def ler_camadas(pasta, tipos, extras=()):
     """Camadas de uma animação, na ordem de desenho: [(tipo, item, imagem)]."""
     out = []
     def z(n):  # '150 saber.png' → 150; '0-1 espada.png' → -1 (atrás do corpo)
@@ -87,8 +108,10 @@ def ler_camadas(pasta, tipos):
 
     for arq in sorted(os.listdir(pasta), key=lambda n: (z(n), n)):
         item = arq.split(' ', 1)[1][:-4]
-        out.append((tipos.get(item, '?'), item, np.asarray(Image.open(os.path.join(pasta, arq)).convert('RGBA'))))
-    return out
+        out.append((z(arq), tipos.get(item, '?'), item, np.asarray(Image.open(os.path.join(pasta, arq)).convert('RGBA'))))
+    out += list(extras)
+    out.sort(key=lambda c: c[0])
+    return [c[1:] for c in out]
 
 
 def enegrecer(a, mask, f=None):
@@ -104,7 +127,13 @@ def enegrecer(a, mask, f=None):
     return a
 
 
-def compor(camadas, haki):
+def clarao(im):
+    """Clarão do disparo (amarelo vivo) — fica aceso mesmo com Haki."""
+    r, g, b = (im[..., i].astype(int) for i in range(3))
+    return (r > 200) & (g > 180) & (b < 140)
+
+
+def compor(camadas, haki, braco=True):
     """Junta as camadas de um quadro. Com haki, pinta arma e braço antes.
     Devolve (imagem, máscara da arma visível, máscara da mão na arma)."""
     H, W = camadas[0][2].shape[:2]
@@ -114,7 +143,9 @@ def compor(camadas, haki):
         if c[0] in ('weapon', 'ammo'):
             arma |= alfa(c)
     mao = np.zeros((H, W), bool)
-    if haki and arma.any():
+    if haki and arma.any() and not braco:
+        camadas = [(t, i, enegrecer(im, (im[..., 3] > 0) & ~clarao(im)) if t in ('weapon', 'ammo') else im) for t, i, im in camadas]
+    elif haki and arma.any():
         corpo = np.zeros((H, W), bool)
         for c in camadas:
             if c[0] == 'body':
@@ -172,7 +203,7 @@ def tira(qs, haki, arco, semente):
     """Quadros → tira ampliada 2× (com o Haki desenhado por cima, se pedido)."""
     fs = []
     for k, q in enumerate(qs):
-        img, arma, mao = compor(q, haki)
+        img, arma, mao = compor(q, haki, braco=not arco)
         big = epx(img)
         if haki and arma.any() and not arco:
             ml = np.kron(arma, np.ones((ESCALA, ESCALA), bool))
@@ -183,16 +214,18 @@ def tira(qs, haki, arco, semente):
                 gd = ml & (cv2.dilate(resto.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0)
             big = espiral(big, ml, gd, k * 1.9, semente + k, esc=0.38)
         elif haki and arma.any():
-            # arco: só o brilho roxo em volta (a espiral é para lâminas)
+            # arco e armas de fogo: arma negra e brilho roxo em volta, sem
+            # endurecer o braço (a arma atravessa o corpo) — a espiral é para lâminas
             ml = np.kron(arma, np.ones((ESCALA, ESCALA), bool))
             anel = (cv2.dilate(ml.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & (big[..., 3] == 0)
+            anel &= ~(cv2.dilate(clarao(big).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0)
             big = big.copy()
             big[anel] = (150, 76, 245, 220)
         fs.append(big)
     return np.concatenate(fs, axis=1)
 
 
-def importar(origem, nome):
+def importar(origem, nome, arma_extra=None):
     tmp = None
     if origem.endswith('.zip'):
         tmp = tempfile.mkdtemp()
@@ -201,14 +234,16 @@ def importar(origem, nome):
     personagem = json.load(open(os.path.join(origem, 'character.json')))
     tipos = tipos_das_camadas(personagem)
     arma = personagem['selections'].get('weapon', {}).get('itemId', '')
-    arco = any(a in arma for a in ARCOS)
+    arco = any(a in arma for a in ARCOS) or bool(arma_extra)  # à distância: sem espiral
     pasta = os.path.join(RAIZ, 'public', 'sprites', nome)
     if os.path.isdir(pasta):
         shutil.rmtree(pasta)
     os.makedirs(pasta)
 
-    # golpe: arma larga (192 px), arco ou golpe curto
-    if os.path.isdir(os.path.join(origem, 'custom', 'slash_oversize')):
+    # golpe: arma extra, arma larga (192 px), arco ou golpe curto
+    if arma_extra:
+        ataque = ARMAS_EXTRAS[arma_extra]['ataque']
+    elif os.path.isdir(os.path.join(origem, 'custom', 'slash_oversize')):
         ataque = ('custom/slash_oversize', 192, {'fps': 12, 'impacto': 3})
     elif arco:
         ataque = ('standard/shoot', 64, {'fps': 16, 'impacto': 9})
@@ -223,8 +258,9 @@ def importar(origem, nome):
         'fonte': 'LPC (Universal LPC Spritesheet Character Generator) — ver creditos.csv',
         'anims': {},
     }
-    andar = ler_camadas(os.path.join(origem, 'standard', 'walk'), tipos)
-    golpe = ler_camadas(os.path.join(origem, *ataque[0].split('/')), tipos)
+    extra = lambda anim: camadas_da_arma_extra(arma_extra, anim) if arma_extra else ()
+    andar = ler_camadas(os.path.join(origem, 'standard', 'walk'), tipos, extra('walk'))
+    golpe = ler_camadas(os.path.join(origem, *ataque[0].split('/')), tipos, extra(ataque[0].split('/')[-1]))
     altura = 0
     semente = sum(map(ord, nome))
     for d, linha in LINHAS.items():
@@ -260,4 +296,4 @@ def importar(origem, nome):
 
 
 if __name__ == '__main__':
-    importar(sys.argv[1], sys.argv[2])
+    importar(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)

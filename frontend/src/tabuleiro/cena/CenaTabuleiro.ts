@@ -59,7 +59,7 @@ const TRIPULACOES: { id: string; nome: string; casa: Casa; dir: Direcao }[] = [
   { id: 'marinha-almirante', nome: 'Comandante', casa: { l: 6, c: 10 }, dir: 'N' },
   { id: 'marinha-oficial', nome: 'Oficial', casa: { l: 5, c: 8 }, dir: 'N' },
   { id: 'marinha-soldado', nome: 'Soldado', casa: { l: 5, c: 12 }, dir: 'N' },
-  { id: 'marinha-arqueiro', nome: 'Arqueiro', casa: { l: 7, c: 7 }, dir: 'N' },
+  { id: 'marinha-atirador', nome: 'Atirador', casa: { l: 7, c: 7 }, dir: 'N' },
   { id: 'marinha-enfermeira', nome: 'Enfermeira', casa: { l: 7, c: 13 }, dir: 'N' },
 ]
 
