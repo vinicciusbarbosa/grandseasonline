@@ -128,8 +128,8 @@ const VISUAL: Record<string, Visual> = {
   'forma-hibrida': { efeito: 'poeira', modo: 'si', escala: 2 },
 }
 /** tamanho dos efeitos de Akuma no Mi (os desenhados por código) */
-const ESCALA_FRUTA = 1.6
-const ESCALA_ULTIMATE = 2.4
+const ESCALA_FRUTA = 1
+const ESCALA_ULTIMATE = 1.3
 /** poderes máximos de cada fruta */
 const ULTIMATES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca'])
 /** segundos de preparação (ligar o Haki) antes da batalha */
@@ -851,14 +851,14 @@ export class ControleBatalha {
         if (origem.distanceTo(ate) > 1.6) return this.especial('hiken-distancia', a, origem, ate, casas, hits, dirF)
         // Hiken de perto: só a arte desenhada (sem efeito a mais)
         const pt = origem.clone().lerp(ate, 0.62)
-        void P.efeitoFolha('hiken-perto', dirF, pt, { largura: 4.2 })
+        void P.efeitoFolha('hiken-perto', dirF, pt, { largura: 2.2 })
         await esperar(380)
         break
       }
       case 'hiken-distancia': {
         // Hiken à distância: o punho de fogo (arte desenhada) voa até o alvo
         const alvoFim = casas.length ? casas[casas.length - 1] : ate
-        const desenhado = await P.efeitoFolha('hiken-distancia', dirF, origem, { para: alvoFim, largura: 4.2, voo: [3, 8] })
+        const desenhado = await P.efeitoFolha('hiken-distancia', dirF, origem, { para: alvoFim, largura: 2.2, voo: [3, 8] })
         if (desenhado) break
         // sem a folha: jato de fogo por código
         const n = 12
@@ -875,7 +875,7 @@ export class ControleBatalha {
         // explodem e a fogueira queima — só a arte (sem efeito a mais)
         const centro = casas.length ? casas.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / casas.length) : ate
         let tem: boolean | null = null
-        void P.efeitoFolha('hotarubi', dirF, centro.clone().setY(0.02), { largura: 5.6, chao: true }).then((v) => (tem = v))
+        void P.efeitoFolha('hotarubi', dirF, centro.clone().setY(0.02), { largura: 2.1, chao: true }).then((v) => (tem = v))
         // o dano aparece no quadro da explosão (quadro 26, a 24 por segundo)
         await esperar(1080)
         if (tem !== false) break
