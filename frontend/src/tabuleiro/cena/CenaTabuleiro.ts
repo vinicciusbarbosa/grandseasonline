@@ -14,6 +14,7 @@ import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
 import { Efeito, type Paleta, type TipoEfeito } from './efeitos'
 import { ChoqueTela } from './choqueTela'
+import { EfeitoFolha, manifestoEfeito, type DirEfeito } from './efeitoFolha'
 import { ImpactoHaki } from './impactoHaki'
 import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
@@ -81,7 +82,7 @@ export class CenaTabuleiro {
   /** tremor curto da câmera no impacto de um golpe com Haki (s) */
   private tremorGolpe = 0
   private hakis: HakiRei[] = []
-  private efeitos: Efeito[] = []
+  private efeitos: (Efeito | EfeitoFolha)[] = []
   /** animações curtas por tempo (esquiva, Logia), f de 0 a 1 */
   private tweens: { t: number; dur: number; passo: (f: number) => void; fim: () => void }[] = []
   private readonly marcas = new THREE.Group()
@@ -283,6 +284,18 @@ export class CenaTabuleiro {
     focar: (pontos: THREE.Vector3[] | null) => this.focar(pontos),
     lampejo: (tipo: 'rei' | 'branco', dur: number) => {
       this.lampejoAtual = { tipo, t: 0, dur }
+    },
+    /** efeito desenhado (spritesheet); false se a folha não existe */
+    efeitoFolha: async (nome: string, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void } = {}) => {
+      const man = await manifestoEfeito(nome)
+      if (!man) return false
+      await new Promise<void>((r) => {
+        const ef = new EfeitoFolha(nome, man, dir, de, { ...op, aoChegar: () => (op.aoChegar?.(), r()) })
+        this.efeitos.push(ef)
+        this.cenaFx.add(ef.sprite)
+        if (!op.para) window.setTimeout(r, (ef.duracao * 1000) / this.velocidade)
+      })
+      return true
     },
     deslizar: (p: Personagem, para: THREE.Vector3 | null, dur: number) => {
       const de = p.deslize.clone()

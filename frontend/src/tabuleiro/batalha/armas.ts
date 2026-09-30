@@ -122,7 +122,8 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     elemento: 'fogo',
     passiva: 'Intangível. Fogo vence gelo: atinge a Logia de gelo mesmo sem Haki.',
     skills: [
-      { id: 'hiken', nome: 'Punho de Fogo (Hiken)', descricao: 'Jato de chamas da mão até 4 casas em linha; queima.', energia: 20, recarga: 1, alcance: 4, area: 'linha', mult: 1, elemento: 'fogo', queima: { dano: 6, vezes: 2 } },
+      { id: 'hiken', nome: 'Hiken (de perto)', descricao: 'Punho de fogo gigante à queima-roupa; dano alto e queima.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.35, elemento: 'fogo', queima: { dano: 6, vezes: 2 } },
+      { id: 'hiken-distancia', nome: 'Hiken (à distância)', descricao: 'Punho de fogo arremessado: atravessa até 4 casas em linha; queima.', energia: 24, recarga: 2, alcance: 4, area: 'linha', mult: 1, elemento: 'fogo', queima: { dano: 6, vezes: 2 } },
       { id: 'hotarubi', nome: 'Vaga-lumes (Hotarubi)', descricao: 'Bolinhas verdes flutuam até a área 3×3 (até 4 casas) e explodem; queima.', energia: 30, recarga: 2, alcance: 4, area: 'explosao', mult: 0.7, elemento: 'fogo', queima: { dano: 5, vezes: 2 } },
       { id: 'enjomo', nome: 'Pilar de Chamas (Enjōmō)', descricao: 'Coluna de fogo sobe do chão no alvo (até 3 casas); dano alto e queima.', energia: 30, recarga: 2, alcance: 3, area: 'alvo', mult: 1.5, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },
       { id: 'entei', nome: 'Entei', descricao: 'Sol de fogo gigante sobre a cabeça, arremessado: explode 5×5 a até 5 casas; queima.', energia: 55, recarga: 4, alcance: 5, area: 'explosao', raio: 2, mult: 1, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },

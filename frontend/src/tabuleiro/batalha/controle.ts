@@ -16,6 +16,7 @@ import { mesmaCasa, type Casa } from '../tabuleiro'
 import type { Personagem } from '../cena/personagem'
 import { recurso } from '../cena/visualFolhas'
 import type { Paleta, TipoEfeito } from '../cena/efeitos'
+import { direcaoEfeito, type DirEfeito } from '../cena/efeitoFolha'
 import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill } from './armas'
 
 /** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
@@ -64,6 +65,8 @@ export interface Palco {
   focar(pontos: THREE.Vector3[] | null): void
   /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
   choqueRei(ponto: THREE.Vector3): void
+  /** efeito desenhado à mão (spritesheet); resolve false se a folha não existe */
+  efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void }): Promise<boolean>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
   deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
   /** Ice Age: o tabuleiro inteiro congela por um tempo */
@@ -105,6 +108,7 @@ const VISUAL: Record<string, Visual> = {
   'prisao-fumaca': { efeito: 'fumaca', modo: 'area', escala: 1.3 },
   // Mera Mera (Ace)
   hiken: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
+  'hiken-distancia': { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
   hotarubi: { efeito: 'explosaoFogo', modo: 'especial', escala: 1 },
   enjomo: { efeito: 'pilarFogo', modo: 'especial', escala: 2.4 },
   entei: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.6 },
@@ -704,7 +708,7 @@ export class ControleBatalha {
     const ate = pAlvo ? this.palco.peito(pAlvo) : this.palco.centro(v.modo === 'projetil' && s.area === 'linha' ? fim : alvoCasa)
     if (v.modo === 'especial') {
       const hits = resto.filter((x) => x.t === 'golpe').map((x) => this.palco.personagem((x as { alvo: string }).alvo)).filter((p): p is Personagem => !!p)
-      await this.especial(s.id, a, origem, ate, e.casas.map((x) => this.palco.centro(x)), hits)
+      await this.especial(s.id, a, origem, ate, e.casas.map((x) => this.palco.centro(x)), hits, direcaoEfeito(alvoCasa.l - c.casa.l, alvoCasa.c - c.casa.c))
     } else if (v.modo === 'projetil') {
       const tiros = v.tiros ?? 1
       const alvos = s.area === 'leque' ? e.casas.map((x) => this.palco.centro(x)) : Array(tiros).fill(ate)
@@ -728,13 +732,32 @@ export class ControleBatalha {
   }
 
   /** Animações próprias das skills de Akuma no Mi (como no anime). */
-  private async especial(id: string, a: Personagem, origem: THREE.Vector3, ate: THREE.Vector3, casas: THREE.Vector3[], hits: Personagem[]) {
+  private async especial(id: string, a: Personagem, origem: THREE.Vector3, ate: THREE.Vector3, casas: THREE.Vector3[], hits: Personagem[], dirF: DirEfeito) {
     const P = this.palco
     const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
     const chao = (v: THREE.Vector3) => v.clone().setY(0.55)
     const dir = ate.clone().sub(origem)
     switch (id) {
       case 'hiken': {
+        // Hiken de perto: o punho de fogo (arte desenhada) explode no alvo
+        const pt = origem.clone().lerp(ate, 0.62)
+        const tocou = P.efeitoFolha('hiken-perto', dirF, pt, { largura: 2.6 })
+        await esperar(380)
+        P.tremer(0.35)
+        for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.5, escala: 0.9 })
+        void tocou
+        break
+      }
+      case 'hiken-distancia': {
+        // Hiken à distância: o punho de fogo voa até o alvo (arte desenhada,
+        // se já existir; senão o jato de fogo)
+        const alvoFim = casas.length ? casas[casas.length - 1] : ate
+        const desenhado = await P.efeitoFolha('hiken-distancia', dirF, origem, { para: alvoFim, largura: 2.6, voo: [3, 8] })
+        if (desenhado) {
+          for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.6, escala: 1.3 })
+          P.tremer(0.3)
+          break
+        }
         // jato de fogo saindo da mão e correndo até o fim da linha
         const fim = casas.length ? casas[casas.length - 1] : ate
         const n = 12
