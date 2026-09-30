@@ -278,7 +278,7 @@ export class CenaTabuleiro {
     if (pontos) {
       const m = pontos.reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(1 / pontos.length)
       para = new THREE.Vector3(m.x, 0, m.z - 0.3)
-      this.zoomAlvo = 3
+      this.zoomAlvo = 2
     } else {
       para = volta!.pan
       this.zoomAlvo = volta!.zoom
