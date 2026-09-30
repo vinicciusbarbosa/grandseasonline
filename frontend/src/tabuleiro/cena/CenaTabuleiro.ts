@@ -1,10 +1,12 @@
 import * as THREE from 'three'
-import { alcance, casaEm, centroCasa, mesmaCasa, vizinhos, COLUNAS, METADE, type Casa } from '../tabuleiro'
+import { casaEm, centroCasa, mesmaCasa, COLUNAS, METADE, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
 import { montarNavios } from './navio'
 import { Assador } from '../boneco/assador'
 import { CAPITAES } from '../boneco/boneco'
-import { Personagem, type Direcao } from './personagem'
+import { Personagem } from './personagem'
+import { ControleBatalha, type Marca, type RetratoBatalha } from '../batalha/controle'
+import { TRIPULACOES } from '../batalha/elenco'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
@@ -33,9 +35,10 @@ export type EstadoTela = {
   velocidade: number
   escala: number
   dica: string
+  /** batalha em andamento (null enquanto os personagens carregam) */
+  batalha: RetratoBatalha | null
 }
 
-const PASSOS = 4
 const INCLINACAO = Math.asin(0.75) // casa de 64×48 px
 /** com zoom máximo a câmera desce até este ângulo, mais rente aos personagens */
 const INCLINACAO_PERTO = THREE.MathUtils.degToRad(28)
@@ -47,21 +50,7 @@ const ZOOM_MAX = 4
 const NIVEIS = [ZOOM_TUDO, 1, 2, 3, 4]
 const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
-const DANO = [14, 22]
 
-/** Personagens do teste: 5 piratas (linhas 0–4) contra 5 da Marinha (5–9). */
-const TRIPULACOES: { id: string; nome: string; casa: Casa; dir: Direcao }[] = [
-  { id: 'pirata-capitao', nome: 'Capitão', casa: { l: 3, c: 9 }, dir: 'S' },
-  { id: 'pirata-espadachim', nome: 'Espadachim', casa: { l: 4, c: 7 }, dir: 'S' },
-  { id: 'pirata-lutador', nome: 'Lutador', casa: { l: 4, c: 11 }, dir: 'S' },
-  { id: 'pirata-atiradora', nome: 'Atiradora', casa: { l: 2, c: 6 }, dir: 'S' },
-  { id: 'pirata-medico', nome: 'Médico', casa: { l: 2, c: 12 }, dir: 'S' },
-  { id: 'marinha-almirante', nome: 'Comandante', casa: { l: 6, c: 10 }, dir: 'N' },
-  { id: 'marinha-oficial', nome: 'Oficial', casa: { l: 5, c: 8 }, dir: 'N' },
-  { id: 'marinha-soldado', nome: 'Soldado', casa: { l: 5, c: 12 }, dir: 'N' },
-  { id: 'marinha-atirador', nome: 'Atirador', casa: { l: 7, c: 7 }, dir: 'N' },
-  { id: 'marinha-enfermeira', nome: 'Enfermeira', casa: { l: 7, c: 13 }, dir: 'N' },
-]
 
 export class CenaTabuleiro {
   readonly renderer: THREE.WebGLRenderer
@@ -80,7 +69,12 @@ export class CenaTabuleiro {
   private readonly matAlvo: THREE.MeshBasicMaterial
   private readonly geoCasa = new THREE.PlaneGeometry(0.94, 0.94)
   private selecionado: Personagem | null = null
-  private alvosAlcance: { casas: Casa[]; caminho: (c: Casa) => Casa[] | null } | null = null
+  private batalha: ControleBatalha | null = null
+  private retratoBatalha: RetratoBatalha | null = null
+  /** personagens que caíram, desaparecendo (s restantes) */
+  private sumindo: { p: Personagem; t: number }[] = []
+  private readonly matCura: THREE.MeshBasicMaterial
+  private readonly matDestino: THREE.MeshBasicMaterial
   private readonly mar: ReturnType<typeof criarMar>
   private readonly navios: ReturnType<typeof montarNavios>
   private tempo = 0
@@ -153,6 +147,8 @@ export class CenaTabuleiro {
 
     this.matAlcance = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(160,230,255,0.95)', 'rgba(90,170,230,0.28)'), transparent: true, depthWrite: false })
     this.matAlvo = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,110,90,1)', 'rgba(230,60,40,0.30)'), transparent: true, depthWrite: false })
+    this.matCura = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(120,255,140,1)', 'rgba(60,220,90,0.28)'), transparent: true, depthWrite: false })
+    this.matDestino = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,220,90,1)', 'rgba(255,200,60,0.22)'), transparent: true, depthWrite: false })
     this.moldura = new THREE.Mesh(
       this.geoCasa,
       new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,248,190,1)', 'rgba(255,230,120,0.30)'), transparent: true, depthWrite: false }),
@@ -174,10 +170,18 @@ export class CenaTabuleiro {
     const assador = new Assador(this.renderer)
     const vir = (id: string, nome: string, casa: Casa, dir: 'SE' | 'NW') =>
       this.adicionar(new Personagem(id, nome, casa, 120, new VisualSprite(assador.assar(CAPITAES[id])), dir))
+    const batalha = new ControleBatalha(this.palco)
     void Promise.all(
-      TRIPULACOES.map(async (t) => new Personagem(t.id, t.nome, t.casa, 120, await VisualFolhas.carregar(t.id), t.dir)),
+      TRIPULACOES.map(async (t) => {
+        const c = batalha.combatentes.find((x) => x.id === t.id)!
+        return new Personagem(t.id, t.nome, t.casa, c.hpMax, await VisualFolhas.carregar(t.id), t.dir)
+      }),
     )
-      .then((ps) => ps.forEach((p) => this.adicionar(p)))
+      .then((ps) => {
+        ps.forEach((p) => this.adicionar(p))
+        this.batalha = batalha
+        this.palco.avisar()
+      })
       .catch((e) => {
         console.error('tripulações não carregaram', e)
         vir('capitao-vermelho', 'Capitão Vermelho', { l: 2, c: 6 }, 'SE')
@@ -205,6 +209,29 @@ export class CenaTabuleiro {
     this.cena.add(...p.visual.objetos)
     // personagem por cima dos efeitos de trás, por baixo dos da frente
     for (const o of p.visual.objetos) if ((o as THREE.Sprite).isSprite) o.renderOrder = 2
+  }
+
+  /** O que o controle da batalha pode pedir à cena. */
+  private readonly palco = {
+    personagem: (id: string) => this.personagens.find((p) => p.id === id),
+    marcar: (c: Casa, tipo: Marca) =>
+      this.marcar(c, { mover: this.matAlcance, alvo: this.matAlvo, cura: this.matCura, destino: this.matDestino }[tipo]),
+    limparMarcas: () => this.limparMarcas(),
+    flutuar: (p: Personagem, texto: string, cor: string, linha = 0) => {
+      const s = this.acimaDe(p, 0.75 + linha * 0.3)
+      this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto, x: s.x, y: s.y, t: 0, cor }]
+    },
+    sumir: (p: Personagem) => this.sumindo.push({ p, t: 0.8 }),
+    avisar: () => {
+      this.retratoBatalha = this.batalha?.retrato() ?? null
+      const id = this.retratoBatalha?.selecionado?.id
+      this.selecionado = id ? (this.personagens.find((p) => p.id === id) ?? null) : null
+    },
+  }
+
+  /** Botões do HUD da batalha. */
+  get controle() {
+    return this.batalha
   }
 
   destruir() {
@@ -300,7 +327,8 @@ export class CenaTabuleiro {
       aura: this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0),
       velocidade: this.velocidade,
       escala: this.escala,
-      dica: this.dica,
+      dica: this.retratoBatalha?.dica ?? this.dica,
+      batalha: this.retratoBatalha,
     }
   }
 
@@ -468,6 +496,21 @@ export class CenaTabuleiro {
     }
     this.golpes = this.golpes.filter((g) => g.vivo)
     this.tremorGolpe = Math.max(0, this.tremorGolpe - dtReal)
+    for (const s of this.sumindo) {
+      s.t -= dtReal
+      for (const o of s.p.visual.objetos) {
+        const m = (o as THREE.Mesh).material as THREE.Material | undefined
+        if (m) {
+          m.transparent = true
+          m.opacity = Math.max(0, s.t / 0.8)
+        }
+      }
+      if (s.t <= 0) {
+        this.cena.remove(...s.p.visual.objetos)
+        this.personagens.splice(this.personagens.indexOf(s.p), 1)
+      }
+    }
+    this.sumindo = this.sumindo.filter((s) => s.t > 0)
     this.flutuantes = this.flutuantes.map((f) => ({ ...f, t: f.t + dtReal })).filter((f) => f.t < 1.2)
     for (const h of this.hakis) {
       h.atualizar(dt, this.camera)
@@ -622,16 +665,16 @@ export class CenaTabuleiro {
     const c = centroCasa(alvo.casa.l, alvo.casa.c)
     this.hover.position.set(c.x, 0.004, c.z)
     this.hover.visible = true
-    this.renderer.domElement.style.cursor = alvo.personagem || this.alvosAlcance?.caminho(alvo.casa) ? 'pointer' : 'default'
+    this.renderer.domElement.style.cursor = alvo.personagem ? 'pointer' : 'default'
   }
 
   private aoDireito = (ev: Event) => {
     ev.preventDefault()
-    this.selecionar(null)
+    this.batalha?.selecionar(null)
   }
 
   private aoTecla = (ev: KeyboardEvent) => {
-    if (ev.key === 'Escape') this.selecionar(null)
+    if (ev.key === 'Escape') this.batalha?.selecionar(null)
     const passo = (0.6 * ZOOM_TUDO) / this.zoom
     const k = ev.key.toLowerCase()
     if (k === 'arrowleft' || k === 'a') this.moverCamera(-passo, 0)
@@ -641,90 +684,12 @@ export class CenaTabuleiro {
     if (k === '+' || k === '=') this.irParaNivel(1)
     if (k === '-') this.irParaNivel(-1)
     if (k === '0') this.irParaNivel(-99)
-    if (k === 'h' && !ev.repeat) this.hakiDoRei()
-    if (k === 'b' && !ev.repeat) this.hakiArmamento()
+    // Haki do Rei (H) e de armamento (B) desligados por enquanto
   }
 
   private aoClicar = (ev: PointerEvent) => {
     if (ev.button !== 0) return
-    const alvo = this.pegar(ev)
-    if (!alvo) return this.selecionar(null)
-    const sel = this.selecionado
-    if (alvo.personagem && alvo.personagem !== sel) {
-      if (sel && !sel.ocupado) {
-        this.investir(sel, alvo.personagem)
-        return
-      }
-      if (!alvo.personagem.ocupado) this.selecionar(alvo.personagem)
-      return
-    }
-    if (alvo.personagem === sel) return this.selecionar(null)
-    if (sel && !sel.ocupado && this.alvosAlcance) {
-      const cam = this.alvosAlcance.caminho(alvo.casa)
-      if (cam) {
-        this.limparMarcas()
-        this.dica = 'Andando…'
-        sel.andar(cam, () => this.selecionar(sel))
-      }
-    }
-  }
-
-  /** Vai até o lado do inimigo (se precisar) e ataca. */
-  private investir(atacante: Personagem, alvo: Personagem) {
-    const ocupada = (c: Casa) => this.personagens.some((p) => p !== atacante && mesmaCasa(p.casa, c))
-    const adjacente = vizinhos(atacante.casa).some((v) => mesmaCasa(v, alvo.casa))
-    const golpe = () => {
-      this.dica = `${atacante.nome} ataca!`
-      atacante.atacar(alvo, () => {
-        const dano = DANO[0] + Math.floor(Math.random() * (DANO[1] - DANO[0] + 1))
-        alvo.sofrer(atacante.haki ? Math.round(dano * 1.5) : dano, atacante)
-        if (atacante.haki) {
-          const g = new GolpeHaki(alvo.pos.clone().lerp(atacante.pos, 0.35).setY(alvo.visual.altura * 0.5))
-          this.golpes.push(g)
-          this.cena.add(g.sprite)
-          this.tremorGolpe = 0.22
-        }
-        if (alvo.vida <= 0) alvo.vida = alvo.vidaMax // teste: volta a vida cheia
-        const s = this.acimaDe(alvo, 0.7)
-        this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: `-${atacante.haki ? Math.round(dano * 1.5) : dano}`, x: s.x, y: s.y, t: 0, cor: '#ffe27a' }]
-      })
-      this.selecionar(null)
-    }
-    if (adjacente) return golpe()
-    // procura a casa vizinha do alvo mais perto dentro do alcance
-    const a = alcance(atacante.casa, PASSOS, ocupada)
-    let melhor: Casa[] | null = null
-    for (const v of vizinhos(alvo.casa)) {
-      if (ocupada(v)) continue
-      const cam = a.caminho(v)
-      if (cam && (!melhor || cam.length < melhor.length)) melhor = cam
-    }
-    if (!melhor) {
-      this.dica = 'Longe demais para atacar neste turno.'
-      return
-    }
-    this.limparMarcas()
-    atacante.andar(melhor, golpe)
-  }
-
-  private selecionar(p: Personagem | null) {
-    this.selecionado = p
-    this.limparMarcas()
-    this.alvosAlcance = null
-    if (!p) {
-      this.dica = 'Escolha um capitão.'
-      return
-    }
-    const ocupada = (c: Casa) => this.personagens.some((o) => o !== p && mesmaCasa(o.casa, c))
-    const a = alcance(p.casa, PASSOS, ocupada)
-    this.alvosAlcance = a
-    for (const c of a.casas) this.marcar(c, this.matAlcance)
-    for (const o of this.personagens) {
-      if (o === p) continue
-      const perto = vizinhos(o.casa).some((v) => mesmaCasa(v, p.casa) || a.caminho(v))
-      if (perto) this.marcar(o.casa, this.matAlvo)
-    }
-    this.dica = `${p.nome}: casa azul anda, inimigo ataca.`
+    this.batalha?.clique(this.pegar(ev))
   }
 
   private marcar(c: Casa, mat: THREE.Material) {

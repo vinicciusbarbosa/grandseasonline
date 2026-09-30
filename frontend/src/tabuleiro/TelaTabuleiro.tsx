@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { CenaTabuleiro, type EstadoTela } from './cena/CenaTabuleiro'
+import { HudBatalha } from './batalha/HudBatalha'
 
 /**
- * Tela de testes do combate em tabuleiro (pixel art): dois navios lado a
- * lado, tabuleiro 10×20 e os dois capitães animados. Roda sem API nem login.
+ * Batalha de tripulação no tabuleiro (protótipo): dois navios lado a lado,
+ * tabuleiro 10×20, 5 piratas contra 5 da Marinha (IA). Roda sem API nem login.
  */
 
-const VAZIO: EstadoTela = { personagens: [], flutuantes: [], aura: 0, hakiArmamento: false, velocidade: 1, escala: 1, dica: '' }
+const VAZIO: EstadoTela = { personagens: [], flutuantes: [], aura: 0, hakiArmamento: false, velocidade: 1, escala: 1, dica: '', batalha: null }
 const nada = () => () => {}
 
 export default function TelaTabuleiro() {
@@ -77,44 +78,7 @@ export default function TelaTabuleiro() {
         </div>
       ))}
 
-      {/* HUD mínimo por enquanto */}
-      <button
-        onClick={() => cena?.hakiDoRei()}
-        title="Haki do Rei (liga/desliga)"
-        style={{
-          position: 'absolute',
-          left: 12,
-          bottom: 12,
-          width: 44,
-          height: 44,
-          font: '700 18px monospace',
-          background: 'rgba(40,4,10,0.8)',
-          color: '#ffd6dc',
-          border: '1px solid #ff4a62',
-          cursor: 'pointer',
-        }}
-      >
-        H
-      </button>
-      <button
-        onClick={() => cena?.hakiArmamento()}
-        title="Haki de armamento (liga/desliga) — tecla B"
-        style={{
-          position: 'absolute',
-          left: 64,
-          bottom: 12,
-          width: 44,
-          height: 44,
-          font: '700 18px monospace',
-          background: estado.hakiArmamento ? 'rgba(10,2,6,0.95)' : 'rgba(20,20,30,0.8)',
-          color: estado.hakiArmamento ? '#c890ff' : '#d8d8e8',
-          border: `1px solid ${estado.hakiArmamento ? '#9b4df0' : '#8888aa'}`,
-          boxShadow: estado.hakiArmamento ? '0 0 10px #8a3ae6' : 'none',
-          cursor: 'pointer',
-        }}
-      >
-        B
-      </button>
+      {estado.batalha && cena?.controle && <HudBatalha b={estado.batalha} c={cena.controle} velocidade={estado.velocidade} mudarVelocidade={(v) => cena.setVelocidade(v)} />}
     </div>
   )
 }

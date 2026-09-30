@@ -92,6 +92,15 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   (como acima), **contra a IA e também em multiplayer para testes** (dois
   jogadores pelo servidor de teste `/mp`: cada um manda o plano do turno,
   o servidor resolve e devolve o resultado para os dois).
+- **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
+  determinístico pela semente — o servidor do multiplayer usa o mesmo):
+  cada um anda até 3 casas e age; ordem por AGL. Golpes: comum, pesado
+  (×1,5, quebra bloqueio/aparar, fácil de esquivar), finta (×0,8, engana
+  aparar/contra, não dá para esquivar). Posturas: bloquear (35% passa),
+  esquivar, aparar (2 de vontade, anula o comum), contra-atacar (3, revida
+  de perto). Vontade: começa 2, +2 por rodada, máx. 10. Atirador alcança 4
+  casas; médico cura 32 a até 3 casas. Formações espelhadas; IA × IA dá
+  ~50% para cada lado, ~11 rodadas.
 - **Arte provisória**: personagens montados no gerador LPC (Liberated Pixel
   Cup, CC-BY-SA/GPL — créditos em `public/sprites/<nome>/creditos.csv`),
   ampliados 2× (~96 px, tamanho de Ragnarok), 4 direções (diagonais usam a
