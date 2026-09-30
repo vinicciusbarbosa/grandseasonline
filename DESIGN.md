@@ -120,6 +120,25 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   destino para itens sobrando — vender, desmontar para o Ferreiro.)
   Em aberto: atributos (base do Sugoi, modificada?) e
   árvore de habilidades (estilo Path of Exile?).
+- **Batalha — turno e Haki (conversa de 30/09, segunda parte)**:
+  - Turno **simultâneo**, mas **sem postura secreta por enquanto** (fica para
+    depois). Cada tripulação tem um **número limitado de ações por turno**,
+    usadas como o jogador quiser (ex.: 5 ações = atacar 5 vezes com o mesmo
+    tripulante), desde que ele tenha os recursos (energia, espírito...).
+  - **Haki de armamento**: o jogador liga nos ataques; usos por batalha
+    limitados pela **maestria** (ex.: maestria 100 → 10 usos, 50 → 5).
+    **Armamento avançado**: fura % da defesa, dá bônus de dano e (quando a
+    postura existir) fura a postura/bloqueio.
+  - **Haki do Rei imbuído** no ataque: precisa ter Haki do Rei **e** o
+    armamento avançado; também pode ser lançado em área. Só depois que o
+    personagem acumula **espírito** suficiente.
+  - **Haki de observação**: aumenta a esquiva; **ligado, esquiva 100%**.
+    **Observação avançado** (prevê ataques): esquiva e contra-ataca na hora.
+  - **O Haki mais forte prevalece**: em disputas em que o Haki conta, o mais
+    forte tem grande chance de vencer o mais fraco. **Duelo de Haki** pelo
+    **overall** (média de todos os tipos; cálculo a definir).
+  - **Logia**: não pode ser atingido, a menos que o golpe tenha Haki de
+    armamento (a confirmar se desequilibra).
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
   determinístico pela semente — o servidor do multiplayer usa o mesmo):
   cada um anda até 3 casas e age; ordem por AGL. Golpes: comum, pesado
