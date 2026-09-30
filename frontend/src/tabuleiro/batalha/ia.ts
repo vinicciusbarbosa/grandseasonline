@@ -28,10 +28,14 @@ function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number,
   const def = Math.min(60, alvo.at.def)
   let d = c.at.atk * FORCA * mult * golpes * (1 - def / 100)
   if (armamento) d *= c.haki.armamento?.avancado ? 1.4 : 1.25
-  // Logia: o armamento precisa de 2 usos (um a mais para tocar a Logia)
-  if (alvo.logia && alvo.logia.cargas > 0 && (!armamento || (c.haki.armamento?.usos ?? 0) < 2)) d *= 0.1
   // prefere terminar quem está quase caindo
   if (d >= alvo.hp) d = alvo.hp + 25
+  // Logia com cargas (sem Haki) ou observação ligada: cada carga/uso é um
+  // escudo que absorve um golpe inteiro. Quebrar o escudo vale quase o mesmo
+  // que causar o dano (senão ninguém bate nele e ele vence sozinho).
+  if (alvo.logia && alvo.logia.cargas > 0 && (!armamento || (c.haki.armamento?.usos ?? 0) < 2)) d *= 0.85
+  const obs = alvo.haki.observacao
+  if (alvo.observando && obs && obs.usos > 0 && alvo.haki.overall > c.haki.overall) d *= 0.85
   return d
 }
 
