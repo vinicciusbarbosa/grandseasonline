@@ -15,9 +15,6 @@
   "NW": "W"
  },
  "tempos": {
-  "parado": {
-   "fps": 2
-  },
   "atacar": {
    "fps": 12,
    "impacto": 3
@@ -28,19 +25,19 @@
   "parado": {
    "N": {
     "arquivo": "parado_N.png",
-    "quadros": 2
+    "quadros": 1
    },
    "W": {
     "arquivo": "parado_W.png",
-    "quadros": 2
+    "quadros": 1
    },
    "S": {
     "arquivo": "parado_S.png",
-    "quadros": 2
+    "quadros": 1
    },
    "E": {
     "arquivo": "parado_E.png",
-    "quadros": 2
+    "quadros": 1
    }
   },
   "andar": {

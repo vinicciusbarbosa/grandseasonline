@@ -11,7 +11,8 @@ ampliadas 2× com suavização de pixel art (EPX): o boneco de ~48 px vira
 ~96 px, o tamanho de um personagem de Ragnarok. As folhas da LPC têm 4
 direções (N, W, S, E); as diagonais usam a lateral mais próxima.
 
-Animações: parado (idle), andar (walk), correr (run) e atacar — golpe largo
+Animações: andar (walk), parado (1º quadro do walk), correr (o walk, mais
+rápido) e atacar — golpe largo
 da arma (slash_oversize) se houver, arco (shoot) para arqueiros, ou golpe
 curto (slash).
 
@@ -50,14 +51,16 @@ def epx(a):
     return o
 
 
-def quadros_da_linha(folha, linha, tam, pular_primeiro=False):
+def quadros_da_linha(folha, linha, tam, quais='todos'):
     a = np.asarray(folha.convert('RGBA'))
     fs = []
     for c in range(a.shape[1] // tam):
         q = a[linha * tam:(linha + 1) * tam, c * tam:(c + 1) * tam]
         if q[..., 3].any():
             fs.append(q)
-    return fs[1:] if pular_primeiro and len(fs) > 1 else fs
+    if quais == 'primeiro':
+        return fs[:1]
+    return fs[1:] if quais == 'resto' and len(fs) > 1 else fs
 
 
 def importar(origem, nome):
@@ -78,18 +81,20 @@ def importar(origem, nome):
         ataque = ('standard/shoot.png', 64, {'fps': 16, 'impacto': 9})
     else:
         ataque = ('standard/slash.png', 64, {'fps': 12, 'impacto': 3})
+    # parado e correr saem do andar: várias peças da LPC (casaca, faixa,
+    # blusa...) não têm desenho no idle nem no run e sumiriam nessas animações
     fontes = {
-        'parado': ('standard/idle.png', 64, False),
-        'andar': ('standard/walk.png', 64, True),  # o 1º quadro do walk é o parado
-        'correr': ('standard/run.png', 64, False),
-        'atacar': (ataque[0], ataque[1], False),
+        'parado': ('standard/walk.png', 64, 'primeiro'),
+        'andar': ('standard/walk.png', 64, 'resto'),  # o 1º quadro do walk é o parado
+        'correr': ('standard/walk.png', 64, 'resto'),
+        'atacar': (ataque[0], ataque[1], 'todos'),
     }
     man = {
         'quadro': [64 * ESCALA, 64 * ESCALA],
         'pe': [PE_64[0] * ESCALA, PE_64[1] * ESCALA],
         'densidade': 1,
         'apelidos': {'SE': 'E', 'NE': 'E', 'SW': 'W', 'NW': 'W'},
-        'tempos': {'parado': {'fps': 2}, 'atacar': ataque[2]},
+        'tempos': {'atacar': ataque[2]},
         'fonte': 'LPC (Universal LPC Spritesheet Character Generator) — ver creditos.csv',
         'anims': {},
     }
