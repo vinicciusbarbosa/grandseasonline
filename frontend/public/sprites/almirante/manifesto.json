@@ -155,6 +155,10 @@
    "W": {
     "arquivo": "atacar_W.png",
     "quadros": 12
+   },
+   "NE": {
+    "arquivo": "atacar_NE.png",
+    "quadros": 12
    }
   }
  },
