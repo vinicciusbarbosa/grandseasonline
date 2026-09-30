@@ -123,7 +123,7 @@ def pintar_lamina(q, m):
     return out
 
 
-def braco(q, guarda, ml):
+def braco(q, guarda, ml, alcance=None):
     """Mão que segura a guarda (só a peça de pele encostada nela) e o
     antebraço: manga azul ligada à mão, até ~24 px dela. Ignora o rosto
     (peça de pele grande ou no alto da figura)."""
@@ -144,28 +144,70 @@ def braco(q, guarda, ml):
             mao |= c
     if not mao.any():
         return vazio, None
-    dist = cv2.distanceTransform((~mao).astype(np.uint8), cv2.DIST_L2, 5)
-    manga = al & (b > r + 20) & (b > 90) & (dist < 24)
-    n2, rot2, _, _ = cv2.connectedComponentsWithStats((manga | mao).astype(np.uint8), connectivity=8)
-    ids = set(np.unique(rot2[mao])) - {0}
-    m = np.isin(rot2, list(ids)) & (manga | mao)
-    escuro = al & (np.maximum(np.maximum(r, g), b) < 80)
-    m |= (cv2.dilate(m.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & escuro & (dist < 26)
-    return m, (dist + 0.0,)
+    # antebraço: cresce a partir da mão por dentro da figura (distância
+    # geodésica), pela manga azul, punho branco/dourado e contorno — até perto
+    # do cotovelo. Não entra na lâmina, na guarda nem no rosto.
+    face = (rot == rosto) if rosto > 0 else vazio
+    manga = (b > r + 20) & (b > 70)
+    punho = (np.minimum(np.minimum(r, g), b) > 170) | ouro(q)
+    contorno = np.maximum(np.maximum(r, g), b) < 80
+    # branco (manga do casaco, chapéu) só colado na mão: o chapéu e o casaco
+    # são brancos como a manga e o braço vazaria para eles
+    livre = al & ~ml & ~guarda & ~face & (manga | punho | contorno | pele)
+    # cabeça fora (o chapéu é branco como a manga): elipse em volta do cabelo
+    mx_, mn_ = np.maximum(np.maximum(r, g), b), np.minimum(np.minimum(r, g), b)
+    cabelo = al & (mx_ < 125) & (mx_ > 35) & (mx_ - mn_ < 40)
+    nc, rc, sc, cc = cv2.connectedComponentsWithStats(cabelo.astype(np.uint8), connectivity=8)
+    if nc > 1:
+        i = 1 + int(np.argmax(sc[1:, cv2.CC_STAT_AREA]))
+        if sc[i, cv2.CC_STAT_AREA] > 300:
+            hx, hy = cc[i]
+            yy0, xx0 = np.mgrid[:al.shape[0], :al.shape[1]]
+            livre &= ((xx0 - hx) / 52.0) ** 2 + ((yy0 - hy + 22) / 60.0) ** 2 > 1
+    # o antebraço sai da mão para o lado contrário da lâmina: o que fica do
+    # lado da lâmina (calça, paletó na frente do golpe) não é braço
+    yy, xx = np.mgrid[:al.shape[0], :al.shape[1]]
+    my, mx = [v.mean() for v in np.nonzero(mao)]
+    ly, lx = [v.mean() for v in np.nonzero(ml)]
+    v = np.array([lx - mx, ly - my])
+    v /= np.hypot(*v) or 1
+    livre &= ((xx - mx) * v[0] + (yy - my) * v[1]) < 8
+    dist = np.full(al.shape, 999.0, np.float32)
+    dist[mao] = 0
+    feito = mao.copy()
+    k = np.ones((3, 3), np.uint8)
+    alcance = alcance or ALCANCE_BRACO
+    for passo in range(1, alcance + 1):
+        novo = (cv2.dilate(feito.astype(np.uint8), k) > 0) & livre & ~feito
+        if not novo.any():
+            break
+        dist[novo] = passo
+        feito |= novo
+    return feito, (dist + (ALCANCE_BRACO - alcance),)
+
+
+ALCANCE_BRACO = 42
 
 
 def pintar_braco(q, m, dist):
+    """Braço endurecido como no anime: preto lustroso com reflexo roxo onde
+    a luz batia e contorno de aura roxa; some em degradê perto do cotovelo."""
     al, r, g, b = cores(q)
     lum = (0.3 * r + 0.59 * g + 0.11 * b) / 255.0
-    out = q.copy()
-    # perto da mão: negro total; mais longe: vai sumindo (o haki "subindo" o braço)
-    f = np.clip(1 - (dist - 14) / 18, 0, 1)
-    negro = np.stack([16 + 38 * lum, 12 + 22 * lum, 22 + 46 * lum], -1)
-    brilho = np.clip((lum - 0.75) / 0.25, 0, 1)[..., None] * np.array([90, 25, 80])
-    alvo = np.clip(negro + brilho, 0, 255)
+    out = q.astype(np.float32)
+    f = np.clip(1 - (dist - (ALCANCE_BRACO - 12)) / 12, 0, 1)
+    negro = np.stack([8 + 22 * lum, 5 + 10 * lum, 14 + 30 * lum], -1)
+    reflexo = np.clip((lum - 0.78) / 0.22, 0, 1)[..., None] * np.array([96, 44, 160])
+    alvo = np.clip(negro + reflexo, 0, 255)
     mix = out[..., :3] * (1 - f[..., None]) + alvo * f[..., None]
-    out[m, :3] = mix[m].astype(np.uint8)
-    return out
+    out[m, :3] = mix[m]
+    # aura: contorno roxo por fora do braço (onde está vazio)
+    duro = m & (f > 0.4)
+    borda = (cv2.dilate(duro.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0) & ~al
+    out[borda] = (132, 60, 230, 200)
+    borda1 = (cv2.dilate(duro.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & ~al
+    out[borda1] = (170, 100, 255, 235)
+    return out.astype(np.uint8)
 
 
 def faiscas(q, m, semente):
@@ -383,6 +425,9 @@ def espiral(q, ml, guarda, fase, semente=0):
 
 # quadros (1..12) com a espada fora da bainha em todos os ataques
 QUADROS_LAMINA = range(3, 11)
+# golpe com o braço longe do corpo: endurece até o cotovelo (nos outros a
+# mão está no quadril e o braço se confundiria com o casaco)
+QUADROS_BRACO = range(4, 10)
 
 
 def gerar(personagem, direcoes=None):
@@ -405,7 +450,7 @@ def gerar(personagem, direcoes=None):
                 ml, gd = lamina(q, 28, 2.5)
             if ml.sum() > 40:
                 achou += 1
-                mb, info = braco(q, gd, ml)
+                mb, info = braco(q, gd, ml, ALCANCE_BRACO if (i + 1) in QUADROS_BRACO else 14)
                 if info is not None:
                     q = pintar_braco(q, mb, info[0])
                 q = pintar_lamina(q, ml)
