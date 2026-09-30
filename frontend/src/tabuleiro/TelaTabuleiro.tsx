@@ -107,9 +107,9 @@ export default function TelaTabuleiro() {
           height: 44,
           font: '700 18px monospace',
           background: estado.hakiArmamento ? 'rgba(10,2,6,0.95)' : 'rgba(20,20,30,0.8)',
-          color: estado.hakiArmamento ? '#ff5a74' : '#d8d8e8',
-          border: `1px solid ${estado.hakiArmamento ? '#ff2a4a' : '#8888aa'}`,
-          boxShadow: estado.hakiArmamento ? '0 0 10px #c0102e' : 'none',
+          color: estado.hakiArmamento ? '#c890ff' : '#d8d8e8',
+          border: `1px solid ${estado.hakiArmamento ? '#9b4df0' : '#8888aa'}`,
+          boxShadow: estado.hakiArmamento ? '0 0 10px #8a3ae6' : 'none',
           cursor: 'pointer',
         }}
       >

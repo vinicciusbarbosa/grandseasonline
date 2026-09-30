@@ -4,7 +4,7 @@ import { posicionarPixel, texturaPixel } from './pixel'
 
 /**
  * Impacto de um golpe com Haki de armamento: clarão negro de contorno
- * vermelho no ponto do golpe e raiozinhos pretos/vermelhos estalando para
+ * roxo no ponto do golpe e raiozinhos pretos/roxos estalando para
  * fora. 8 quadros em pixel art, desenhados uma vez só.
  */
 
@@ -33,7 +33,7 @@ function raio(g: CanvasRenderingContext2D, r: () => number, x0: number, y0: numb
     for (const [px, py] of pts.slice(1)) g.lineTo(px, py)
     g.stroke()
   }
-  linha('#c0102e', 4)
+  linha('#8a3ae6', 4)
   linha('#12060a', 2)
 }
 
@@ -66,12 +66,12 @@ function desenhar() {
         g.closePath()
       }
       estrela(1.25)
-      g.fillStyle = '#d4143a'
+      g.fillStyle = '#9b4df0'
       g.fill()
       estrela(1)
       g.fillStyle = '#0c0408'
       g.fill()
-      g.fillStyle = '#ff9aa8'
+      g.fillStyle = '#e2c4ff'
       g.fillRect(Math.round(cx - 2), Math.round(cy - 2), 4, 4)
     }
     // raios: nascem no centro e vão se afastando

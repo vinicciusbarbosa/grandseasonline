@@ -113,8 +113,8 @@ def pintar_lamina(q, m):
     out = q.copy()
     # corpo negro com leve tom roxo; realce onde era claro (o fio), em vermelho-roxo
     base = np.stack([10 + 22 * lum, 6 + 10 * lum, 16 + 34 * lum], -1)
-    brilho = np.clip((lum - 0.85) / 0.15, 0, 1)[..., None] * 0.8
-    fio = np.array([170, 60, 170])
+    brilho = np.clip((lum - 0.82) / 0.18, 0, 1)[..., None] * 0.9
+    fio = np.array([205, 150, 255])
     cor = base * (1 - brilho) + fio * brilho
     out[m, :3] = np.clip(cor[m], 0, 255).astype(np.uint8)
     # contorno vermelho fino por fora (o "vapor" do haki)
@@ -216,60 +216,123 @@ def eixo(ml, guarda):
     return q
 
 
-def espiral(q, ml, guarda, fase):
+SS = 4  # superamostragem dos traços (curvas lisas, borda recortada no fim)
+
+
+def _fita(d, pts, larg, cor):
+    """Traço de largura variável (um círculo + trapézio por segmento)."""
+    for i in range(len(pts) - 1):
+        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+        w0, w1 = larg[i] / 2, larg[i + 1] / 2
+        dx, dy = x1 - x0, y1 - y0
+        n = math.hypot(dx, dy) or 1
+        nx, ny = -dy / n, dx / n
+        d.polygon([(x0 + nx * w0, y0 + ny * w0), (x1 + nx * w1, y1 + ny * w1),
+                   (x1 - nx * w1, y1 - ny * w1), (x0 - nx * w0, y0 - ny * w0)], fill=cor)
+        d.ellipse([x1 - w1, y1 - w1, x1 + w1, y1 + w1], fill=cor)
+    x, y = pts[0]
+    d.ellipse([x - larg[0] / 2, y - larg[0] / 2, x + larg[0] / 2, y + larg[0] / 2], fill=cor)
+
+
+def _desenhar(W, H, pinta):
+    """Desenha em SS× e reduz: cor média onde a cobertura passa de metade."""
+    from PIL import ImageDraw
+    img = Image.new('RGBA', (W * SS, H * SS), (0, 0, 0, 0))
+    pinta(ImageDraw.Draw(img))
+    a = np.asarray(img).astype(np.float32)
+    a = a.reshape(H, SS, W, SS, 4)
+    alfa = a[..., 3].mean((1, 3))
+    rgb = (a[..., :3] * a[..., 3:4]).sum((1, 3)) / np.maximum(a[..., 3].sum((1, 3)), 1)[..., None]
+    return rgb, alfa > 127
+
+
+def espiral(q, ml, guarda, fase, semente=0):
     """Haki do anime: fios negros enrolando e girando em volta da lâmina, com
-    brilho roxo. Pixels opacos (o jogo corta alfa < 0.5)."""
+    borda roxa, brilho e fiapos que escapam. Pixels opacos (o jogo corta
+    alfa < 0.5)."""
     e = eixo(ml, guarda)
     if e is None:
         return q
+    # a espiral passa um pouco da ponta (o Haki "escorre" da lâmina)
+    tg = e[-1] - e[-3]
+    tg /= np.hypot(*tg) or 1
+    e = np.vstack([e, e[-1] + tg * 4, e[-1] + tg * 8, e[-1] + tg * 12])
     seg = np.diff(e, axis=0)
     comp = np.hypot(seg[:, 0], seg[:, 1]) + 1e-6
     s = np.r_[0, np.cumsum(comp)]
     L = s[-1]
     tang = np.vstack([seg / comp[:, None], seg[-1:] / comp[-1]])
     norm = np.stack([-tang[:, 1], tang[:, 0]], 1)
+    t = s / max(L, 1)
+    envol = np.clip(np.minimum((t - 0.04) * 6, (1.0 - t) * 7), 0, 1) ** 0.7
     fios = []
     for k in range(2):
-        ang = s / 44.0 * 2 * np.pi + fase + k * np.pi
-        t = s / max(L, 1)
-        amp = 8.0 * np.clip(np.minimum(t * 4, (1.05 - t) * 5), 0.25, 1)
-        pts = e + norm * (amp * np.sin(ang))[:, None]
-        fios.append((pts, np.cos(ang)))
+        ang = s / 56.0 * 2 * np.pi + fase + k * np.pi
+        amp = 9.5 * envol + 1.5
+        pts = (e + norm * (amp * np.sin(ang))[:, None]) * SS
+        prof = np.cos(ang)
+        larg = (5.4 + 2.6 * prof) * (0.35 + 0.65 * envol) * SS
+        fios.append((pts, prof, larg))
+    rnd = random.Random(semente)
+    # fiapos: pedacinhos de fio que se soltam da lâmina e se enrolam
+    fiapos = []
+    for _ in range(3):
+        i = rnd.randrange(len(e) // 5, len(e))
+        lado = rnd.choice((-1, 1))
+        p = e[i] + norm[i] * lado * 9
+        a0 = math.atan2(norm[i][1] * lado, norm[i][0] * lado) + rnd.uniform(-0.6, 0.6)
+        pts, larg = [], []
+        for j in range(9):
+            a0 += rnd.uniform(0.2, 0.55) * lado
+            p = p + np.array([math.cos(a0), math.sin(a0)]) * 2.4
+            pts.append(p * SS)
+            larg.append((3.2 - j * 0.3) * SS)
+        fiapos.append((pts, larg))
     H, W = q.shape[:2]
+    ESCURO, BORDA, LUZ = (8, 3, 14, 255), (92, 34, 170, 255), (206, 150, 255, 255)
 
-    def camada(frente):
-        img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-        from PIL import ImageDraw
-        d = ImageDraw.Draw(img)
-        for pts, prof in fios:
+    def tras(d):
+        for pts, prof, larg in fios:
             for i in range(len(pts) - 1):
-                if (prof[i] > 0) != frente:
-                    continue
-                a, b = tuple(pts[i]), tuple(pts[i + 1])
-                if frente:
-                    d.line([a, b], fill=(10, 4, 16, 255), width=5)
-                else:
-                    d.line([a, b], fill=(44, 14, 70, 255), width=3)
-        return np.asarray(img)[..., 3] > 0
+                if prof[i] <= 0:
+                    _fita(d, pts[i:i + 2], [larg[i] + 2 * SS, larg[i + 1] + 2 * SS], BORDA)
+                    _fita(d, pts[i:i + 2], larg[i:i + 2], (34, 10, 58, 255))
 
-    tras, frente = camada(False), camada(True)
+    def frente(d):
+        for pts, larg in fiapos:
+            _fita(d, pts, [w + 2 * SS for w in larg], BORDA)
+            _fita(d, pts, larg, ESCURO)
+        for pts, prof, larg in fios:
+            for i in range(len(pts) - 1):
+                if prof[i] > 0:
+                    _fita(d, pts[i:i + 2], [larg[i] + 2.4 * SS, larg[i + 1] + 2.4 * SS], BORDA)
+            for i in range(len(pts) - 1):
+                if prof[i] > 0:
+                    _fita(d, pts[i:i + 2], larg[i:i + 2], ESCURO)
+            # brilho: filete claro no meio do fio, só onde ele está mais "de frente"
+            for i in range(len(pts) - 1):
+                if prof[i] > 0.35:
+                    dx, dy = pts[i + 1] - pts[i]
+                    n = math.hypot(dx, dy) or 1
+                    off = np.array([dy, -dx]) / n * larg[i] * 0.22
+                    w = SS * (0.8 + 0.8 * prof[i])
+                    _fita(d, [pts[i] + off, pts[i + 1] + off], [w, w], LUZ)
+
+    rgb_t, m_t = _desenhar(W, H, tras)
+    rgb_f, m_f = _desenhar(W, H, frente)
     out = q.copy()
     al = out[..., 3] > 0
-    tudo = ml | tras | frente
-    # brilho roxo em volta (anel claro colado, anel escuro pontilhado por fora)
-    dist = cv2.distanceTransform((~tudo).astype(np.uint8), cv2.DIST_L2, 3)
-    yy, xx = np.mgrid[:H, :W]
-    anel1 = (dist > 0) & (dist <= 2.2) & ~al
-    anel2 = (dist > 2.2) & (dist <= 3.4) & ~al
-    out[anel2] = (78, 26, 150, 255)
-    out[anel1] = (160, 80, 245, 255)
-    # fio por trás só aparece fora da lâmina
-    m = tras & ~ml
-    out[m] = (44, 14, 70, 255)
-    out[frente] = (10, 4, 16, 255)
-    # realce roxo na borda de cima dos fios da frente (volume de "corda")
-    sobe = np.roll(frente, 2, axis=0)
-    out[frente & ~sobe] = (120, 60, 200, 255)
+    tudo = ml | m_t | m_f
+    # aura roxa em degradê em volta de tudo (só no vazio, não pinta o corpo)
+    dist = cv2.distanceTransform((~tudo).astype(np.uint8), cv2.DIST_L2, 5)
+    for lim, cor in ((4.6, (54, 16, 100)), (3.2, (96, 36, 180)), (1.8, (158, 86, 240))):
+        anel = (dist > 0) & (dist <= lim) & ~al
+        out[anel] = (*cor, 255)
+    m = m_t & ~ml
+    out[m, :3] = rgb_t[m].astype(np.uint8)
+    out[m, 3] = 255
+    out[m_f, :3] = rgb_f[m_f].astype(np.uint8)
+    out[m_f, 3] = 255
     return out
 
 
@@ -301,8 +364,7 @@ def gerar(personagem, direcoes=None):
                 if info is not None:
                     q = pintar_braco(q, mb, info[0])
                 q = pintar_lamina(q, ml)
-                q = espiral(q, ml, gd, i * 1.9)
-                q = faiscas(q, ml, hash((d, i)) & 0xffff)
+                q = espiral(q, ml, gd, i * 1.9, hash((d, i)) & 0xffff)
             quadros.append(q)
         nome = f'atacar-haki_{d}.png'
         Image.fromarray(np.concatenate(quadros, axis=1)).save(os.path.join(pasta, nome), optimize=True)

@@ -244,7 +244,7 @@ export class CenaTabuleiro {
     const s = this.acimaDe(p, 1.25)
     this.flutuantes = [
       ...this.flutuantes,
-      { id: ++this.idFlut, texto: p.haki ? 'Busoshoku!' : 'Haki desligado', x: s.x, y: s.y, t: 0, cor: p.haki ? '#ff3a5a' : '#c9c9c9' },
+      { id: ++this.idFlut, texto: p.haki ? 'Busoshoku!' : 'Haki desligado', x: s.x, y: s.y, t: 0, cor: p.haki ? '#b36bff' : '#c9c9c9' },
     ]
   }
 
