@@ -40,6 +40,8 @@ export type Skill = {
   critico?: number
   /** cura em vez de dano (mira aliados) */
   cura?: number
+  /** buff, transformação ou habilidade de profissão: não gasta o ataque da vez */
+  livre?: boolean
   /** Zoan: transforma por N vezes (+ATK, +DEF) */
   transforma?: number
   /** raio da explosão (padrão 1) */
@@ -87,13 +89,14 @@ export const SKILLS_ARMA: Record<TipoArma, Skill[]> = {
 export const PRIMEIROS_SOCORROS: Skill = {
   id: 'primeiros-socorros',
   nome: 'Primeiros Socorros',
-  descricao: 'Cura 35 de vida de um aliado a até 2 casas.',
+  descricao: 'Cura 35 de vida de um aliado a até 2 casas (profissão: não gasta a vez).',
   energia: 25,
   recarga: 2,
   alcance: 2,
   area: 'alvo',
   mult: 0,
   cura: 35,
+  livre: true,
 }
 
 /**
@@ -155,7 +158,7 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     nome: 'Fruta do Bisão',
     tipo: 'zoan',
     passiva: 'Forma híbrida: mais força e defesa enquanto transformado.',
-    skills: [{ id: 'forma-hibrida', nome: 'Forma Híbrida', descricao: 'Transforma por 3 vezes: +30% de ataque, +10 de defesa.', energia: 30, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3 }],
+    skills: [{ id: 'forma-hibrida', nome: 'Forma Híbrida', descricao: 'Transforma por 3 vezes: +30% de ataque, +10 de defesa (não gasta a vez).', energia: 30, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true }],
   },
 }
 

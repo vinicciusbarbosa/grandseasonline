@@ -360,7 +360,7 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                     />
                   )}
                   {s.rei && (
-                    <button className="bt tg vermelho" disabled={!s.podeHaoshoku} onClick={() => c.haoshoku()} title="Haki do Rei em área (70 de espírito): atordoa quem tem overall menor. Encerra a vez.">
+                    <button className="bt tg vermelho" disabled={!s.podeHaoshoku} onClick={() => c.haoshoku()} title="Haki do Rei em área (70 de espírito): atordoa na próxima vez quem tem overall menor. Não gasta a vez.">
                       <span style={{ fontSize: 12 }}>Haki do Rei</span>
                       <span style={{ fontSize: 10 }}>em área</span>
                       <span style={{ fontSize: 10, color: '#ffb0b0' }}>✦70</span>

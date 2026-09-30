@@ -131,6 +131,19 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
     poder usar de novo); o golpe básico da arma não tem recarga.
   - **Movimento igual ao Sugoi**: 5 movimentos por vez para a tripulação
     toda (1 casa cada, em 8 direções), antes do ataque.
+  - **O que não gasta a vez**: ligar/desligar Haki, buffs e transformação
+    (Zoan), Haki do Rei em área, consumir itens e **habilidades de
+    profissão** (ex.: a cura do médico). Só o ataque encerra a vez.
+  - **Haki do Rei em área**: não encerra a vez (dá para atacar depois);
+    quem ele pega (overall menor) fica **atordoado na próxima vez** — não dá
+    para escolher nem agir com ele.
+  - **Observação é chance, nunca garantida**: base pela maestria (teste:
+    normal 30%, avançada 45%) + diferença de overall + agilidade contra
+    precisão; teto 60% (normal) / 75% (avançada).
+  - **Companheiros não se ferem**: golpes (inclusive em área) só acertam
+    inimigos.
+  - **Armamento mais forte** (teste): ×1,4 e fura 15% da defesa; avançado
+    ×1,55 e fura 35%.
   - **Ligar/desligar o Haki é separado do ataque** (não gasta a vez): ligado,
     todo ataque usa o Haki (armamento gasta 1 uso por ataque; Rei imbuído
     gasta espírito por ataque) até desligar ou acabar o recurso. O

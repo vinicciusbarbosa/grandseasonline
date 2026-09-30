@@ -355,15 +355,21 @@ export class ControleBatalha {
   }
 
   selecionar(id: string | null) {
+    // atordoado (Haki do Rei, gelo): não dá para escolher nesta vez
+    const atordoado = id ? porId(this.estado, id) : null
+    if (atordoado?.atordoado) {
+      this.dica = `${atordoado.nome} está atordoado e não age nesta vez.`
+      const p = this.palco.personagem(atordoado.id)
+      if (p) this.palco.flutuar(p, 'Atordoado!', '#ff5a6e', 1)
+      id = null
+    }
     this.sel = id
     this.skill = null
     this.previa = null
     if (id) {
       const c = porId(this.estado, id)!
-      this.dica = c.atordoado
-        ? `${c.nome} está atordoado nesta vez.`
-        : `${c.nome}: casas azuis andam; inimigo marcado em vermelho dá para atacar (${this.umClique ? 'clique nele' : 'toque nele'}).`
-    } else this.dica = this.fase === 'minha' ? 'Sua vez: toque num pirata.' : ''
+      this.dica = `${c.nome}: casas azuis andam; inimigo marcado em vermelho dá para atacar (${this.umClique ? 'clique nele' : 'toque nele'}).`
+    } else if (!atordoado?.atordoado) this.dica = this.fase === 'minha' ? 'Sua vez: toque num pirata.' : ''
     this.redesenhar()
   }
 

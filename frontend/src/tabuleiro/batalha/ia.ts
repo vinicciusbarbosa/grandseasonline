@@ -65,10 +65,7 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
       for (const x of casas) {
         const o = [...inimigos, ...aliados].find((p) => p.casa.l === x.l && p.casa.c === x.c)
         if (!o || o === c) continue
-        if (o.lado === c.lado) {
-          if (s.area !== 'alvo') v -= 30 // não acerta aliado
-          continue
-        }
+        if (o.lado === c.lado) continue // companheiros não se ferem
         if (o.logia && o.logia.cargas > 0) logia = true
         v += esperado(c, o, s.mult, s.golpes ?? 1, false)
       }
@@ -102,11 +99,18 @@ export function proximaAcao(e: Estado): Acao {
     if (!c.observando && (c.haki.observacao?.usos ?? 0) > 0 && perto(c, 4)) return { t: 'observar', id: c.id, ligado: true }
   }
   {
+    // buffs/transformação não gastam a vez: usa quando o inimigo está perto
+    for (const c of meus) {
+      if (c.akuma?.transformado) continue
+      const t = skillsDe(c).find((s) => s.transforma && s.livre)
+      if (t && c.energia >= t.energia && !c.recargas[t.id] && perto(c, 5)) return { t: 'skill', id: c.id, skill: t.id, alvo: c.casa }
+    }
     // Haki do Rei em área, se pega pelo menos dois mais fracos
     for (const c of meus) {
       if (!c.haki.rei || c.espirito < HAOSHOKU.espirito) continue
       const pega = inimigos.filter((i) => distancia(i.casa, c.casa) <= HAOSHOKU.raio && i.haki.overall < c.haki.overall && !i.atordoado)
-      if (pega.length >= 2) return { t: 'haoshoku', id: c.id }
+      // não gasta a vez: vale soltar se pega pelo menos um
+      if (pega.length >= 1) return { t: 'haoshoku', id: c.id }
     }
     let melhor: Opcao | null = null
     for (const c of meus) {

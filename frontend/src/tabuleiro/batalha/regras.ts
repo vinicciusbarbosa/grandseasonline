@@ -4,7 +4,7 @@
  *
  * Vez da tripulação, como no Sugoi: o lado mais ágil começa. Na sua vez, a
  * tripulação tem 5 MOVIMENTOS (1 casa cada, em 8 direções) divididos entre
- * todos e UM ataque: usar uma skill (ou o Haki do Rei em área) encerra a
+ * todos e UM ataque: usar uma skill de ataque encerra a
  * vez. Skills fortes têm RECARGA (vezes da tripulação sem poder usar).
  * 90 s por vez; quem perde 3 vezes pelo tempo passa a ter só 30 s.
  *
@@ -139,9 +139,13 @@ export const RECUPERA_ARMAMENTO = { espirito: 25, usos: 1 }
  * leva de volta o dano base puro. */
 export const CLASH = { espirito: 30, empate: 3, bonus: 1.3 }
 export const FORCA = 1.4
-const MULT_ARMAMENTO = 1.25
-const MULT_AVANCADO = 1.4
-const FURA_AVANCADO = 0.3
+const MULT_ARMAMENTO = 1.4
+const MULT_AVANCADO = 1.55
+/** quanto da defesa o armamento fura (normal / avançado) */
+const FURA_ARMAMENTO = 0.15
+const FURA_AVANCADO = 0.35
+/** observação: chance base de esquiva por maestria (normal / avançada) e teto */
+export const OBSERVACAO = { normal: 0.3, avancada: 0.45, tetoNormal: 0.6, tetoAvancada: 0.75 }
 
 // ------------------------------------------------------------ utilitários
 /** Gerador determinístico (mulberry32). */
@@ -361,8 +365,13 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       obs.usos--
       if (!obs.usos) alvo.observando = false
       observados.set(alvo.id, false)
-      const base = limitar((alvo.at.agl - c.at.pre) * 2 + 5, 0, 45)
-      const chance = alvo.haki.overall > c.haki.overall ? 1 : limitar((base + 40 - (c.haki.overall - alvo.haki.overall)) / 100, 0.05, 0.9)
+      // chance (nunca garantida): maestria + diferença de Haki + agilidade
+      // contra precisão; a avançada tem base e teto maiores
+      const chance = limitar(
+        (obs.avancado ? OBSERVACAO.avancada : OBSERVACAO.normal) + (alvo.haki.overall - c.haki.overall) / 100 + (alvo.at.agl - c.at.pre) / 100,
+        0.05,
+        obs.avancado ? OBSERVACAO.tetoAvancada : OBSERVACAO.tetoNormal,
+      )
       if (rnd() < chance) {
         observados.set(alvo.id, true)
         ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'observou' })
@@ -382,7 +391,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       return
     }
     const avancado = armamento && !!c.haki.armamento?.avancado
-    let def = Math.min(60, defDe(alvo)) * (1 - (s.ignoraDef ?? 0)) * (avancado ? 1 - FURA_AVANCADO : 1)
+    let def = Math.min(60, defDe(alvo)) * (1 - (s.ignoraDef ?? 0)) * (armamento ? 1 - (avancado ? FURA_AVANCADO : FURA_ARMAMENTO) : 1)
     def = Math.max(0, def)
     const critico = rnd() < limitar((c.at.dex - alvo.at.con) * 2 + 5 + (s.critico ?? 0), 0, 75) / 100
     const bloqueio = !avancado && rnd() < limitar((alvo.at.res - c.at.con) * 2, 0, 40) / 100
@@ -479,8 +488,8 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       }
       for (const casa of casas) {
         const alvo = ocupante(e, casa)
-        // área acerta todo mundo; golpe único só inimigo
-        if (!alvo || alvo === c || (s.area === 'alvo' && alvo.lado === c.lado)) continue
+        // só acerta inimigos: companheiros não se ferem
+        if (!alvo || alvo.lado === c.lado) continue
         for (let g = 0; g < (s.golpes ?? 1) && alvo.hp > 0 && c.hp > 0; g++) golpear(c, alvo, s, armamento, rei)
       }
       if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
@@ -496,8 +505,9 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       break
     }
   }
-  // atacar (skill ou Haki do Rei em área) encerra a vez, como no Sugoi
-  if (a.t === 'skill' || a.t === 'haoshoku') fimDaVez = true
+  // atacar encerra a vez, como no Sugoi
+  // (buffs, transformação, profissão e o Haki do Rei em área não gastam a vez)
+  if (a.t === 'skill' && !skillsDe(porId(e, a.id)!).find((x) => x.id === a.skill)?.livre) fimDaVez = true
 
   const acabou = ['piratas', 'marinha'].some((l) => !vivos(e, l as Lado).length)
   if (fimDaVez && !acabou) {

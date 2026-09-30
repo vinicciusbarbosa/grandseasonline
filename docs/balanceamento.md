@@ -74,3 +74,25 @@ overall (+10 na média) +5 · Bisão +1.
 A IA ignorava quem tinha Logia com cargas (achava que o golpe "não
 valia"): ninguém batia no Logia e ele vencia sozinho (100%). Agora a IA
 trata cada carga/uso de observação como um escudo a quebrar (84%).
+
+## Rodada 2 — depois dos ajustes
+
+Mudanças: Haki do Rei em área não gasta a vez (atordoa na próxima vez);
+observação é chance (normal 30%, avançada 45%, teto 60/75%); buffs,
+transformação e profissão não gastam a vez; armamento ×1,4 / avançado
+×1,55 e fura 15/35% da defesa; companheiros não se ferem.
+
+- Espelho 49% · aleatório 51% (sem vantagem de lado).
+- Time inteiro × nada: Haki do Rei 38% → **84%**; Bisão 46% → **91%**;
+  Armamento 78% → **92%**; Observação 100% → 97%.
+- Um fator num papel: Observação ~80% → **~70%**; Observação avançada
+  ~94% → **~86%**; Haki do Rei ~47% → **~57%**; Bisão ~52% → **~63%**;
+  Armamento ~58% → **~72%**.
+- Matriz (média): Rei + arm. av. 93% · Arm. avançado 80% · Obs. avançada
+  77% · Logias ~50% · Armamento 50% · Borracha 33% · Bisão 15% · Nada 2%.
+- Overall: −4 → 25%, 0 → 50%, +4 → 70% (antes 19% / 42% / 83%).
+- Elenco de teste: estava 30% para os piratas; ajustado (Comandante sem
+  observação, Médico com observação) → ~52%.
+
+Ainda forte: Rei + armamento avançado (é o "topo" do Haki) e Logia contra
+time sem Haki (é a proposta da Logia; contra armamento fica ~50%).
