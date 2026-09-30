@@ -89,7 +89,9 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
 - **Batalha completa prototipada** (decidido para o protótipo): **5 contra 5**
   (capitão, espadachim, atirador, médico, lutador × comandante, oficial,
   soldado, arqueiro, enfermeira), **turnos simultâneos + postura secreta**
-  (como acima) e **contra a IA**.
+  (como acima), **contra a IA e também em multiplayer para testes** (dois
+  jogadores pelo servidor de teste `/mp`: cada um manda o plano do turno,
+  o servidor resolve e devolve o resultado para os dois).
 - **Arte provisória**: personagens montados no gerador LPC (Liberated Pixel
   Cup, CC-BY-SA/GPL — créditos em `public/sprites/<nome>/creditos.csv`),
   ampliados 2× (~96 px, tamanho de Ragnarok), 4 direções (diagonais usam a
