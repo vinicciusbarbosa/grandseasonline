@@ -4,8 +4,8 @@ import { recurso } from './visualFolhas'
 /**
  * Efeito desenhado à mão (spritesheet), importado por
  * scripts/sprites/importar_efeito.py para public/sprites/efeitos/<nome>/:
- * uma tira por direção (E, SE, NE, S, N) + manifesto. W, SW e NW saem
- * espelhando E, SE e NE.
+ * uma tira por direção (as que o artista desenhou) + manifesto. As outras
+ * saem espelhando o lado oposto (E↔W, SE↔SW, NE↔NW) ou da mais parecida.
  *
  * Toca os quadros num ponto (golpe de perto) ou voando de um ponto a outro
  * entre dois quadros (projétil), em pixel art nítido.
@@ -14,7 +14,22 @@ import { recurso } from './visualFolhas'
 export type DirEfeito = 'E' | 'SE' | 'NE' | 'S' | 'N' | 'W' | 'SW' | 'NW'
 type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[] }
 
-const ESPELHO: Partial<Record<DirEfeito, DirEfeito>> = { W: 'E', SW: 'SE', NW: 'NE' }
+/** par espelhado de cada direção (a folha pode trazer qualquer lado) */
+const PAR: Record<DirEfeito, DirEfeito> = { E: 'W', W: 'E', SE: 'SW', SW: 'SE', NE: 'NW', NW: 'NE', S: 'S', N: 'N' }
+/** vizinhas, da mais parecida para a menos (quando a folha não tem a direção nem o espelho) */
+const VIZINHAS: Record<DirEfeito, DirEfeito[]> = {
+  E: ['SE', 'NE', 'S', 'N'], W: ['SW', 'NW', 'S', 'N'], S: ['SE', 'SW', 'E', 'W'], N: ['NE', 'NW', 'E', 'W'],
+  SE: ['S', 'E', 'SW', 'NE'], SW: ['S', 'W', 'SE', 'NW'], NE: ['N', 'E', 'NW', 'SE'], NW: ['N', 'W', 'NE', 'SW'],
+}
+
+/** Qual tira usar para a direção pedida, e se é espelhada. */
+function escolher(tem: string[], dir: DirEfeito): [DirEfeito, boolean] {
+  for (const d of [dir, ...VIZINHAS[dir]]) {
+    if (tem.includes(d)) return [d, false]
+    if (tem.includes(PAR[d])) return [PAR[d], true]
+  }
+  return [tem[0] as DirEfeito, false]
+}
 const manifestos = new Map<string, Promise<Manifesto | null>>()
 const texturas = new Map<string, THREE.Texture>()
 const carregador = new THREE.TextureLoader()
@@ -63,8 +78,8 @@ export class EfeitoFolha {
    */
   constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void } = {}) {
     this.man = man
-    const d = ESPELHO[dir] ?? dir
-    this.espelha = !!ESPELHO[dir]
+    const [d, espelha] = escolher(man.direcoes, dir)
+    this.espelha = espelha
     const chave = `${nome}/${d}`
     let tex = texturas.get(chave)
     if (!tex) {

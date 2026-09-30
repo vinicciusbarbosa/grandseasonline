@@ -1,7 +1,8 @@
 """
 Importa uma folha de efeito (spritesheet em fundo magenta) para o jogo.
 
-Uso: python3 importar_efeito.py <folha> <nome> <linhas> <colunas> <direcoes> [fps]
+Uso: python3 importar_efeito.py <folha> <nome> <linhas> <colunas> <direcoes> [fps] [grade]
+  grade: quadros em grade uniforme (senão acha as colunas pelo desenho)
   direcoes: as linhas da folha em ordem, separadas por vírgula (ex.: E,SE,NE,S,N)
 
 Tira o magenta (chroma key) calculando a transparência de cada pixel e
@@ -70,7 +71,7 @@ def faixas_ocupadas(perfil):
     return [f for f in faixas if f[1] - f[0] > 3]
 
 
-def importar(folha, nome, linhas, colunas, direcoes, fps):
+def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False):
     im = np.asarray(Image.open(folha).convert('RGB')).astype(np.float32)
     H, W = im.shape[:2]
     ch = H / linhas
@@ -116,7 +117,9 @@ def importar(folha, nome, linhas, colunas, direcoes, fps):
         return sobra * 10 + proximo, [float(b[1]) for b in top]
 
     candidatos = [c for c in (por_blocos(li) for li in range(linhas)) if c]
-    if candidatos and min(candidatos)[0] < 5:
+    if grade:
+        centros = [(k + 0.5) * W / colunas for k in range(colunas)]
+    elif candidatos and min(candidatos)[0] < 5:
         centros = min(candidatos)[1]
     else:
         # sem linha com os quadros separados: picos do perfil
@@ -165,4 +168,4 @@ def importar(folha, nome, linhas, colunas, direcoes, fps):
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    importar(a[0], a[1], int(a[2]), int(a[3]), a[4].split(','), int(a[5]) if len(a) > 5 else 16)
+    importar(a[0], a[1], int(a[2]), int(a[3]), a[4].split(','), int(a[5]) if len(a) > 5 else 16, 'grade' in a[6:])

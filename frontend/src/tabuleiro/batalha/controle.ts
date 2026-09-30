@@ -773,14 +773,18 @@ export class ControleBatalha {
         break
       }
       case 'hotarubi': {
-        // vaga-lumes verdes flutuam até a área e explodem juntos
+        // Hotarubi (arte desenhada): os vaga-lumes voam para a área e explodem em chamas
+        const centro = casas.length ? casas.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / casas.length) : ate
+        const desenhado = P.efeitoFolha('hotarubi', dirF, centro.clone().setY(1.2), { largura: 3.4 })
+        await esperar(470)
+        P.lampejo('branco', 0.1)
+        P.tremer(0.4)
+        for (const h of hits) void P.efeito('explosaoFogo', 'normal', P.peito(h), { dur: 0.5, escala: 0.8 })
+        if (await desenhado) break
+        // sem a folha: vaga-lumes desenhados por código
         const voos = casas.flatMap((c) => [c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3, (Math.random() - 0.5) * 0.6))])
         await Promise.all(voos.map((c, i) => new Promise<void>((r) => setTimeout(() => void P.efeito('vagalume', 'normal', origem.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.4 + Math.random() * 0.6, 0)), { para: chao(c), dur: 0.9 + Math.random() * 0.3, escala: 0.35 }).then(r), i * 30))))
-        await esperar(150)
-        P.lampejo('branco', 0.12)
         for (const c of casas) void P.efeito('explosaoFogo', 'normal', chao(c), { dur: 0.7, escala: 1.1 })
-        P.tremer(0.35)
-        await esperar(350)
         break
       }
       case 'enjomo': {
