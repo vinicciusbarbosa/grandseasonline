@@ -34,16 +34,25 @@ def ouro(q):
 
 
 def guarda_na_mao(q):
-    """Peças douradas encostadas na pele (a guarda que a mão segura)."""
+    """Peças douradas encostadas numa mão (pele pequena — o rosto, a maior
+    peça de pele, não conta: senão a dragona no ombro vira "guarda")."""
     al, r, g, b = cores(q)
     pele = al & (r > 180) & (g > 120) & (b > 80) & (r > b + 30) & (r - g < 90)
     gd = ouro(q)
+    pele &= ~gd
+    ns, rs, ss, _ = cv2.connectedComponentsWithStats(pele.astype(np.uint8), connectivity=8)
+    if ns > 1:
+        rosto = 1 + int(np.argmax(ss[1:, cv2.CC_STAT_AREA]))
+        if ss[rosto, cv2.CC_STAT_AREA] >= 500:
+            pele &= rs != rosto
     n, rot, st, _ = cv2.connectedComponentsWithStats(gd.astype(np.uint8), connectivity=8)
     pele_d = cv2.dilate(pele.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
     m = np.zeros_like(al)
     for i in range(1, n):
         c = rot == i
-        if (c & pele_d).sum() >= 4 and st[i, cv2.CC_STAT_AREA] < 900:
+        # guarda é compacta (o debrum dourado do casaco é comprido)
+        compacta = max(st[i, cv2.CC_STAT_WIDTH], st[i, cv2.CC_STAT_HEIGHT]) <= 45
+        if compacta and (c & pele_d).sum() >= 4 and st[i, cv2.CC_STAT_AREA] < 900:
             m |= c
     return m
 
@@ -86,7 +95,9 @@ def lamina(q, minimo=55, fino_min=3.5):
             pts -= pts.mean(0)
             ev = np.linalg.eigvalsh(np.cov(pts.T))
             comprido = math.sqrt(max(ev[1], 1e-6)) / math.sqrt(max(ev[0], 1e-6))
-            if comprido > fino_min and longe > minimo:
+            # aço tem um tom azulado; o branco do casaco é neutro
+            azulado = (b[comp] - r[comp]).mean() > 9
+            if comprido > fino_min and longe > minimo and azulado:
                 mg |= comp
                 alcance = max(alcance, longe)
         if alcance > melhor:
@@ -108,7 +119,7 @@ def pintar_lamina(q, m):
     out[m, :3] = np.clip(cor[m], 0, 255).astype(np.uint8)
     # contorno vermelho fino por fora (o "vapor" do haki)
     borda = (cv2.dilate(m.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & ~m & ~al
-    out[borda] = (150, 10, 40, 255)
+    out[borda] = (96, 30, 170, 255)
     return out
 
 
@@ -167,7 +178,7 @@ def faiscas(q, m, semente):
     cam = Image.new('RGBA', img.size, (0, 0, 0, 0))
     from PIL import ImageDraw
     d = ImageDraw.Draw(cam)
-    for _ in range(rnd.randint(3, 5)):
+    for _ in range(rnd.randint(1, 2)):
         i = rnd.randrange(len(xs))
         x, y = float(xs[i]), float(ys[i])
         pts = [(x, y)]
@@ -178,10 +189,88 @@ def faiscas(q, m, semente):
             x += math.cos(ang) * passo
             y += math.sin(ang) * passo
             pts.append((x, y))
-        d.line(pts, fill=(120, 0, 25, 255), width=3)
-        d.line(pts, fill=(255, 60, 90, 255), width=1)
+        d.line(pts, fill=(34, 6, 52, 255), width=3)
+        d.line(pts, fill=(200, 110, 255, 255), width=1)
     img.alpha_composite(cam)
     return np.asarray(img)
+
+
+def eixo(ml, guarda):
+    """Linha central da lâmina, da guarda até a ponta (pontos a cada ~3 px)."""
+    ys, xs = np.nonzero(ml)
+    gy, gx = np.nonzero(guarda)
+    cx, cy = (gx.mean(), gy.mean()) if len(gx) else (xs.mean(), ys.mean())
+    d = np.hypot(xs - cx, ys - cy)
+    pts = []
+    for a in np.arange(d.min(), d.max() + 3, 3):
+        sel = (d >= a) & (d < a + 3)
+        if sel.sum() >= 2:
+            pts.append((xs[sel].mean(), ys[sel].mean()))
+    if len(pts) < 4:
+        return None
+    p = np.array(pts)
+    # suaviza (média móvel) sem encolher as pontas
+    q = p.copy()
+    for i in range(1, len(p) - 1):
+        q[i] = p[max(0, i - 2):i + 3].mean(0)
+    return q
+
+
+def espiral(q, ml, guarda, fase):
+    """Haki do anime: fios negros enrolando e girando em volta da lâmina, com
+    brilho roxo. Pixels opacos (o jogo corta alfa < 0.5)."""
+    e = eixo(ml, guarda)
+    if e is None:
+        return q
+    seg = np.diff(e, axis=0)
+    comp = np.hypot(seg[:, 0], seg[:, 1]) + 1e-6
+    s = np.r_[0, np.cumsum(comp)]
+    L = s[-1]
+    tang = np.vstack([seg / comp[:, None], seg[-1:] / comp[-1]])
+    norm = np.stack([-tang[:, 1], tang[:, 0]], 1)
+    fios = []
+    for k in range(2):
+        ang = s / 44.0 * 2 * np.pi + fase + k * np.pi
+        t = s / max(L, 1)
+        amp = 8.0 * np.clip(np.minimum(t * 4, (1.05 - t) * 5), 0.25, 1)
+        pts = e + norm * (amp * np.sin(ang))[:, None]
+        fios.append((pts, np.cos(ang)))
+    H, W = q.shape[:2]
+
+    def camada(frente):
+        img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        from PIL import ImageDraw
+        d = ImageDraw.Draw(img)
+        for pts, prof in fios:
+            for i in range(len(pts) - 1):
+                if (prof[i] > 0) != frente:
+                    continue
+                a, b = tuple(pts[i]), tuple(pts[i + 1])
+                if frente:
+                    d.line([a, b], fill=(10, 4, 16, 255), width=5)
+                else:
+                    d.line([a, b], fill=(44, 14, 70, 255), width=3)
+        return np.asarray(img)[..., 3] > 0
+
+    tras, frente = camada(False), camada(True)
+    out = q.copy()
+    al = out[..., 3] > 0
+    tudo = ml | tras | frente
+    # brilho roxo em volta (anel claro colado, anel escuro pontilhado por fora)
+    dist = cv2.distanceTransform((~tudo).astype(np.uint8), cv2.DIST_L2, 3)
+    yy, xx = np.mgrid[:H, :W]
+    anel1 = (dist > 0) & (dist <= 2.2) & ~al
+    anel2 = (dist > 2.2) & (dist <= 3.4) & ~al
+    out[anel2] = (78, 26, 150, 255)
+    out[anel1] = (160, 80, 245, 255)
+    # fio por trás só aparece fora da lâmina
+    m = tras & ~ml
+    out[m] = (44, 14, 70, 255)
+    out[frente] = (10, 4, 16, 255)
+    # realce roxo na borda de cima dos fios da frente (volume de "corda")
+    sobe = np.roll(frente, 2, axis=0)
+    out[frente & ~sobe] = (120, 60, 200, 255)
+    return out
 
 
 # quadros (1..12) com a espada fora da bainha em todos os ataques
@@ -212,6 +301,7 @@ def gerar(personagem, direcoes=None):
                 if info is not None:
                     q = pintar_braco(q, mb, info[0])
                 q = pintar_lamina(q, ml)
+                q = espiral(q, ml, gd, i * 1.9)
                 q = faiscas(q, ml, hash((d, i)) & 0xffff)
             quadros.append(q)
         nome = f'atacar-haki_{d}.png'
