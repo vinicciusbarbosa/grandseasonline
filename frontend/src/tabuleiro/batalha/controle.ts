@@ -133,7 +133,7 @@ const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura',
 
 // ------------------------------------------------------------ preparação
 // ------------------------------------------------------------ HUD
-export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; motivo: string | null; fruta: boolean }
+export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; raio: number; livre: boolean; motivo: string | null; fruta: boolean }
 export type RetratoBatalha = {
   fase: 'preparar' | 'haki' | 'minha' | 'inimiga' | 'fim'
   /** segundos que faltam da preparação de Haki */
@@ -174,6 +174,9 @@ export type FichaHud = {
   atordoado: boolean
   queimando: boolean
   transformado: number
+  /** dá para ligar o Rei imbuído / soltar o Haki do Rei em área agora */
+  podeRei: boolean
+  podeHaoshoku: boolean
 }
 
 export class ControleBatalha {
@@ -488,6 +491,7 @@ export class ControleBatalha {
 
   /** Liga/desliga o Haki de armamento (não gasta a vez; cada ataque ligado gasta 1 uso). */
   alternarArmamento(id?: string) {
+    if (this.fase === 'minha' && (this.animando || this.auto)) return
     if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'armamento')
     const c = (id ?? this.sel) ? porId(this.estado, (id ?? this.sel)!) : null
     if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'armamento', ligado: !c.armamentoLigado })
@@ -495,12 +499,14 @@ export class ControleBatalha {
 
   /** Liga/desliga o Haki do Rei imbuído (liga o armamento junto; cada ataque gasta espírito). */
   alternarRei(id?: string) {
+    if (this.fase === 'minha' && (this.animando || this.auto)) return
     if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'rei')
     const c = (id ?? this.sel) ? porId(this.estado, (id ?? this.sel)!) : null
     if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'rei', ligado: !c.reiLigado })
   }
 
   observar(id?: string) {
+    if (this.fase === 'minha' && (this.animando || this.auto)) return
     if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'observacao')
     const alvo = id ?? this.sel
     if (!alvo) return
@@ -508,8 +514,9 @@ export class ControleBatalha {
     void this.executar({ t: 'observar', id: c.id, ligado: !c.observando })
   }
 
-  haoshoku() {
-    if (this.sel) void this.executar({ t: 'haoshoku', id: this.sel })
+  haoshoku(id?: string) {
+    const quem = id ?? this.sel
+    if (quem && this.fase === 'minha' && !this.animando) void this.executar({ t: 'haoshoku', id: quem })
   }
 
   usarPrevia() {
@@ -1025,6 +1032,8 @@ export class ControleBatalha {
       atordoado: c.atordoado,
       queimando: !!c.queimadura,
       transformado: c.akuma?.transformado ?? 0,
+      podeRei: c.haki.rei && !!c.haki.armamento?.avancado && c.espirito >= REI_IMBUIDO.espirito && (c.haki.armamento?.usos ?? 0) > 0,
+      podeHaoshoku: this.fase === 'minha' && c.haki.rei && c.espirito >= HAOSHOKU.espirito && !motivo(this.estado, { t: 'haoshoku', id: c.id }),
     }
   }
 
@@ -1059,6 +1068,8 @@ export class ControleBatalha {
               fruta: !!s.akuma && FRUTAS[s.akuma.fruta].skills.includes(k),
               recarga: s.recargas[k.id] ?? 0,
               espera: k.recarga ?? 0,
+              raio: k.raio ?? 1,
+              livre: !!k.livre,
               motivo: s.recargas[k.id] ? `Recarga: ${s.recargas[k.id]} vez(es)` : s.energia < k.energia ? 'Energia insuficiente' : s.atordoado ? 'Atordoado' : null,
             })),
             skill: this.efetiva(s)?.id ?? null,

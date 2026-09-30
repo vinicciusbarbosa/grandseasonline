@@ -55,6 +55,28 @@ const CSS = `
 .hud .tg { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:104px; padding:7px 10px; clip-path:polygon(8% 0,100% 0,92% 100%,0 100%); }
 .hud .log div { padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); font-weight:400; }
 .hud .log span.h { color:#7f90a8; margin-right:10px; font-variant-numeric:tabular-nums; }
+.hud .quadro.dir { flex-direction:row-reverse; }
+.hud .quadro.dir .info { margin-left:0; margin-right:-8px; padding:4px 16px 5px 10px; background:linear-gradient(270deg, rgba(26,6,10,.9) 60%, rgba(26,6,10,0)); text-align:right; }
+.hud .quadro.dir .borda { background:linear-gradient(135deg,#ff8a7a,#8a1a10); clip-path:polygon(0 0,86% 0,100% 100%,14% 100%); }
+.hud .quadro.dir .ret { clip-path:polygon(0 0,86% 0,100% 100%,14% 100%); }
+.hud .hk { display:grid; grid-template-columns:repeat(2, 30px); gap:3px; margin-left:4px; }
+.hud .hkb { pointer-events:auto; width:30px; height:22px; font:700 11px 'Cinzel', Georgia, serif; color:#cfd8e8; cursor:pointer; position:relative;
+  border:1px solid rgba(255,255,255,.25); background:rgba(10,16,30,.85); clip-path:polygon(18% 0,100% 0,82% 100%,0 100%); }
+.hud .hkb:disabled { opacity:.3; cursor:default; }
+.hud .hkb small { position:absolute; right:3px; bottom:0; font:600 8px sans-serif; color:#fff; }
+.hud .log { opacity:.38; transition:opacity .2s; }
+.hud .log:hover { opacity:1; }
+.hud .cartas { display:flex; gap:8px; pointer-events:auto; overflow-x:auto; padding:4px 2px 2px; max-width:calc(100vw - 16px); }
+.hud .carta { flex:none; width:188px; min-height:128px; text-align:left; padding:0; cursor:pointer; font:inherit; color:#eaf6ff; border:1px solid rgba(120,220,230,.35);
+  background:linear-gradient(180deg, rgba(16,28,50,.96), rgba(8,12,24,.96)); clip-path:polygon(0 0,100% 0,100% 88%,92% 100%,0 100%); transition:transform .12s, box-shadow .12s; }
+.hud .carta:hover:not(:disabled) { transform:translateY(-6px); box-shadow:0 0 16px rgba(111,240,232,.5); }
+.hud .carta:disabled { opacity:.45; cursor:default; }
+.hud .carta.on { border-color:#fff3a0; box-shadow:0 0 18px rgba(255,243,160,.7); transform:translateY(-6px); }
+.hud .carta .topo { height:5px; }
+.hud .carta .corpo { padding:7px 10px 8px; }
+.hud .carta .tags { display:flex; flex-wrap:wrap; gap:4px; margin:5px 0; }
+.hud .carta .tag { font:600 10px sans-serif; padding:1px 5px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); }
+.hud .carta p { margin:0; font-weight:400; font-size:11.5px; line-height:1.3; color:#b8c6dc; }
 @media (max-height: 600px) { .hud .quadro .ret { width:56px; height:44px } .hud .quadro .borda { width:60px; height:48px } .hud .op { font-size:15px; padding:6px 14px; width:190px } }
 `
 
@@ -104,15 +126,43 @@ function Icones({ f }: { f: FichaHud }) {
   )
 }
 
-function Quadro({ f, sel, onClick }: { f: FichaHud; sel?: boolean; onClick?: () => void }) {
+/** Botões de Haki no quadro do pirata (liga/desliga direto, sem abrir menu). */
+function BotoesHaki({ f, c, ativo }: { f: FichaHud; c: ControleBatalha; ativo: boolean }) {
+  const b = (letra: string, titulo: string, corB: string, ligado: boolean, pode: boolean, clique: () => void, usos?: number) => (
+    <button
+      className="hkb"
+      title={titulo}
+      disabled={!ativo || (!pode && !ligado)}
+      onClick={(ev) => {
+        ev.stopPropagation()
+        clique()
+      }}
+      style={ligado ? { color: '#fff', borderColor: corB, background: `linear-gradient(180deg, ${corB}, ${corB}66)`, boxShadow: `0 0 10px ${corB}` } : { color: corB }}
+    >
+      {letra}
+      {usos !== undefined && <small>{usos}</small>}
+    </button>
+  )
+  if (!f.armamento && !f.observacao && !f.rei) return null
+  return (
+    <div className="hk">
+      {f.armamento && b('A', `Haki de armamento${f.armamento.avancado ? ' avançado' : ''} (${f.armamento.usos}/${f.armamento.max} usos): liga/desliga, não gasta a vez`, cor.arm, f.armamento.ligado, f.armamento.usos > 0, () => c.alternarArmamento(f.id), f.armamento.usos)}
+      {f.rei && f.armamento?.avancado && b('R', 'Haki do Rei imbuído: liga/desliga (40 de espírito por ataque)', cor.rei, f.rei.ligado, f.podeRei, () => c.alternarRei(f.id))}
+      {f.observacao && b('O', `Haki de observação${f.observacao.avancado ? ' avançado' : ''} (${f.observacao.usos}/${f.observacao.max} usos): liga/desliga`, cor.obs, f.observacao.ligado, f.observacao.usos > 0, () => c.observar(f.id), f.observacao.usos)}
+      {f.rei && b('✦', 'Haki do Rei em área (70 de espírito): atordoa na próxima vez quem ele pegar; não gasta a vez', '#ff6a5a', false, f.podeHaoshoku, () => c.haoshoku(f.id))}
+    </div>
+  )
+}
+
+function Quadro({ f, sel, onClick, direita, c, ativo }: { f: FichaHud; sel?: boolean; onClick?: () => void; direita?: boolean; c?: ControleBatalha; ativo?: boolean }) {
   const morto = f.hp <= 0
   return (
-    <div className={`quadro${sel ? ' sel' : ''}${onClick ? ' clic' : ''}${morto ? ' morto' : ''}`} onClick={onClick}>
+    <div className={`quadro${sel ? ' sel' : ''}${onClick ? ' clic' : ''}${morto ? ' morto' : ''}${direita ? ' dir' : ''}`} onClick={onClick}>
       <div className="borda">
         <div className="ret" style={rosto(f.retrato, 74, 58)} />
       </div>
       <div className="info">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexDirection: direita ? 'row-reverse' : 'row' }}>
           <span className="tit" style={{ fontSize: 15 }}>
             {f.nome}
           </span>
@@ -120,7 +170,7 @@ function Quadro({ f, sel, onClick }: { f: FichaHud; sel?: boolean; onClick?: () 
         </div>
         <div className="linha">
           <b>HP</b>
-          <Barra v={f.hp} max={f.hpMax} c={f.hp / f.hpMax > 0.35 ? cor.vida : cor.vidaBaixa} c2={f.hp / f.hpMax > 0.35 ? cor.vida2 : '#a02010'} />
+          <Barra v={f.hp} max={f.hpMax} c={f.hp / f.hpMax > 0.35 ? (direita ? '#ff6a4a' : cor.vida) : cor.vidaBaixa} c2={f.hp / f.hpMax > 0.35 ? (direita ? '#a0200a' : cor.vida2) : '#a02010'} />
           <span className="num">
             {Math.max(0, f.hp)} / {f.hpMax}
           </span>
@@ -136,6 +186,7 @@ function Quadro({ f, sel, onClick }: { f: FichaHud; sel?: boolean; onClick?: () 
           <span className="num">{f.espirito}</span>
         </div>
       </div>
+      {c && !morto && <BotoesHaki f={f} c={c} ativo={!!ativo} />}
     </div>
   )
 }
@@ -345,33 +396,34 @@ function PreparoHaki({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
   )
 }
 
-function ListaSkills({ skills, atual, escolher, fechar }: { skills: SkillHud[]; atual: string | null; escolher: (id: string) => void; fechar: () => void }) {
+const AREA: Record<string, string> = { alvo: '1 alvo', linha: 'em linha', leque: 'leque', volta: 'em volta', si: 'em si', mapa: 'mapa inteiro' }
+const areaDe = (k: SkillHud) => (k.area === 'explosao' ? `área ${k.raio * 2 + 1}×${k.raio * 2 + 1}` : AREA[k.area] ?? k.area)
+
+/** Cartas das skills na parte de baixo da tela, com a descrição. */
+function CartasSkills({ skills, atual, escolher }: { skills: SkillHud[]; atual: string | null; escolher: (id: string) => void }) {
   return (
-    <div className="pn" style={{ width: 340, maxHeight: 360, overflow: 'auto', padding: 8, pointerEvents: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <span className="tit" style={{ fontSize: 16, color: '#9ff4ee' }}>
-          Skills
-        </span>
-        <button className="bt" style={{ padding: '1px 10px' }} onClick={fechar}>
-          ✕
-        </button>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {skills.map((k) => (
-          <button key={k.id} className={`bt sk${atual === k.id ? ' on' : ''}`} disabled={!!k.motivo} title={k.motivo ?? k.descricao} onClick={() => escolher(k.id)}>
-            <span style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-              <span className="tit" style={{ color: atual === k.id ? undefined : k.fruta ? '#ffcf5a' : undefined }}>
+    <div className="cartas">
+      {skills.map((k) => {
+        const faixa = k.livre ? 'linear-gradient(90deg,#7dff8a,#2a9a4a)' : k.fruta ? 'linear-gradient(90deg,#ffd35a,#d0701a)' : 'linear-gradient(90deg,#6ff0e8,#1a7a8a)'
+        return (
+          <button key={k.id} className={`carta${atual === k.id ? ' on' : ''}`} disabled={!!k.motivo} title={k.motivo ?? ''} onClick={() => escolher(k.id)}>
+            <div className="topo" style={{ background: faixa }} />
+            <div className="corpo">
+              <div className="tit" style={{ fontSize: 14, color: k.fruta ? '#ffe08a' : '#fff' }}>
                 {k.nome}
-              </span>
-              <span>
-                <span style={{ color: atual === k.id ? '#1a3a7a' : cor.energia }}>⚡{k.energia}</span>
-                {k.espera > 0 && <span style={{ color: '#ffb070', marginLeft: 6 }}>⟳{k.recarga > 0 ? k.recarga : k.espera}</span>}
-              </span>
-            </span>
-            <small>{k.motivo ?? k.descricao}</small>
+              </div>
+              <div className="tags">
+                <span className="tag" style={{ color: cor.energia }}>⚡ {k.energia}</span>
+                {k.espera > 0 && <span className="tag" style={{ color: '#ffb070' }}>⟳ {k.recarga > 0 ? `${k.recarga} (espera)` : k.espera}</span>}
+                {k.alcance > 0 && <span className="tag">alcance {k.alcance}</span>}
+                <span className="tag">{areaDe(k)}</span>
+                {k.livre && <span className="tag" style={{ color: '#7dff8a' }}>não gasta a vez</span>}
+              </div>
+              <p>{k.motivo ? <span style={{ color: '#ff9a8a' }}>{k.motivo}</span> : k.descricao}</p>
+            </div>
           </button>
-        ))}
-      </div>
+        )
+      })}
     </div>
   )
 }
@@ -391,11 +443,6 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
   const nomesP = b.tripulacao.map((t) => t.nome)
   const nomesM = b.inimigos.map((t) => t.nome)
   const hora = (t: number) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
-  // ordem das vezes: a atual e as próximas (alternando)
-  const capP = b.tripulacao[0]
-  const capM = b.inimigos[0]
-  const ordem = Array.from({ length: 6 }, (_, i) => (i % 2 === 0 ? b.vez : b.vez === 'piratas' ? 'marinha' : 'piratas'))
-  const faixa = s ?? (b.vez === 'piratas' ? capP : capM)
 
   return (
     <div className="hud">
@@ -404,48 +451,54 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
 
       {b.fase !== 'preparar' && (
         <>
-          {/* tripulação */}
+          {/* tripulação (com os botões de Haki) */}
           <div style={{ position: 'absolute', left: 8, top: 8, pointerEvents: 'auto' }}>
             {b.tripulacao.map((t) => (
-              <Quadro key={t.id} f={t} sel={s?.id === t.id} onClick={minha && t.hp > 0 ? () => c.selecionar(s?.id === t.id ? null : t.id) : undefined} />
+              <Quadro key={t.id} f={t} c={c} ativo={minha} sel={s?.id === t.id} onClick={minha && t.hp > 0 ? () => c.selecionar(s?.id === t.id ? null : t.id) : undefined} />
             ))}
           </div>
 
-          {/* registro de combate */}
-          <div className="pn log" style={{ position: 'absolute', right: 8, top: 8, width: 'min(400px, 40%)', padding: '6px 12px 8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(120,220,230,.3)', paddingBottom: 4, marginBottom: 4 }}>
-              <span className="tit" style={{ fontSize: 13, color: '#9ff4ee', borderBottom: '2px solid #6ff0e8' }}>
-                Registro de combate
-              </span>
-              <span style={{ display: 'flex', gap: 4 }}>
-                <button className={`bt${b.auto ? ' on' : ''}`} style={{ padding: '1px 8px', fontSize: 11 }} onClick={() => c.alternarAuto()} title="A IA joga pelos piratas também">
-                  Auto
-                </button>
-                <button className="bt" style={{ padding: '1px 8px', fontSize: 11 }} onClick={() => mudarVelocidade(velocidade === 1 ? 2 : 1)} title="Velocidade das animações">
-                  {velocidade}×
-                </button>
-                <button className="bt" style={{ padding: '1px 8px', fontSize: 11 }} onClick={() => setVerLog(!verLog)}>
-                  {verLog ? '▴' : '▾'}
-                </button>
-              </span>
-            </div>
-            {verLog && (
-              <div style={{ maxHeight: 150, overflow: 'auto', fontSize: 12.5 }} ref={(el) => {
-                  if (el) el.scrollTop = el.scrollHeight
-                }}>
-                {b.log.slice(-12).map((l, i) => (
-                  <div key={i}>
-                    <span className="h">{hora(l.t)}</span>
-                    <Colorido texto={l.texto} piratas={nomesP} marinha={nomesM} />
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Marinha */}
+          <div style={{ position: 'absolute', right: 8, top: 8, pointerEvents: 'auto' }}>
+            {b.inimigos.map((t) => (
+              <Quadro key={t.id} f={t} direita />
+            ))}
           </div>
 
-          {/* dica */}
-          {b.dica && b.fase !== 'haki' && (
-            <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', maxWidth: 420, textAlign: 'center', fontSize: 12.5, fontWeight: 400, textShadow: '0 1px 3px #000, 0 0 6px #000' }}>{b.dica}</div>
+          {/* vez: topo central */}
+          {b.fase !== 'fim' && (
+            <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+              <div
+                className="tit"
+                style={{
+                  fontSize: 26,
+                  padding: '2px 44px',
+                  color: b.fase === 'haki' ? '#fff3a0' : b.vez === 'piratas' ? '#eafffd' : '#ffd0c8',
+                  background:
+                    b.vez === 'piratas' || b.fase === 'haki'
+                      ? 'linear-gradient(90deg, transparent, rgba(20,110,120,.85) 22%, rgba(20,110,120,.85) 78%, transparent)'
+                      : 'linear-gradient(90deg, transparent, rgba(130,20,20,.85) 22%, rgba(130,20,20,.85) 78%, transparent)',
+                  textShadow: '0 2px 0 #000',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {b.fase === 'haki' ? 'Preparação' : b.vez === 'piratas' ? 'Sua vez' : 'Vez da Marinha'}
+              </div>
+              {b.fase === 'minha' && (
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', marginTop: 4, fontSize: 12.5, textShadow: '0 1px 3px #000' }}>
+                  <span title="Passos da tripulação nesta vez">
+                    👣 <Pips n={b.movimento} max={MOVIMENTO_POR_VEZ} c="#8ae8ff" /> {b.movimento} {b.movimento === 1 ? 'passo' : 'passos'}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 70 }}>
+                      <Barra v={b.tempo} max={b.tempoMax} c={b.tempo <= 20 ? '#ff5a4a' : '#fff3a0'} />
+                    </span>
+                    <span style={{ color: b.tempo <= 20 ? '#ff7a6a' : undefined }}>{b.tempo}s</span>
+                  </span>
+                </div>
+              )}
+              {b.fase === 'inimiga' && <div style={{ fontSize: 12, marginTop: 3, color: '#ffc0b8', textShadow: '0 1px 3px #000' }}>Marinha agindo…</div>}
+            </div>
           )}
 
           {/* preparação de Haki */}
@@ -453,98 +506,74 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
 
           {/* menu de ações */}
           {s && minha && (
-            <div style={{ position: 'absolute', left: 8, bottom: 96, display: 'flex', alignItems: 'flex-end', gap: 10 }}>
-              <div className="menu">
-                <button className={`op${!s.skill || s.skill === basica?.id ? ' on' : ''}`} onClick={() => basica && escolherSkill(basica.id)} title={basica?.descricao}>
-                  <span className="i">⚔</span> Atacar
+            <div className="menu" style={{ position: 'absolute', left: 8, bottom: 8 }}>
+              <button className={`op${!s.skill || s.skill === basica?.id ? ' on' : ''}`} onClick={() => basica && escolherSkill(basica.id)} title={basica?.descricao}>
+                <span className="i">⚔</span> Atacar
+              </button>
+              <button className={`op${verSkills || (skill && skill.id !== basica?.id && !profissao.includes(skill)) ? ' on' : ''}`} onClick={() => setVerSkills(!verSkills)}>
+                <span className="i">🌀</span> Skills {verSkills ? '▾' : '▴'}
+              </button>
+              {profissao.map((k) => (
+                <button key={k.id} className={`op${s.skill === k.id ? ' on' : ''}`} disabled={!!k.motivo} title={k.motivo ?? k.descricao} onClick={() => escolherSkill(k.id)}>
+                  <span className="i">✚</span> Profissão
                 </button>
-                <button className={`op${verSkills || (skill && skill.id !== basica?.id && !profissao.includes(skill)) ? ' on' : ''}`} onClick={() => setVerSkills(!verSkills)}>
-                  <span className="i">🌀</span> Skills
-                </button>
-                {profissao.map((k) => (
-                  <button key={k.id} className={`op${s.skill === k.id ? ' on' : ''}`} disabled={!!k.motivo} title={k.motivo ?? k.descricao} onClick={() => escolherSkill(k.id)}>
-                    <span className="i">✚</span> Profissão
-                  </button>
-                ))}
-                <button className="op" onClick={() => c.passar()}>
-                  <span className="i">⏭</span> Passar a vez
-                </button>
-              </div>
-              {verSkills && <ListaSkills skills={s.skills.filter((k) => !profissao.includes(k))} atual={s.skill} escolher={escolherSkill} fechar={() => setVerSkills(false)} />}
+              ))}
+              <button className="op" onClick={() => c.passar()}>
+                <span className="i">⏭</span> Passar a vez
+              </button>
             </div>
           )}
 
-          {/* painel de Haki (separado das skills) */}
-          {s && minha && (s.armamento || s.observacao || s.rei) && (
-            <div className="pn" style={{ position: 'absolute', left: '50%', bottom: 8, transform: 'translateX(-50%)', padding: '6px 10px' }}>
-              <div className="tit" style={{ fontSize: 12, color: '#9ff4ee', marginBottom: 4 }}>
-                Haki — {s.nome}
-              </div>
-              <PainelHaki f={s} c={c} podeRei={s.podeRei} podeHaoshoku={s.podeHaoshoku} />
+          {/* skills: cartas na parte de baixo */}
+          {s && minha && verSkills && (
+            <div style={{ position: 'absolute', left: 250, right: 8, bottom: 8, display: 'flex', justifyContent: 'center' }}>
+              <CartasSkills skills={s.skills.filter((k) => !profissao.includes(k))} atual={s.skill} escolher={escolherSkill} />
             </div>
           )}
 
           {/* confirmar golpe (toque) */}
-          {s && minha && skill && s.previa && (
-            <div style={{ position: 'absolute', left: '50%', bottom: 118, transform: 'translateX(-50%)' }}>
+          {s && minha && skill && s.previa && !verSkills && (
+            <div style={{ position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)' }}>
               <button className="bt vermelho tit" style={{ fontSize: 17, padding: '9px 26px' }} onClick={() => c.usarPrevia()}>
                 ⚔ {skill.nome}
               </button>
             </div>
           )}
 
-          {/* ordem das vezes */}
-          {capP && capM && (
-            <div style={{ position: 'absolute', left: 8, bottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="tit" style={{ fontSize: 12, color: '#cfe0f0', marginRight: 4, textShadow: '0 1px 3px #000' }}>
-                Ordem
-              </span>
-              {ordem.map((l, i) => {
-                const f = l === 'piratas' ? capP : capM
-                const k = i === 0 ? 1.2 : 1
-                return (
-                  <div
-                    key={i}
-                    title={l === 'piratas' ? 'Piratas' : 'Marinha'}
-                    style={{
-                      width: 46 * k,
-                      height: 52 * k,
-                      clipPath: 'polygon(50% 0,100% 50%,50% 100%,0 50%)',
-                      background: l === 'piratas' ? 'linear-gradient(135deg,#6ff0e8,#1a7a8a)' : 'linear-gradient(135deg,#ff8a7a,#8a1a10)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      opacity: i === 0 ? 1 : 0.8,
-                    }}
-                  >
-                    <div style={{ width: 38 * k, height: 44 * k, clipPath: 'polygon(50% 0,100% 50%,50% 100%,0 50%)', backgroundColor: '#16233a', imageRendering: 'pixelated', ...rosto(f.retrato, 38 * k, 44 * k) }} />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* faixa da vez */}
-          {faixa && b.fase !== 'fim' && (
-            <div className="pn" style={{ position: 'absolute', right: 8, bottom: 8, display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px 6px 16px', clipPath: 'polygon(6% 0,100% 0,100% 100%,0 100%)' }}>
-              <div style={{ textAlign: 'right' }}>
-                <div className="tit" style={{ fontSize: 20, color: b.vez === 'piratas' ? '#fff' : '#ffc0b8' }}>
-                  {b.fase === 'haki' ? 'Preparação' : b.vez === 'piratas' ? (s ? `Vez de ${s.nome}` : 'Sua vez') : 'Vez da Marinha'}
-                </div>
-                <div style={{ fontSize: 12, color: '#6ff0e8' }}>
-                  {b.fase === 'haki' ? `Haki — ${b.tempoHaki}s` : b.fase === 'minha' ? `Fase de ação · ${b.tempo}s` : 'Marinha agindo…'}
-                </div>
-                {b.fase === 'minha' && (
-                  <div style={{ fontSize: 11, marginTop: 2 }} title="Movimentos da tripulação nesta vez">
-                    👣 <Pips n={b.movimento} max={MOVIMENTO_POR_VEZ} c="#8ac4ff" />
-                  </div>
-                )}
+          {/* registro de combate: translúcido, aparece ao passar o mouse */}
+          {!(s && minha && verSkills) && (
+            <div className="pn log" style={{ position: 'absolute', right: 8, bottom: 8, width: 'min(400px, 42%)', padding: '6px 12px 8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: verLog ? '1px solid rgba(120,220,230,.3)' : 'none', paddingBottom: verLog ? 4 : 0, marginBottom: verLog ? 4 : 0 }}>
+                <span className="tit" style={{ fontSize: 13, color: '#9ff4ee' }}>
+                  Registro de combate
+                </span>
+                <span style={{ display: 'flex', gap: 4 }}>
+                  <button className={`bt${b.auto ? ' on' : ''}`} style={{ padding: '1px 8px', fontSize: 11 }} onClick={() => c.alternarAuto()} title="A IA joga pelos piratas também">
+                    Auto
+                  </button>
+                  <button className="bt" style={{ padding: '1px 8px', fontSize: 11 }} onClick={() => mudarVelocidade(velocidade === 1 ? 2 : 1)} title="Velocidade das animações">
+                    {velocidade}×
+                  </button>
+                  <button className="bt" style={{ padding: '1px 8px', fontSize: 11 }} onClick={() => setVerLog(!verLog)} title={verLog ? 'Minimizar' : 'Mostrar'}>
+                    {verLog ? '▾' : '▴'}
+                  </button>
+                </span>
               </div>
-              <div className="quadro" style={{ margin: 0 }}>
-                <div className="borda" style={{ background: b.vez === 'piratas' ? undefined : 'linear-gradient(135deg,#ff8a7a,#8a1a10)' }}>
-                  <div className="ret" style={rosto(faixa.retrato, 74, 58)} />
+              {verLog && (
+                <div
+                  style={{ maxHeight: 130, overflow: 'auto', fontSize: 12.5 }}
+                  ref={(el) => {
+                    if (el) el.scrollTop = el.scrollHeight
+                  }}
+                >
+                  {b.log.slice(-12).map((l, i) => (
+                    <div key={i}>
+                      <span className="h">{hora(l.t)}</span>
+                      <Colorido texto={l.texto} piratas={nomesP} marinha={nomesM} />
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
           )}
 
