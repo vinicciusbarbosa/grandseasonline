@@ -16,7 +16,6 @@ import { Carregando } from './componentes/ui/controles'
 const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
 const TelaTabuleiro = lazy(() => import('./tabuleiro/TelaTabuleiro'))
 const TelaBoneco = lazy(() => import('./tabuleiro/TelaBoneco'))
-const TelaNavegacao3d = lazy(() => import('./navegacao3d/TelaNavegacao3d'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,15 +59,6 @@ export function App() {
             />
 
             {/* Teste do combate em tabuleiro (pixel art), também sem login. */}
-            <Route
-              path="/teste-navegacao3d"
-              element={
-                <Suspense fallback={<Carregando texto="Içando as velas…" />}>
-                  <TelaNavegacao3d />
-                </Suspense>
-              }
-            />
-
             <Route
               path="/teste-tabuleiro"
               element={
