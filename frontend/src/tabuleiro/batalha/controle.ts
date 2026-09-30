@@ -108,7 +108,6 @@ const VISUAL: Record<string, Visual> = {
   'prisao-fumaca': { efeito: 'fumaca', modo: 'area', escala: 1.3 },
   // Mera Mera (Ace)
   hiken: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
-  'hiken-distancia': { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
   hotarubi: { efeito: 'explosaoFogo', modo: 'especial', escala: 1 },
   enjomo: { efeito: 'pilarFogo', modo: 'especial', escala: 2.4 },
   entei: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.6 },
@@ -732,13 +731,15 @@ export class ControleBatalha {
   }
 
   /** Animações próprias das skills de Akuma no Mi (como no anime). */
-  private async especial(id: string, a: Personagem, origem: THREE.Vector3, ate: THREE.Vector3, casas: THREE.Vector3[], hits: Personagem[], dirF: DirEfeito) {
+  private async especial(id: string, a: Personagem, origem: THREE.Vector3, ate: THREE.Vector3, casas: THREE.Vector3[], hits: Personagem[], dirF: DirEfeito): Promise<void> {
     const P = this.palco
     const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
     const chao = (v: THREE.Vector3) => v.clone().setY(0.55)
     const dir = ate.clone().sub(origem)
     switch (id) {
       case 'hiken': {
+        // uma skill só: a 1 casa, o punho explode à queima-roupa; mais longe, é arremessado
+        if (origem.distanceTo(ate) > 1.6) return this.especial('hiken-distancia', a, origem, ate, casas, hits, dirF)
         // Hiken de perto: o punho de fogo (arte desenhada) explode no alvo
         const pt = origem.clone().lerp(ate, 0.62)
         const tocou = P.efeitoFolha('hiken-perto', dirF, pt, { largura: 2.6 })
