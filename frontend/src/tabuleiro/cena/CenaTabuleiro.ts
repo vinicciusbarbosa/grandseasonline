@@ -13,6 +13,7 @@ import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
 import { Efeito, type Paleta, type TipoEfeito } from './efeitos'
+import { ChoqueTela } from './choqueTela'
 import { ImpactoHaki } from './impactoHaki'
 import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
@@ -60,6 +61,10 @@ export class CenaTabuleiro {
   /** efeitos das skills em resolução cheia, por cima da cena em pixel art */
   private readonly rendererFx: THREE.WebGLRenderer
   private readonly cenaFx = new THREE.Scene()
+  /** choques de Haki do Rei, desenhados direto na tela (2D, resolução cheia) */
+  private readonly tela2d = document.createElement('canvas')
+  private choques: ChoqueTela[] = []
+  private tela2dSuja = false
   private readonly cena = new THREE.Scene()
   private readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 1, 200)
   private readonly personagens: Personagem[] = []
@@ -139,6 +144,8 @@ export class CenaTabuleiro {
     const fx = this.rendererFx.domElement
     Object.assign(fx.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' })
     hospedeiro.appendChild(fx)
+    Object.assign(this.tela2d.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' })
+    hospedeiro.appendChild(this.tela2d)
 
     this.cena.background = new THREE.Color(0x0b2a66)
     // sol da tarde vindo do fundo à esquerda (sombras para a frente/direita)
@@ -268,6 +275,9 @@ export class CenaTabuleiro {
     focar: (pontos: THREE.Vector3[] | null) => this.focar(pontos),
     lampejo: (tipo: 'rei' | 'branco', dur: number) => {
       this.lampejoAtual = { tipo, t: 0, dur }
+    },
+    choqueTela: (ponto: THREE.Vector3) => {
+      this.choques.push(new ChoqueTela(ponto.clone()))
     },
     choqueRei: (ponto: THREE.Vector3) => {
       const h = new HakiRei(ponto, 1.4)
@@ -514,6 +524,8 @@ export class CenaTabuleiro {
     this.altura = Math.max(180, Math.floor((r.height * dpr) / this.escala))
     this.renderer.setSize(this.largura, this.altura, false)
     this.rendererFx.setSize(r.width, r.height, false)
+    this.tela2d.width = Math.round(r.width * Math.min(2, dpr))
+    this.tela2d.height = Math.round(r.height * Math.min(2, dpr))
     this.camera.aspect = this.largura / this.altura
     this.enquadrar()
   }
@@ -695,6 +707,18 @@ export class CenaTabuleiro {
     this.renderer.render(this.cena, this.camera)
     if (this.efeitos.length || this.rendererFx.info.render.calls) this.rendererFx.render(this.cenaFx, this.camera)
     this.camera.position.copy(salva)
+    // choques de Haki do Rei na tela
+    if (this.choques.length || this.tela2dSuja) {
+      const g = this.tela2d.getContext('2d')!
+      g.clearRect(0, 0, this.tela2d.width, this.tela2d.height)
+      const k = this.tela2d.width / Math.max(1, this.renderer.domElement.getBoundingClientRect().width)
+      for (const ch of this.choques) {
+        const p = this.naTela(new THREE.Vector3(ch.ponto.x, ch.ponto.y, ch.ponto.z))
+        ch.desenhar(g, dt, { x: p.x * k, y: p.y * k }, this.tela2d.width, this.tela2d.height)
+      }
+      this.choques = this.choques.filter((ch) => ch.vivo)
+      this.tela2dSuja = this.choques.length > 0
+    }
     this.estado = this.montarEstado()
     for (const f of this.ouvintes) f()
   }

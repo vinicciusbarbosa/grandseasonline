@@ -60,6 +60,8 @@ export interface Palco {
   focar(pontos: THREE.Vector3[] | null): void
   /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
   choqueRei(ponto: THREE.Vector3): void
+  /** choque de Haki do Rei desenhado na tela inteira (raios, anéis, clarão) */
+  choqueTela(ponto: THREE.Vector3): void
   /** quadro de impacto do anime: a tela pisca (negro/vermelho ou branco) */
   lampejo(tipo: 'rei' | 'branco', dur: number): void
   avisar(): void
@@ -628,12 +630,11 @@ export class ControleBatalha {
     this.palco.lampejo('rei', 0.5)
     this.palco.choqueRei(meio.clone().setY(0))
     this.palco.tremer(0.9)
-    void this.palco.efeito('choque', 'rei', meio, { dur: 1.6, escala: 4.6 })
-    void this.palco.efeito('impacto', 'rei', meio, { dur: 0.5, escala: 2.2 })
-    await esperar(700)
-    this.palco.lampejo('rei', 0.3)
-    void this.palco.efeito('raio', 'rei', meio, { dur: 0.7, escala: 2.6 })
-    await esperar(700)
+    this.palco.choqueTela(meio)
+    await esperar(750)
+    this.palco.lampejo('rei', 0.25)
+    this.palco.tremer(0.5)
+    await esperar(750)
     b.haki = false
     if (k.resultado === 'empate') {
       this.palco.lampejo('branco', 0.25)
