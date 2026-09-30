@@ -17,6 +17,9 @@ import type { Personagem } from '../cena/personagem'
 import { recurso } from '../cena/visualFolhas'
 import type { Paleta, TipoEfeito } from '../cena/efeitos'
 import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill } from './armas'
+
+/** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
+const semMira = (s: Skill) => s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
 import { TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, type Config } from './elenco'
 import { proximaAcao } from './ia'
 import {
@@ -188,6 +191,29 @@ export class ControleBatalha {
     this.palco.avisar()
   }
 
+  /** Sorteia Akuma no Mi e Haki de todo mundo (para testar combinações). */
+  aleatorizar() {
+    if (this.fase !== 'preparar') return
+    const frutas = Object.keys(FRUTAS)
+    const r = Math.random
+    for (const k of this.config) {
+      k.akuma = r() < 0.45 ? frutas[Math.floor(r() * frutas.length)] : ''
+      k.armamento = Math.floor(r() * 3) as 0 | 1 | 2
+      k.observacao = Math.floor(r() * 3) as 0 | 1 | 2
+      k.rei = r() < 0.25
+      const base = k.armamento || k.observacao || k.rei ? 20 + k.armamento * 12 + k.observacao * 10 + (k.rei ? 20 : 0) : 0
+      k.overall = base ? Math.max(5, Math.min(100, Math.round((base + (r() - 0.5) * 20) / 5) * 5)) : 0
+    }
+    this.palco.avisar()
+  }
+
+  /** Volta ao elenco de teste. */
+  restaurarConfig() {
+    if (this.fase !== 'preparar') return
+    this.config = configPadrao()
+    this.palco.avisar()
+  }
+
   comecar() {
     this.estado = criarBatalha(aplicarConfig(combatentesIniciais(), this.config))
     this.log = [`Batalha começa: ${this.estado.vez === JOGADOR ? 'os piratas' : 'a Marinha'} (mais ágil) começa.`]
@@ -297,7 +323,7 @@ export class ControleBatalha {
     if (this.fase !== 'minha' || this.animando || !this.sel) return
     const c = porId(this.estado, this.sel)!
     const s = this.efetiva(c)
-    if (!s || s.area === 'si' || s.area === 'volta') return
+    if (!s || semMira(s)) return
     const nova = casa && !motivo(this.estado, this.acaoEm(c, s, casa)) ? casa : null
     if ((nova && this.previa && mesmaCasa(nova, this.previa)) || (!nova && !this.previa)) return
     this.previa = nova
@@ -323,7 +349,7 @@ export class ControleBatalha {
     const erro = acao ? motivo(this.estado, acao) : 'Sem skill.'
     // pode atacar/curar ali: ataca (mouse) ou mostra a área e confirma (toque)
     if (acao && !erro) {
-      if (this.umClique || (this.previa && mesmaCasa(this.previa, casa)) || s!.area === 'si' || s!.area === 'volta') return void this.executar(acao)
+      if (this.umClique || (this.previa && mesmaCasa(this.previa, casa)) || semMira(s!)) return void this.executar(acao)
       this.previa = casa
       this.dica = `Toque de novo no alvo (ou em Atacar) para usar ${s!.nome}.`
       return this.redesenhar()
@@ -379,10 +405,10 @@ export class ControleBatalha {
     this.skill = this.skill === id ? null : id
     this.previa = null
     const s = this.efetiva(c)
-    if (s && (s.area === 'si' || s.area === 'volta')) this.previa = c.casa
+    if (s && (semMira(s))) this.previa = c.casa
     this.dica = !s
       ? ''
-      : s.area === 'si' || s.area === 'volta'
+      : semMira(s)
         ? 'Toque no personagem ou em Atacar para usar.'
         : s.area === 'alvo'
           ? 'Inimigo marcado em vermelho forte = dá para acertar.'
@@ -439,7 +465,7 @@ export class ControleBatalha {
         for (const c of this.mov.casas) this.palco.marcar(c, 'mover')
       }
       if (s) {
-        const mira = s.area === 'si' || s.area === 'volta'
+        const mira = semMira(s)
         if (!mira)
           for (let l = 0; l < 10; l++)
             for (let c = 0; c < 20; c++) {

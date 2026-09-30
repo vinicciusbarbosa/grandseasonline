@@ -130,7 +130,12 @@ export const ESPIRITO_AO_APANHAR = 12
 /** Haki do Rei em área: espírito, raio */
 export const HAOSHOKU = { espirito: 70, raio: 3 }
 /** Haki do Rei imbuído no golpe: espírito a mais (precisa de armamento avançado) */
-export const REI_IMBUIDO = { espirito: 40, mult: 1.6 }
+export const REI_IMBUIDO = { espirito: 40, mult: 1.35 }
+/**
+ * Disputa de Haki pelo overall: chance de o mais forte prevalecer cresce com
+ * a diferença (igual = 50%, +3% por ponto, entre 5% e 95%) — sem degrau.
+ */
+export const chanceHaki = (dif: number) => Math.max(0.05, Math.min(0.95, 0.5 + dif * 0.03))
 /** no começo da vez: gasta espírito para recuperar 1 uso de armamento */
 export const RECUPERA_ARMAMENTO = { espirito: 25, usos: 1 }
 /** Choque de Haki do Rei: quem é atacado com o Rei imbuído e também tem o
@@ -175,7 +180,7 @@ export function skillsDe(c: Combatente): Skill[] {
 
 /** Ataque e defesa com a transformação Zoan. */
 export const atkDe = (c: Combatente) => c.at.atk * (c.akuma?.transformado ? 1.3 : 1)
-export const defDe = (c: Combatente) => c.at.def + (c.akuma?.transformado ? 10 : 0)
+export const defDe = (c: Combatente) => c.at.def + (c.akuma?.transformado && FRUTAS[c.akuma.fruta].tipo === 'zoan' ? 10 : 0)
 
 /** De onde vem o golpe (para a passiva de borracha). */
 const armaDaSkill = (c: Combatente, s: Skill): TipoArma | 'fruta' => (SKILLS_ARMA[c.arma].includes(s) ? c.arma : 'fruta')
@@ -327,7 +332,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     if (rei && alvo.haki.rei && !clashes.has(alvo.id) && alvo.espirito >= CLASH.espirito) {
       alvo.espirito -= CLASH.espirito
       const dif = c.haki.overall - alvo.haki.overall
-      const resultado = Math.abs(dif) <= CLASH.empate ? 'empate' : dif > 0 ? 'venceu' : 'perdeu'
+      const resultado = Math.abs(dif) <= CLASH.empate ? 'empate' : rnd() < chanceHaki(dif) ? 'venceu' : 'perdeu'
       clashes.set(alvo.id, resultado)
       const volta = resultado === 'perdeu' ? Math.max(1, Math.round(atkDe(c) * FORCA * mult)) : 0
       ev.push({ t: 'clash', de: c.id, alvo: alvo.id, resultado, dano: volta })
@@ -415,7 +420,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     }
     // Haki do Rei imbuído: atordoa quem tem Haki mais fraco
     if (rei && alvo.hp > 0) {
-      if (alvo.haki.overall < c.haki.overall) {
+      if (rnd() < chanceHaki(c.haki.overall - alvo.haki.overall)) {
         alvo.atordoado = true
         ev.push({ t: 'atordoou', id: alvo.id })
       } else ev.push({ t: 'resistiu', id: alvo.id })
@@ -452,7 +457,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       ev.push({ t: 'haoshoku', id: c.id })
       for (const o of vivos(e, outro(c.lado))) {
         if (distancia(o.casa, c.casa) > HAOSHOKU.raio) continue
-        if (o.haki.overall < c.haki.overall) {
+        if (rnd() < chanceHaki(c.haki.overall - o.haki.overall)) {
           o.atordoado = true
           ev.push({ t: 'atordoou', id: o.id })
         } else ev.push({ t: 'resistiu', id: o.id })

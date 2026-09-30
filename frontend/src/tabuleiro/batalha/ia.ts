@@ -10,6 +10,7 @@ import type { Casa } from '../tabuleiro'
 import { alvoValido, casasDaArea } from './armas'
 import {
   HAOSHOKU,
+  chanceHaki,
   REI_IMBUIDO,
   FORCA,
   distancia,
@@ -48,7 +49,7 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
   for (const s of skillsDe(c)) {
     if (c.energia < s.energia || c.recargas[s.id]) continue
     // casas candidatas: inimigos (e aliados, para curar) e, para área, a própria casa
-    const alvos: Casa[] = s.area === 'volta' ? [de] : s.cura ? aliados.map((a) => a.casa) : inimigos.map((i) => i.casa)
+    const alvos: Casa[] = s.area === 'volta' || s.area === 'mapa' ? [de] : s.cura ? aliados.map((a) => a.casa) : inimigos.map((i) => i.casa)
     for (const alvo of alvos) {
       if (!alvoValido(s, de, alvo)) continue
       if (s.cura) {
@@ -108,7 +109,7 @@ export function proximaAcao(e: Estado): Acao {
     // Haki do Rei em área, se pega pelo menos dois mais fracos
     for (const c of meus) {
       if (!c.haki.rei || c.espirito < HAOSHOKU.espirito) continue
-      const pega = inimigos.filter((i) => distancia(i.casa, c.casa) <= HAOSHOKU.raio && i.haki.overall < c.haki.overall && !i.atordoado)
+      const pega = inimigos.filter((i) => distancia(i.casa, c.casa) <= HAOSHOKU.raio && chanceHaki(c.haki.overall - i.haki.overall) >= 0.5 && !i.atordoado)
       // não gasta a vez: vale soltar se pega pelo menos um
       if (pega.length >= 1) return { t: 'haoshoku', id: c.id }
     }

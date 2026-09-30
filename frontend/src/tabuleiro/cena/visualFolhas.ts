@@ -190,6 +190,7 @@ export class VisualFolhas implements Visual {
     const peY = 1 - tira.pe[1] / A
     atualizarLuz(mat, tira.t, espelha, peY, peY + (this.man.altura ?? 104) / A, e.luz)
     posicionarPixel(this.sprite, e.pos, L / this.densidade, A / this.densidade, camera, telaL, telaA, false, 0.45, desvio)
+    if (e.escala && e.escala !== 1) this.sprite.scale.multiplyScalar(e.escala)
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)
     const s = 1 - Math.min(0.5, e.pos.y * 0.6)
     this.sombra.scale.set(s, s, 1)

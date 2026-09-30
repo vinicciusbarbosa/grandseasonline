@@ -199,6 +199,12 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
           </tbody>
         </table>
         <div style={{ textAlign: 'center', marginTop: 12 }}>
+          <button className="bt" style={{ marginRight: 8 }} onClick={() => c.aleatorizar()} title="Sorteia Akuma no Mi e Haki de todos">
+            🎲 Aleatorizar
+          </button>
+          <button className="bt" style={{ marginRight: 8 }} onClick={() => c.restaurarConfig()} title="Volta ao elenco de teste">
+            ↺ Padrão
+          </button>
           <button className="bt grande vermelho tit" style={{ fontSize: 20 }} onClick={() => c.comecar()}>
             Começar batalha
           </button>

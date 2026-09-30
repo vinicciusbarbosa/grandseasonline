@@ -9,13 +9,14 @@
  *   leque — a casa e as duas vizinhas de lado (perpendiculares ao tiro);
  *   volta — as 8 casas em volta do atacante (o alvo é ele mesmo);
  *   si    — só o próprio personagem (transformação, buff);
- *   explosao — um quadrado em volta da casa alvo (raio 1 = 3×3, 2 = 5×5).
+ *   explosao — um quadrado em volta da casa alvo (raio 1 = 3×3, 2 = 5×5);
+ *   mapa  — o tabuleiro inteiro (só acerta inimigos; ex.: Ice Age).
  */
 
 import type { Casa } from '../tabuleiro'
 
 export type TipoArma = 'espada' | 'maca' | 'espingarda' | 'adaga'
-export type Area = 'alvo' | 'linha' | 'leque' | 'volta' | 'si' | 'explosao'
+export type Area = 'alvo' | 'linha' | 'leque' | 'volta' | 'si' | 'explosao' | 'mapa'
 export type Elemento = 'fogo' | 'gelo' | 'luz' | 'fumaca'
 
 export type Skill = {
@@ -42,7 +43,7 @@ export type Skill = {
   cura?: number
   /** buff, transformação ou habilidade de profissão: não gasta o ataque da vez */
   livre?: boolean
-  /** Zoan: transforma por N vezes (+ATK, +DEF) */
+  /** transforma/buff por N vezes: +30% de ataque (Zoan também +10 de defesa) */
   transforma?: number
   /** raio da explosão (padrão 1) */
   raio?: number
@@ -116,42 +117,49 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     ],
   },
   fogo: {
-    nome: 'Fruta do Fogo',
+    nome: 'Fruta do Fogo (Mera Mera)',
     tipo: 'logia',
     elemento: 'fogo',
     passiva: 'Intangível. Fogo vence gelo: atinge a Logia de gelo mesmo sem Haki.',
     skills: [
-      { id: 'punho-fogo', nome: 'Punho de Fogo', descricao: 'Punho de chamas a até 4 casas; queima (6 por vez, 2 vezes).', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1.1, elemento: 'fogo', queima: { dano: 6, vezes: 2 } },
-      { id: 'imperador-chamas', nome: 'Imperador das Chamas', descricao: 'Explosão 3×3 a até 4 casas; queima.', energia: 45, recarga: 3, alcance: 4, area: 'explosao', mult: 0.9, elemento: 'fogo', queima: { dano: 5, vezes: 2 } },
+      { id: 'hiken', nome: 'Punho de Fogo (Hiken)', descricao: 'Jato de chamas da mão até 4 casas em linha; queima.', energia: 20, recarga: 1, alcance: 4, area: 'linha', mult: 1, elemento: 'fogo', queima: { dano: 6, vezes: 2 } },
+      { id: 'hotarubi', nome: 'Vaga-lumes (Hotarubi)', descricao: 'Bolinhas verdes flutuam até a área 3×3 (até 4 casas) e explodem; queima.', energia: 30, recarga: 2, alcance: 4, area: 'explosao', mult: 0.7, elemento: 'fogo', queima: { dano: 5, vezes: 2 } },
+      { id: 'enjomo', nome: 'Pilar de Chamas (Enjōmō)', descricao: 'Coluna de fogo sobe do chão no alvo (até 3 casas); dano alto e queima.', energia: 30, recarga: 2, alcance: 3, area: 'alvo', mult: 1.5, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },
+      { id: 'entei', nome: 'Entei', descricao: 'Sol de fogo gigante sobre a cabeça, arremessado: explode 5×5 a até 5 casas; queima.', energia: 55, recarga: 4, alcance: 5, area: 'explosao', raio: 2, mult: 1, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },
     ],
   },
   luz: {
-    nome: 'Fruta da Luz',
+    nome: 'Fruta da Luz (Pika Pika)',
     tipo: 'logia',
     elemento: 'luz',
     passiva: 'Intangível. Velocidade da luz: seus golpes não podem ser esquivados (só com observação).',
     skills: [
+      { id: 'sabre-luz', nome: 'Espada de Luz (Ama no Murakumo)', descricao: 'Liga a espada de luz por 3 vezes: +30% de ataque, golpes de luz (não gasta a vez).', energia: 20, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
+      { id: 'yasakani', nome: 'Chuva de Joias (Yasakani no Magatama)', descricao: 'Dezenas de bolas de luz caem numa área 3×3 a até 6 casas.', energia: 40, recarga: 3, alcance: 6, area: 'explosao', mult: 0.85, elemento: 'luz', precisao: 100 },
+      { id: 'chute-luz', nome: 'Chute da Luz', descricao: 'Chute na velocidade da luz: vai até o alvo (até 6 casas) e volta.', energia: 25, recarga: 1, alcance: 6, area: 'alvo', mult: 1.25, elemento: 'luz', precisao: 100 },
       { id: 'raio-luz', nome: 'Raio de Luz', descricao: 'Feixe em linha reta até 6 casas.', energia: 22, recarga: 1, alcance: 6, area: 'linha', mult: 0.9, elemento: 'luz', precisao: 100 },
-      { id: 'chuva-luz', nome: 'Chuva de Luz', descricao: 'Chuva de raios 3×3 a até 5 casas.', energia: 45, recarga: 3, alcance: 5, area: 'explosao', mult: 0.8, elemento: 'luz', precisao: 100 },
     ],
   },
   gelo: {
-    nome: 'Fruta do Gelo',
+    nome: 'Fruta do Gelo (Hie Hie)',
     tipo: 'logia',
     elemento: 'gelo',
     passiva: 'Intangível. Congela: o alvo pode perder a próxima vez.',
     skills: [
-      { id: 'lanca-gelo', nome: 'Lança de Gelo', descricao: 'Lança a até 4 casas; 25% de congelar.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1, elemento: 'gelo', congela: 0.25 },
-      { id: 'era-gelo', nome: 'Era do Gelo', descricao: 'Congela uma área 5×5 a até 3 casas; 40% de congelar.', energia: 50, recarga: 4, alcance: 3, area: 'explosao', raio: 2, mult: 0.55, elemento: 'gelo', congela: 0.4 },
+      { id: 'lanca-gelo', nome: 'Lanças de Gelo (Partisan)', descricao: 'Lanças de gelo a até 4 casas; 25% de congelar.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1, elemento: 'gelo', congela: 0.25 },
+      { id: 'ice-saber', nome: 'Sabre de Gelo', descricao: 'Espada de gelo de perto; 20% de congelar.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.3, elemento: 'gelo', congela: 0.2 },
+      { id: 'ice-time', nome: 'Ice Time', descricao: 'Toque que congela: 80% de congelar o alvo ao lado.', energia: 30, recarga: 3, alcance: 1, area: 'alvo', mult: 0.5, elemento: 'gelo', congela: 0.8 },
+      { id: 'era-gelo', nome: 'Era do Gelo (Ice Age)', descricao: 'Congela o mapa inteiro: acerta todos os inimigos; 35% de congelar.', energia: 60, recarga: 5, alcance: 0, area: 'mapa', mult: 0.45, elemento: 'gelo', congela: 0.35 },
     ],
   },
   borracha: {
-    nome: 'Fruta da Borracha',
+    nome: 'Fruta da Borracha (Gomu Gomu)',
     tipo: 'paramecia',
     passiva: 'Corpo de borracha: metade do dano de maça (contundente) e de tiros.',
     skills: [
-      { id: 'pistola', nome: 'Pistola', descricao: 'Soco esticado a até 3 casas.', energia: 15, recarga: 1, alcance: 3, area: 'alvo', mult: 1 },
-      { id: 'metralhadora', nome: 'Metralhadora', descricao: 'Chuva de socos: 4 golpes (×0,4 cada).', energia: 30, recarga: 2, alcance: 1, area: 'alvo', mult: 0.4, golpes: 4 },
+      { id: 'pistola', nome: 'Gomu Gomu no Pistol', descricao: 'Soco esticado a até 3 casas.', energia: 15, recarga: 1, alcance: 3, area: 'alvo', mult: 1 },
+      { id: 'gatling', nome: 'Gomu Gomu no Gatling', descricao: 'Rajada de socos esticados: 6 golpes (×0,3 cada) a até 2 casas.', energia: 30, recarga: 2, alcance: 2, area: 'alvo', mult: 0.3, golpes: 6 },
+      { id: 'gear-second', nome: 'Gear Second', descricao: 'Sangue acelerado: corpo vermelho soltando vapor, +30% de ataque por 3 vezes (não gasta a vez).', energia: 20, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
     ],
   },
   bisao: {
@@ -189,6 +197,11 @@ export function casasDaArea(s: Skill, de: Casa, alvo: Casa): Casa[] {
       for (let a = -k; a <= k; a++) for (let b = -k; b <= k; b++) r.push({ l: alvo.l + a, c: alvo.c + b })
       return r
     }
+    case 'mapa': {
+      const r: Casa[] = []
+      for (let l = 0; l < 10; l++) for (let c = 0; c < 20; c++) r.push({ l, c })
+      return r
+    }
     case 'volta': {
       const r: Casa[] = []
       for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (a || b) r.push({ l: de.l + a, c: de.c + b })
@@ -200,7 +213,7 @@ export function casasDaArea(s: Skill, de: Casa, alvo: Casa): Casa[] {
 /** A casa alvo é válida para essa skill? (linha: só reta ou diagonal) */
 export function alvoValido(s: Skill, de: Casa, alvo: Casa) {
   const d = distancia(de, alvo)
-  if (s.area === 'volta' || s.area === 'si') return d === 0
+  if (s.area === 'volta' || s.area === 'si' || s.area === 'mapa') return d === 0
   if (d === 0 || d > s.alcance) return false
   if (s.area === 'linha') return alvo.l === de.l || alvo.c === de.c || Math.abs(alvo.l - de.l) === Math.abs(alvo.c - de.c)
   return true
