@@ -39,6 +39,7 @@ export type TipoEfeito =
   | 'espinhoGelo'
   | 'vapor'
   | 'poeira'
+  | 'faisca'
 export type Paleta = 'normal' | 'armamento' | 'rei'
 
 /** claro (miolo), cor (corpo), escuro (contorno), brilho (glow) */
@@ -70,6 +71,7 @@ const CORES: Record<TipoEfeito, Cores> = {
   espinhoGelo: { claro: '#ffffff', cor: '#a8ecff', escuro: '#2a78c8', brilho: '#b8f4ff' },
   vapor: { claro: '#ffffff', cor: '#e8ecf2', escuro: '#9aa2b0', brilho: '#ffffff' },
   poeira: { claro: '#e8d0a0', cor: '#b08a5a', escuro: '#6a4a2a', brilho: '#d0b080' },
+  faisca: { claro: '#ff9a9a', cor: '#e0102a', escuro: '#050003', brilho: '#ff1030' },
 }
 const HAKI: Record<Exclude<Paleta, 'normal'>, Cores> = {
   armamento: { claro: '#e8c8ff', cor: '#8a3ae0', escuro: '#07020c', brilho: '#a050ff' },
@@ -541,6 +543,17 @@ function pintar(g: G, tipo: TipoEfeito, f: number, k: Cores, paleta: Paleta, sem
         raioAfilado(g, rr, C + Math.cos(a) * 12, C + Math.sin(a) * 12, a, 150 + fixo() * 70, 15 + fixo() * 6, HAKI.rei, some, 1)
       }
       brilhoRadial(g, 70 * (1 - f * 0.5), '#ffffff', some)
+      break
+    }
+    case 'faisca': {
+      // estalo de Haki saindo do corpo (Haki ligado): 2–3 raios finos, sem clarão
+      brilhoRadial(g, 120, k.brilho, 0.3 * some)
+      const rr = rng(semente + Math.floor(t * 14) * 97)
+      const n = 2 + Math.floor(fixo() * 2)
+      for (let i = 0; i < n; i++) {
+        const a = fixo() * Math.PI * 2
+        raioAfilado(g, rr, C, C, a, 140 + fixo() * 90, 9 + fixo() * 5, k, some, 1)
+      }
       break
     }
     case 'chama': {

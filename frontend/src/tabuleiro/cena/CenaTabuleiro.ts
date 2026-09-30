@@ -363,7 +363,36 @@ export class CenaTabuleiro {
 
   /** partículas das formas (vapor do Gear Second, poeira da Zoan, brilho da luz) */
   private tForma = 0
+  /** próximo raio de Haki de cada personagem com Haki ligado (s) */
+  private readonly proxRaio = new Map<Personagem, number>()
+
+  /**
+   * Haki ligado aparece no personagem: com o Rei imbuído, raios negros e
+   * vermelhos saem do corpo de tempos em tempos (aleatório); com o
+   * armamento, faíscas roxas de vez em quando.
+   */
+  private atualizarHakiLigado(dt: number) {
+    for (const p of this.personagens) {
+      if (!p.haki || p.ocupado) continue
+      const t = (this.proxRaio.get(p) ?? Math.random() * 0.8) - dt
+      if (t > 0) {
+        this.proxRaio.set(p, t)
+        continue
+      }
+      const rei = p.haki === 'rei'
+      this.proxRaio.set(p, rei ? 0.35 + Math.random() * 1.1 : 1.2 + Math.random() * 1.8)
+      const pt = p.pos.clone().setY(p.visual.altura * (0.25 + Math.random() * 0.7)).add(new THREE.Vector3((Math.random() - 0.5) * 0.7, 0, (Math.random() - 0.5) * 0.3))
+      void this.palco.efeito('faisca', rei ? 'rei' : 'armamento', pt, { dur: rei ? 0.3 + Math.random() * 0.2 : 0.25, escala: rei ? 1.1 + Math.random() * 0.8 : 0.6 })
+      // às vezes um estalo maior, com a câmera tremendo de leve
+      if (rei && Math.random() < 0.15) {
+        void this.palco.efeito('faisca', 'rei', p.pos.clone().setY(p.visual.altura * 0.5), { dur: 0.4, escala: 2.4 })
+        this.tremorGolpe = Math.max(this.tremorGolpe, 0.06)
+      }
+    }
+  }
+
   private atualizarFormas(dt: number) {
+    this.atualizarHakiLigado(dt)
     this.tForma += dt
     const soltar = this.tForma > 0.2
     if (soltar) this.tForma = 0
