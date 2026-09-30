@@ -14,6 +14,7 @@
 import * as THREE from 'three'
 import { mesmaCasa, type Casa } from '../tabuleiro'
 import type { Personagem } from '../cena/personagem'
+import { recurso } from '../cena/visualFolhas'
 import type { Paleta, TipoEfeito } from '../cena/efeitos'
 import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill } from './armas'
 import { TRIPULACOES, combatentesIniciais } from './elenco'
@@ -59,6 +60,8 @@ export interface Palco {
   focar(pontos: THREE.Vector3[] | null): void
   /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
   choqueRei(ponto: THREE.Vector3): void
+  /** quadro de impacto do anime: a tela pisca (negro/vermelho ou branco) */
+  lampejo(tipo: 'rei' | 'branco', dur: number): void
   avisar(): void
 }
 
@@ -153,22 +156,27 @@ export type RetratoBatalha = {
   log: string[]
   dica: string
 }
+export type HakiHud = { usos: number; max: number; avancado: boolean; ligado: boolean }
 export type FichaHud = {
   id: string
   nome: string
   lado: Lado
+  /** imagem parada (virada para a frente), para o retrato */
+  retrato: string
   hp: number
   hpMax: number
   energia: number
   espirito: number
-  fruta: string | null
-  armamento: string | null
-  observacao: string | null
-  observando: boolean
-  rei: boolean
+  fruta: { nome: string; tipo: string } | null
+  logia: { cargas: number; max: number } | null
+  armamento: HakiHud | null
+  observacao: HakiHud | null
+  /** tem Haki do Rei (ligado = imbuído no armamento) */
+  rei: { ligado: boolean } | null
   overall: number
-  logia: string | null
-  estados: string[]
+  atordoado: boolean
+  queimando: boolean
+  transformado: number
 }
 
 export class ControleBatalha {
@@ -587,7 +595,6 @@ export class ControleBatalha {
       await this.animarClash(antes, clash)
       if (clash.resultado !== 'venceu' && s.area === 'alvo') {
         for (const r of resto) if (r !== clash) await this.resultado(antes, r)
-        this.palco.focar(null)
         a.haki = false
         return
       }
@@ -626,7 +633,6 @@ export class ControleBatalha {
     } else if (e.armamento) this.palco.tremer(0.15)
     // resultados, um por um
     for (const r of resto) if (r !== clash) await this.resultado(antes, r, v, paleta)
-    if (clash) this.palco.focar(null)
     a.haki = false
   }
 
@@ -641,27 +647,28 @@ export class ControleBatalha {
     if (!a || !b) return
     const nome = (id: string) => porId(antes, id)?.nome ?? id
     const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
-    this.palco.focar([a.pos, b.pos])
     this.palco.flutuar(b, 'Haki do Rei!', '#ff4a5a', 2)
-    await esperar(550)
+    await esperar(350)
     a.haki = 'rei'
     b.haki = 'rei'
     const meio = this.palco.peito(a).lerp(this.palco.peito(b), 0.5)
-    await Promise.all([
-      new Promise<void>((r) => a.atacar(b, r)),
-      new Promise<void>((r) => setTimeout(() => b.atacar(a, r), 60)),
-    ])
+    // os dois golpeiam um na direção do outro; as armas não chegam a se tocar
+    await Promise.all([new Promise<void>((r) => a.atacar(b, r)), new Promise<void>((r) => setTimeout(() => b.atacar(a, r), 60))])
+    // quadros de impacto: a tela pisca negra e vermelha, e o Haki explode no meio
+    this.palco.lampejo('rei', 0.5)
     this.palco.choqueRei(meio.clone().setY(0))
-    this.palco.tremer(0.8)
-    void this.palco.efeito('raio', 'rei', meio, { dur: 0.9, escala: 1.9 })
-    void this.palco.efeito('impacto', 'rei', meio, { dur: 0.6, escala: 1.4 })
-    await esperar(500)
-    void this.palco.efeito('raio', 'rei', meio, { dur: 0.8, escala: 1.5 })
+    this.palco.tremer(0.9)
+    void this.palco.efeito('choque', 'rei', meio, { dur: 1.5, escala: 3.2 })
+    void this.palco.efeito('impacto', 'rei', meio, { dur: 0.5, escala: 2.2 })
+    await esperar(700)
+    this.palco.lampejo('rei', 0.3)
+    void this.palco.efeito('raio', 'rei', meio, { dur: 0.7, escala: 2.6 })
     await esperar(700)
     b.haki = false
     if (k.resultado === 'empate') {
+      this.palco.lampejo('branco', 0.25)
       this.palco.tremer(0.6)
-      void this.palco.efeito('impacto', 'rei', meio, { dur: 0.7, escala: 2 })
+      void this.palco.efeito('impacto', 'rei', meio, { dur: 0.6, escala: 3 })
       this.palco.flutuar(a, 'Anulou!', '#ffd34a', 1)
       this.palco.flutuar(b, 'Anulou!', '#ffd34a', 1)
       this.registrar(`Choque de Haki do Rei entre ${nome(k.de)} e ${nome(k.alvo)}: empate, o golpe se anula.`)
@@ -670,9 +677,10 @@ export class ControleBatalha {
     } else if (k.resultado === 'venceu') {
       this.palco.flutuar(a, 'Venceu o choque!', '#ff5a6a', 1)
       this.registrar(`${nome(k.de)} vence o choque de Haki do Rei contra ${nome(k.alvo)} (golpe mais forte).`)
-      await esperar(400)
+      await esperar(300)
     } else {
-      void this.palco.efeito('impacto', 'rei', this.palco.peito(a), { dur: 0.5, escala: 1.6 })
+      this.palco.lampejo('branco', 0.2)
+      void this.palco.efeito('impacto', 'rei', this.palco.peito(a), { dur: 0.5, escala: 1.8 })
       a.sofrer(k.dano, b)
       this.palco.flutuar(a, `Perdeu o choque! -${k.dano}`, '#ff5a6a', 1)
       this.registrar(`${nome(k.alvo)} vence o choque de Haki do Rei: ${nome(k.de)} leva o próprio golpe (${k.dano}).`)
@@ -680,6 +688,7 @@ export class ControleBatalha {
       await esperar(700)
     }
   }
+
 
   private async resultado(antes: Estado, e: Evento, v?: Visual, paleta: Paleta = 'normal') {
     const P = (id: string) => this.palco.personagem(id)
@@ -755,7 +764,6 @@ export class ControleBatalha {
       case 'clash': {
         // choque com um alvo que não foi o principal (golpe em área)
         await this.animarClash(antes, e)
-        this.palco.focar(null)
         return
       }
       case 'resistiu': {
@@ -782,31 +790,29 @@ export class ControleBatalha {
   // ------------------------------------------------------------ retrato
   private ficha(c: Combatente): FichaHud {
     const p = this.palco.personagem(c.id)
-    const nv = (h: { avancado: boolean; usos: number; max: number } | null) => (h ? `${h.avancado ? 'avançado ' : ''}${h.usos}/${h.max}` : null)
-    const estados: string[] = []
-    if (c.atordoado) estados.push('atordoado')
-    if (c.queimadura) estados.push('queimando')
-    if (c.akuma?.transformado) estados.push(`transformado (${c.akuma.transformado})`)
-    if (c.reiLigado) estados.push('Rei imbuído ligado')
-    else if (c.armamentoLigado) estados.push('armamento ligado')
+    const arm = c.haki.armamento
+    const obs = c.haki.observacao
     return {
       id: c.id,
       nome: c.nome,
       lado: c.lado,
+      retrato: recurso(`${import.meta.env.BASE_URL}sprites/${c.id}/parado_S.png`),
       hp: this.animando ? (p?.vida ?? c.hp) : c.hp,
       hpMax: c.hpMax,
       energia: c.energia,
       espirito: c.espirito,
-      fruta: c.akuma ? FRUTAS[c.akuma.fruta].nome : null,
-      armamento: nv(c.haki.armamento),
-      observacao: nv(c.haki.observacao),
-      observando: c.observando,
-      rei: c.haki.rei,
+      fruta: c.akuma ? { nome: FRUTAS[c.akuma.fruta].nome, tipo: FRUTAS[c.akuma.fruta].tipo } : null,
+      logia: c.logia ? { ...c.logia } : null,
+      armamento: arm ? { ...arm, ligado: c.armamentoLigado } : null,
+      observacao: obs ? { ...obs, ligado: c.observando } : null,
+      rei: c.haki.rei ? { ligado: c.reiLigado } : null,
       overall: c.haki.overall,
-      logia: c.logia ? `${c.logia.cargas}/${c.logia.max}` : null,
-      estados,
+      atordoado: c.atordoado,
+      queimando: !!c.queimadura,
+      transformado: c.akuma?.transformado ?? 0,
     }
   }
+
 
   retrato(): RetratoBatalha {
     const e = this.estado

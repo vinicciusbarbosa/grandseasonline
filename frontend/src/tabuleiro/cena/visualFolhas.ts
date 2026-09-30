@@ -55,7 +55,7 @@ const carregador = new THREE.TextureLoader()
  * Arquivos embutidos na própria página (versão publicada para o celular):
  * caminho → data URI. Sem eles, busca normal pela URL.
  */
-function recurso(url: string) {
+export function recurso(url: string) {
   const embutidos = (window as unknown as { __embutidos?: Record<string, string> }).__embutidos
   const chave = url.replace(/^.*?sprites\//, 'sprites/')
   return embutidos?.[chave] ?? url

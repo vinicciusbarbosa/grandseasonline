@@ -1,43 +1,63 @@
 import * as THREE from 'three'
 
 /**
- * Efeitos das skills em pixel art, desenhados por código (uma folha de
- * quadros por tipo × paleta, feita uma vez e guardada):
- *   corte, bala, adaga, punho, fogo, luz, gelo, fumaca, impacto, onda,
- *   tornado, aura, raio (Haki do Rei).
- * Paletas: normal (cor própria do efeito), armamento (negro e roxo) e rei
- * (negro e vermelho, com raios).
+ * Efeitos das skills no estilo do anime: desenho vetorial liso (sem pixel),
+ * redesenhado a cada quadro num canvas próprio — contorno forte, 2–3 tons,
+ * brilho, linhas de velocidade e faíscas.
  *
+ *   corte, bala, adaga, punho, fogo, luz, gelo, fumaca, impacto, onda,
+ *   tornado, aura, raio (Haki do Rei) e choque (dois Haki do Rei se chocando).
+ *
+ * Paletas: normal (cor do próprio efeito), armamento (tinta negra com borda
+ * e brilho roxos) e rei (negro com vermelho vivo e raios negros e vermelhos).
  * Projéteis voam de um ponto a outro; estouros ficam num ponto e somem.
  */
 
-export type TipoEfeito = 'corte' | 'bala' | 'adaga' | 'punho' | 'fogo' | 'luz' | 'gelo' | 'fumaca' | 'impacto' | 'onda' | 'tornado' | 'aura' | 'raio'
+export type TipoEfeito =
+  | 'corte'
+  | 'bala'
+  | 'adaga'
+  | 'punho'
+  | 'fogo'
+  | 'luz'
+  | 'gelo'
+  | 'fumaca'
+  | 'impacto'
+  | 'onda'
+  | 'tornado'
+  | 'aura'
+  | 'raio'
+  | 'choque'
 export type Paleta = 'normal' | 'armamento' | 'rei'
 
-type Cores = [string, string, string] // claro, médio, escuro
+/** claro (miolo), cor (corpo), escuro (contorno), brilho (glow) */
+type Cores = { claro: string; cor: string; escuro: string; brilho: string }
 
 const CORES: Record<TipoEfeito, Cores> = {
-  corte: ['#ffffff', '#bfe4ff', '#5a8ac8'],
-  bala: ['#fff6c0', '#ffc83a', '#a05a10'],
-  adaga: ['#ffffff', '#c8ccd6', '#5a5e6a'],
-  punho: ['#ffd9b0', '#e8a878', '#8a4a2a'],
-  fogo: ['#fff3a0', '#ff9a2a', '#c8280e'],
-  luz: ['#ffffff', '#fff27a', '#ffb81a'],
-  gelo: ['#ffffff', '#a8ecff', '#3a8ad8'],
-  fumaca: ['#f2f2f2', '#b8bcc4', '#6a6e78'],
-  impacto: ['#ffffff', '#ffe27a', '#ff8a2a'],
-  onda: ['#ffffff', '#e8d6b0', '#8a6a44'],
-  tornado: ['#ffffff', '#c8e4ff', '#6a9ac8'],
-  aura: ['#fff6d0', '#ffcf6a', '#c8781a'],
-  raio: ['#ff8a8a', '#d0101e', '#050003'],
+  corte: { claro: '#ffffff', cor: '#bfe6ff', escuro: '#2f6fb8', brilho: '#8fd0ff' },
+  bala: { claro: '#fffbe0', cor: '#ffd04a', escuro: '#a0480c', brilho: '#ffb030' },
+  adaga: { claro: '#ffffff', cor: '#d6dbe6', escuro: '#3c4250', brilho: '#c8e0ff' },
+  punho: { claro: '#fff2e0', cor: '#f0b080', escuro: '#6a3418', brilho: '#ffd0a0' },
+  fogo: { claro: '#fffbd0', cor: '#ff9a1a', escuro: '#c0200a', brilho: '#ff6a00' },
+  luz: { claro: '#ffffff', cor: '#fff27a', escuro: '#ffae00', brilho: '#fff0a0' },
+  gelo: { claro: '#ffffff', cor: '#a8ecff', escuro: '#2a78c8', brilho: '#b8f4ff' },
+  fumaca: { claro: '#ffffff', cor: '#d8dce4', escuro: '#6a7080', brilho: '#e8ecf4' },
+  impacto: { claro: '#ffffff', cor: '#ffe27a', escuro: '#ff6a1a', brilho: '#ffcc40' },
+  onda: { claro: '#ffffff', cor: '#f0dcb0', escuro: '#7a5a34', brilho: '#fff0d0' },
+  tornado: { claro: '#ffffff', cor: '#d0ecff', escuro: '#4a86c0', brilho: '#c0e8ff' },
+  aura: { claro: '#fff8d8', cor: '#ffcf5a', escuro: '#c8741a', brilho: '#ffd870' },
+  raio: { claro: '#ff9a9a', cor: '#e0102a', escuro: '#050003', brilho: '#ff1030' },
+  choque: { claro: '#ffb0b0', cor: '#e0102a', escuro: '#050003', brilho: '#ff1030' },
 }
 const HAKI: Record<Exclude<Paleta, 'normal'>, Cores> = {
-  armamento: ['#d0a0ff', '#7a30d0', '#0c0410'],
-  rei: ['#ff7a7a', '#c0101e', '#050003'],
+  armamento: { claro: '#e8c8ff', cor: '#8a3ae0', escuro: '#07020c', brilho: '#a050ff' },
+  rei: { claro: '#ffb0b0', cor: '#e0102a', escuro: '#050003', brilho: '#ff1030' },
 }
+/** efeitos de elemento brilham somando luz; os de Haki (tinta negra) não */
+const SOMA = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'aura', 'bala'])
 
-const QUADROS = 8
-const L = 48
+const S = 512 // resolução do canvas de cada efeito
+const C = S / 2
 
 function rng(s: number) {
   return () => {
@@ -45,192 +65,456 @@ function rng(s: number) {
     return s / 2147483647
   }
 }
+const suave = (x: number) => x * x * (3 - 2 * x)
+const entre = (x: number, a: number, b: number) => Math.max(0, Math.min(1, (x - a) / (b - a)))
 
-/** Desenha um quadro (t de 0 a 1) do efeito no canvas de L×L. */
-function pintar(g: CanvasRenderingContext2D, tipo: TipoEfeito, t: number, [claro, medio, escuro]: Cores, rei: boolean) {
-  const c = L / 2
-  const r = rng(7 + Math.floor(t * QUADROS) * 13)
-  const px = (x: number, y: number, w = 2, h = 2, cor = claro) => {
-    g.fillStyle = cor
-    g.fillRect(Math.round(x), Math.round(y), w, h)
+type G = CanvasRenderingContext2D
+
+/** Raio quebrado de (x,y) na direção `a`, com `n` segmentos de `passo`. */
+function caminhoRaio(r: () => number, x: number, y: number, a: number, n: number, passo: number) {
+  const pts: [number, number][] = [[x, y]]
+  for (let k = 0; k < n; k++) {
+    a += (r() - 0.5) * 1.3
+    x += Math.cos(a) * passo * (0.6 + r() * 0.8)
+    y += Math.sin(a) * passo * (0.6 + r() * 0.8)
+    pts.push([x, y])
   }
-  const disco = (x: number, y: number, raio: number, cor: string) => {
-    g.fillStyle = cor
+  return pts
+}
+
+/** Raio de Haki: brilho, borda colorida e miolo negro (como no anime). */
+function desenharRaio(g: G, pts: [number, number][], larg: number, k: Cores, alfa = 1) {
+  g.save()
+  g.globalAlpha = alfa
+  g.lineJoin = 'miter'
+  g.lineCap = 'round'
+  const traco = (w: number, cor: string, blur = 0) => {
+    g.shadowBlur = blur
+    g.shadowColor = k.brilho
+    g.strokeStyle = cor
+    g.lineWidth = w
     g.beginPath()
-    g.arc(x, y, Math.max(0.5, raio), 0, Math.PI * 2)
-    g.fill()
+    pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)))
+    g.stroke()
   }
-  const raios = (n: number, comp: number) => {
-    // raiozinhos negros com borda da cor (Haki)
-    for (let i = 0; i < n; i++) {
-      let a = r() * Math.PI * 2
-      let x = c + Math.cos(a) * 4
-      let y = c + Math.sin(a) * 4
-      g.lineWidth = 3
-      g.strokeStyle = medio
-      g.beginPath()
-      g.moveTo(x, y)
-      for (let k = 0; k < 4; k++) {
-        a += (r() - 0.5) * 1.6
-        x += Math.cos(a) * comp / 4
-        y += Math.sin(a) * comp / 4
-        g.lineTo(x, y)
-      }
-      g.stroke()
-      g.lineWidth = 1
-      g.strokeStyle = escuro
-      g.stroke()
-    }
+  traco(larg + 7, k.cor, 24)
+  traco(larg + 3, k.claro)
+  traco(larg, k.escuro)
+  g.restore()
+}
+
+/** Estrela de pontas (faísca de golpe de mangá). */
+function estrela(g: G, x: number, y: number, pontas: number, R: number, r: number, giro: number, r0: () => number) {
+  g.beginPath()
+  for (let i = 0; i < pontas * 2; i++) {
+    const a = giro + (i / (pontas * 2)) * Math.PI * 2
+    const rr = i % 2 ? r : R * (0.7 + r0() * 0.5)
+    g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr)
   }
+  g.closePath()
+}
+
+/** Linhas de velocidade saindo do centro. */
+function linhasVelocidade(g: G, n: number, r1: number, r2: number, cor: string, larg: number, r: () => number) {
+  g.save()
+  g.strokeStyle = cor
+  g.lineCap = 'round'
+  for (let i = 0; i < n; i++) {
+    const a = r() * Math.PI * 2
+    const a1 = r1 * (0.8 + r() * 0.4)
+    const a2 = r2 * (0.7 + r() * 0.5)
+    g.lineWidth = larg * (0.4 + r())
+    g.beginPath()
+    g.moveTo(C + Math.cos(a) * a1, C + Math.sin(a) * a1)
+    g.lineTo(C + Math.cos(a) * a2, C + Math.sin(a) * a2)
+    g.stroke()
+  }
+  g.restore()
+}
+
+function brilhoRadial(g: G, raio: number, cor: string, alfa: number) {
+  const gr = g.createRadialGradient(C, C, 0, C, C, raio)
+  gr.addColorStop(0, cor)
+  gr.addColorStop(1, 'rgba(0,0,0,0)')
+  g.save()
+  g.globalAlpha = alfa
+  g.fillStyle = gr
+  g.fillRect(0, 0, S, S)
+  g.restore()
+}
+
+/** Desenha o efeito no instante f (0–1), olhando para +x (projéteis giram o sprite). */
+function pintar(g: G, tipo: TipoEfeito, f: number, k: Cores, paleta: Paleta, semente: number, t: number) {
+  // ruído que muda algumas vezes por segundo (eletricidade, chamas)
+  const r = rng(semente + Math.floor(t * 24) * 7919)
+  const fixo = rng(semente)
+  const haki = paleta !== 'normal'
+  const some = 1 - entre(f, 0.7, 1)
   switch (tipo) {
     case 'corte': {
-      // lua crescente
-      const a0 = -1.1 + t * 0.3
-      for (let k = 0; k < 3; k++) {
-        g.strokeStyle = [escuro, medio, claro][k]
-        g.lineWidth = [7, 5, 2][k]
+      // meia-lua afiada com rastro; com Haki, negra de borda colorida
+      const a0 = -1.2
+      const arco = 2.4
+      g.save()
+      g.shadowBlur = 30
+      g.shadowColor = k.brilho
+      for (let rastro = 3; rastro >= 0; rastro--) {
+        const off = rastro * 16
+        g.globalAlpha = (rastro ? 0.18 : 1) * some
         g.beginPath()
-        g.arc(c - 6, c, 16, a0, a0 + 2.2)
-        g.stroke()
+        g.arc(C - 40 - off, C, 150, a0, a0 + arco)
+        g.arc(C - 90 - off, C, 118, a0 + arco - 0.05, a0 + 0.05, true)
+        g.closePath()
+        g.fillStyle = rastro ? k.cor : haki ? k.escuro : k.cor
+        g.fill()
       }
-      if (rei) raios(2, 14)
+      g.globalAlpha = some
+      g.shadowBlur = 0
+      g.lineWidth = haki ? 7 : 4
+      g.strokeStyle = haki ? k.cor : k.escuro
+      g.beginPath()
+      g.arc(C - 40, C, 150, a0, a0 + arco)
+      g.stroke()
+      // fio branco da lâmina
+      g.lineWidth = 3
+      g.strokeStyle = haki ? k.claro : '#ffffff'
+      g.beginPath()
+      g.arc(C - 44, C, 144, a0 + 0.2, a0 + arco - 0.2)
+      g.stroke()
+      g.restore()
+      if (haki) for (let i = 0; i < 3; i++) desenharRaio(g, caminhoRaio(r, C + 60, C + (r() - 0.5) * 200, r() * 6.3, 4, 26), 3, k, some)
       break
     }
     case 'bala':
     case 'adaga': {
-      g.fillStyle = escuro
-      g.fillRect(c - 14, c - 2, 22, 4)
-      g.fillStyle = medio
-      g.fillRect(c - 12, c - 1, 20, 2)
-      g.fillStyle = claro
-      g.fillRect(c + 4, c - 2, 6, 4)
-      if (tipo === 'adaga') {
-        g.fillStyle = '#6a4a2a'
-        g.fillRect(c - 16, c - 3, 5, 6)
+      g.save()
+      // rastro
+      const gr = g.createLinearGradient(C - 220, C, C + 40, C)
+      gr.addColorStop(0, 'rgba(0,0,0,0)')
+      gr.addColorStop(1, haki ? k.cor : k.brilho)
+      g.fillStyle = gr
+      g.beginPath()
+      g.moveTo(C - 220, C)
+      g.lineTo(C + 30, C - 14)
+      g.lineTo(C + 30, C + 14)
+      g.closePath()
+      g.fill()
+      g.shadowBlur = 26
+      g.shadowColor = k.brilho
+      if (tipo === 'bala') {
+        g.fillStyle = haki ? k.escuro : k.claro
+        g.beginPath()
+        g.ellipse(C + 30, C, 34, 13, 0, 0, Math.PI * 2)
+        g.fill()
+        g.lineWidth = 4
+        g.strokeStyle = haki ? k.cor : k.cor
+        g.stroke()
+      } else {
+        // adaga girando
+        g.translate(C + 20, C)
+        g.rotate(t * 30)
+        g.fillStyle = haki ? k.escuro : k.cor
+        g.beginPath()
+        g.moveTo(-40, -8)
+        g.lineTo(44, 0)
+        g.lineTo(-40, 8)
+        g.closePath()
+        g.fill()
+        g.lineWidth = 3
+        g.strokeStyle = haki ? k.cor : k.escuro
+        g.stroke()
+        g.fillStyle = '#5a3a1a'
+        g.fillRect(-60, -7, 22, 14)
       }
+      g.restore()
+      if (haki) desenharRaio(g, caminhoRaio(r, C + 30, C, Math.PI + (r() - 0.5), 5, 24), 2.5, k)
       break
     }
     case 'punho': {
-      disco(c + 6, c, 8, escuro)
-      disco(c + 6, c, 6.5, medio)
-      disco(c + 8, c - 2, 3, claro)
-      g.fillStyle = medio
-      g.fillRect(c - 22, c - 3, 26, 6) // braço esticado
-      g.fillStyle = escuro
-      g.fillRect(c - 22, c + 2, 26, 1)
+      g.save()
+      linhasVelocidade(g, 14, 90, 240, haki ? k.cor : k.claro, 5, r)
+      g.shadowBlur = 24
+      g.shadowColor = k.brilho
+      g.fillStyle = haki ? k.escuro : k.cor
+      g.fillRect(C - 200, C - 22, 200, 44) // braço esticado
+      g.beginPath()
+      g.ellipse(C + 30, C, 62, 54, 0, 0, Math.PI * 2)
+      g.fill()
+      g.lineWidth = 6
+      g.strokeStyle = haki ? k.cor : k.escuro
+      g.stroke()
+      g.lineWidth = 4
+      for (let i = -1; i <= 1; i++) {
+        g.beginPath()
+        g.moveTo(C + 50, C + i * 22 - 8)
+        g.lineTo(C + 78, C + i * 22 - 8)
+        g.stroke()
+      }
+      g.restore()
       break
     }
-    case 'fogo':
-    case 'luz':
-    case 'gelo':
-    case 'fumaca': {
-      // nuvem/estouro elemental que cresce e some
-      const n = tipo === 'fumaca' ? 9 : 12
-      for (let i = 0; i < n; i++) {
-        const a = r() * Math.PI * 2
-        const d = r() * 14 * (0.4 + t)
-        const raio = (3 + r() * 5) * (1 - t * 0.6)
-        const cor = [escuro, medio, claro][Math.floor(r() * 3)]
-        if (tipo === 'gelo') {
-          g.fillStyle = cor
+    case 'fogo': {
+      // línguas de fogo subindo, miolo branco
+      const n = 16
+      for (let camada = 0; camada < 3; camada++) {
+        const cor = [k.escuro, k.cor, k.claro][camada]
+        const esc = [1, 0.72, 0.42][camada]
+        g.fillStyle = cor
+        const rr = rng(semente + camada)
+        for (let i = 0; i < n; i++) {
+          const x = C + (rr() - 0.5) * 220 * esc * (0.5 + f)
+          const sobe = ((rr() + t * 1.8) % 1)
+          const y = C + 60 - sobe * 200 * esc
+          const R = (40 - sobe * 30) * esc * (0.6 + f * 0.8) * some
+          if (R <= 0) continue
           g.beginPath()
-          const x = c + Math.cos(a) * d
-          const y = c + Math.sin(a) * d
-          g.moveTo(x, y - raio * 1.6)
-          g.lineTo(x + raio * 0.6, y)
-          g.lineTo(x, y + raio * 1.6)
-          g.lineTo(x - raio * 0.6, y)
+          g.moveTo(x - R, y)
+          g.quadraticCurveTo(x - R * 0.8, y - R * 1.6, x, y - R * 2.6)
+          g.quadraticCurveTo(x + R * 0.8, y - R * 1.6, x + R, y)
+          g.arc(x, y, R, 0, Math.PI)
           g.fill()
-        } else disco(c + Math.cos(a) * d, c + Math.sin(a) * d - (tipo === 'fogo' ? t * 8 : 0), raio, cor)
+        }
       }
-      if (tipo === 'luz') for (let i = 0; i < 6; i++) px(c + (r() - 0.5) * 36, c + (r() - 0.5) * 36, 2, 2, claro)
+      break
+    }
+    case 'luz': {
+      brilhoRadial(g, 200 * (0.5 + f), k.brilho, 0.8 * some)
+      g.save()
+      g.strokeStyle = k.claro
+      g.lineCap = 'round'
+      for (let i = 0; i < 10; i++) {
+        const a = fixo() * Math.PI * 2 + t * 2
+        const R = (60 + fixo() * 160) * (0.4 + f)
+        g.lineWidth = 3 + fixo() * 5
+        g.beginPath()
+        g.moveTo(C + Math.cos(a) * R * 0.3, C + Math.sin(a) * R * 0.3)
+        g.lineTo(C + Math.cos(a) * R, C + Math.sin(a) * R)
+        g.stroke()
+      }
+      g.fillStyle = '#ffffff'
+      for (let i = 0; i < 8; i++) {
+        estrela(g, C + (r() - 0.5) * 360, C + (r() - 0.5) * 360, 4, 16, 3, 0, () => 0.5)
+        g.fill()
+      }
+      g.restore()
+      break
+    }
+    case 'gelo': {
+      // cristais que nascem do centro, com facetas claras
+      g.save()
+      g.globalAlpha = some
+      for (let i = 0; i < 9; i++) {
+        const a = fixo() * Math.PI * 2
+        const L = (80 + fixo() * 120) * suave(Math.min(1, f * 3))
+        const w = 18 + fixo() * 14
+        g.save()
+        g.translate(C, C)
+        g.rotate(a)
+        g.beginPath()
+        g.moveTo(0, -w)
+        g.lineTo(L, 0)
+        g.lineTo(0, w)
+        g.closePath()
+        g.fillStyle = k.cor
+        g.fill()
+        g.beginPath()
+        g.moveTo(0, -w)
+        g.lineTo(L, 0)
+        g.lineTo(0, 0)
+        g.closePath()
+        g.fillStyle = k.claro
+        g.fill()
+        g.lineWidth = 3
+        g.strokeStyle = k.escuro
+        g.beginPath()
+        g.moveTo(0, -w)
+        g.lineTo(L, 0)
+        g.lineTo(0, w)
+        g.stroke()
+        g.restore()
+      }
+      g.restore()
+      brilhoRadial(g, 160, k.brilho, 0.35 * some)
+      break
+    }
+    case 'fumaca': {
+      // nuvens redondas de anime: sombra embaixo, claro em cima, contorno
+      const n = 12
+      const rr = rng(semente)
+      const bolas = Array.from({ length: n }, () => {
+        const a = rr() * Math.PI * 2
+        const d = rr() * 120 * (0.4 + f)
+        return { x: C + Math.cos(a) * d, y: C + Math.sin(a) * d * 0.7 - f * 30, R: (40 + rr() * 40) * (0.6 + f * 0.6) }
+      })
+      g.save()
+      g.globalAlpha = some
+      g.fillStyle = k.escuro
+      for (const b of bolas) {
+        g.beginPath()
+        g.arc(b.x, b.y, b.R + 5, 0, Math.PI * 2)
+        g.fill()
+      }
+      g.fillStyle = k.cor
+      for (const b of bolas) {
+        g.beginPath()
+        g.arc(b.x, b.y, b.R, 0, Math.PI * 2)
+        g.fill()
+      }
+      g.fillStyle = k.claro
+      for (const b of bolas) {
+        g.beginPath()
+        g.arc(b.x - b.R * 0.25, b.y - b.R * 0.3, b.R * 0.55, 0, Math.PI * 2)
+        g.fill()
+      }
+      g.restore()
       break
     }
     case 'impacto': {
-      const R = 6 + t * 16
-      const pontas = 8
-      g.fillStyle = medio
-      g.beginPath()
-      for (let i = 0; i < pontas * 2; i++) {
-        const a = (i / (pontas * 2)) * Math.PI * 2 + t
-        const rr = i % 2 ? R * 0.35 : R
-        g.lineTo(c + Math.cos(a) * rr, c + Math.sin(a) * rr)
-      }
-      g.closePath()
+      // faísca de golpe de mangá: estrela de pontas, miolo branco, linhas de velocidade
+      const cresce = suave(Math.min(1, f * 4))
+      const R = 170 * cresce
+      g.save()
+      g.globalAlpha = some
+      linhasVelocidade(g, 22, R * 0.6, R * 1.5, haki ? k.cor : k.claro, 4, r)
+      g.shadowBlur = 30
+      g.shadowColor = k.brilho
+      g.fillStyle = haki ? k.cor : k.escuro
+      estrela(g, C, C, 10, R, R * 0.38, f * 0.6, r)
       g.fill()
-      disco(c, c, R * 0.3, claro)
-      if (rei || escuro === HAKI.armamento[2]) raios(rei ? 5 : 3, 14 + t * 8)
+      g.shadowBlur = 0
+      g.fillStyle = haki ? k.escuro : k.cor
+      estrela(g, C, C, 10, R * 0.78, R * 0.3, f * 0.6 + 0.2, r)
+      g.fill()
+      g.fillStyle = haki ? k.claro : '#ffffff'
+      g.beginPath()
+      g.arc(C, C, R * 0.2 * (1 - f * 0.5), 0, Math.PI * 2)
+      g.fill()
+      // anel de choque
+      g.lineWidth = 6 * (1 - f)
+      g.strokeStyle = haki ? k.cor : k.claro
+      g.beginPath()
+      g.arc(C, C, R * (0.6 + f * 0.8), 0, Math.PI * 2)
+      g.stroke()
+      g.restore()
+      if (haki) for (let i = 0; i < (paleta === 'rei' ? 6 : 3); i++) desenharRaio(g, caminhoRaio(r, C, C, r() * 6.3, 5, 34), 4, k, some)
       break
     }
     case 'onda': {
-      g.strokeStyle = medio
-      g.lineWidth = 3
-      g.beginPath()
-      g.ellipse(c, c, 4 + t * 20, (4 + t * 20) * 0.5, 0, 0, Math.PI * 2)
-      g.stroke()
-      g.strokeStyle = claro
-      g.lineWidth = 1
-      g.stroke()
-      for (let i = 0; i < 6; i++) px(c + (r() - 0.5) * 40 * t, c + (r() - 0.5) * 20 * t, 3, 3, escuro)
+      g.save()
+      g.globalAlpha = some
+      for (let i = 0; i < 3; i++) {
+        const q = Math.max(0, f - i * 0.12)
+        const R = 30 + q * 220
+        g.lineWidth = 14 * (1 - q)
+        g.strokeStyle = [k.escuro, k.cor, k.claro][i]
+        g.beginPath()
+        g.ellipse(C, C, R, R * 0.5, 0, 0, Math.PI * 2)
+        g.stroke()
+      }
+      // lascas voando
+      g.fillStyle = k.escuro
+      for (let i = 0; i < 14; i++) {
+        const a = fixo() * Math.PI * 2
+        const d = 40 + f * (120 + fixo() * 120)
+        g.fillRect(C + Math.cos(a) * d, C + Math.sin(a) * d * 0.5 - Math.sin(f * Math.PI) * 60, 10, 6)
+      }
+      g.restore()
       break
     }
     case 'tornado': {
-      for (let k = 0; k < 4; k++) {
-        const a0 = t * 8 + k * 1.6
-        g.strokeStyle = [escuro, medio, claro, medio][k]
-        g.lineWidth = 2
+      g.save()
+      g.globalAlpha = some
+      g.lineCap = 'round'
+      for (let i = 0; i < 7; i++) {
+        const a0 = t * 12 + i * 0.9
+        const y = C + 90 - i * 30
+        const R = 70 + i * 22
+        g.lineWidth = 12 - i
+        g.strokeStyle = haki ? (i % 2 ? k.cor : k.escuro) : [k.escuro, k.cor, k.claro][i % 3]
+        g.shadowBlur = 16
+        g.shadowColor = k.brilho
         g.beginPath()
-        g.ellipse(c, c + 4 - k * 4, 18 - k * 2, 6, 0, a0, a0 + 2.5)
+        g.ellipse(C, y, R, R * 0.28, 0, a0, a0 + 3.4)
         g.stroke()
       }
-      if (rei) raios(2, 12)
+      g.restore()
+      if (paleta === 'rei') for (let i = 0; i < 2; i++) desenharRaio(g, caminhoRaio(r, C, C, r() * 6.3, 5, 30), 3, k, some)
       break
     }
     case 'aura': {
-      for (let i = 0; i < 14; i++) {
-        const x = c + (r() - 0.5) * 30
-        const y = c + 16 - ((r() + t) % 1) * 36
-        px(x, y, 2, 4, [claro, medio][i % 2])
+      g.save()
+      g.globalAlpha = some * 0.9
+      for (let i = 0; i < 18; i++) {
+        const x = C + (fixo() - 0.5) * 220
+        const sobe = (fixo() + t * 1.5) % 1
+        const y = C + 120 - sobe * 260
+        const h = 40 + fixo() * 40
+        g.fillStyle = i % 3 ? k.cor : k.claro
+        g.beginPath()
+        g.moveTo(x - 8, y)
+        g.quadraticCurveTo(x, y - h * 1.4, x + 8, y)
+        g.fill()
       }
+      g.restore()
+      brilhoRadial(g, 180, k.brilho, 0.4 * some)
       break
     }
     case 'raio': {
-      raios(7, 22)
-      disco(c, c, 5 * (1 - t), escuro)
+      // Haki do Rei: raios negros e vermelhos saindo do centro
+      brilhoRadial(g, 220, 'rgba(255,20,40,0.9)', 0.5 * some)
+      for (let i = 0; i < 9; i++) desenharRaio(g, caminhoRaio(r, C, C, r() * Math.PI * 2, 6, 34 + f * 10), 5, HAKI.rei, some)
+      g.save()
+      g.fillStyle = '#050003'
+      g.shadowBlur = 30
+      g.shadowColor = '#ff1030'
+      g.beginPath()
+      g.arc(C, C, 34 * (1 - f * 0.6), 0, Math.PI * 2)
+      g.fill()
+      g.restore()
+      break
+    }
+    case 'choque': {
+      // Dois Haki do Rei se chocando: esfera negra pulsando no meio, anéis de
+      // choque, raios compridos pelo céu e faíscas vermelhas
+      const k2 = HAKI.rei
+      const pulso = 1 + Math.sin(t * 40) * 0.08
+      brilhoRadial(g, 250, 'rgba(255,10,40,1)', 0.65 * some)
+      for (let i = 0; i < 3; i++) {
+        const q = (f * 1.6 + i * 0.33) % 1
+        g.save()
+        g.globalAlpha = (1 - q) * some
+        g.lineWidth = 10 * (1 - q) + 2
+        g.strokeStyle = i % 2 ? '#ffffff' : k2.cor
+        g.beginPath()
+        g.ellipse(C, C, 40 + q * 210, (40 + q * 210) * 0.62, 0, 0, Math.PI * 2)
+        g.stroke()
+        g.restore()
+      }
+      for (let i = 0; i < 12; i++) desenharRaio(g, caminhoRaio(r, C, C, r() * Math.PI * 2, 7, 32), 5 + r() * 4, k2, some)
+      g.save()
+      g.globalAlpha = some
+      g.shadowBlur = 40
+      g.shadowColor = '#ff1030'
+      g.fillStyle = '#050003'
+      g.beginPath()
+      g.arc(C, C, 58 * pulso, 0, Math.PI * 2)
+      g.fill()
+      g.lineWidth = 5
+      g.strokeStyle = '#ff2a40'
+      g.stroke()
+      g.shadowBlur = 0
+      g.lineWidth = 2
+      g.strokeStyle = '#ffd0d0'
+      g.beginPath()
+      g.arc(C, C, 52 * pulso, 0, Math.PI * 2)
+      g.stroke()
+      g.restore()
       break
     }
   }
 }
 
-const folhas = new Map<string, THREE.Texture>()
-
-function folha(tipo: TipoEfeito, paleta: Paleta) {
-  const chave = `${tipo}:${paleta}`
-  let t = folhas.get(chave)
-  if (t) return t
-  const cv = document.createElement('canvas')
-  cv.width = L * QUADROS
-  cv.height = L
-  const g = cv.getContext('2d')!
-  g.imageSmoothingEnabled = false
-  const cores = paleta === 'normal' ? CORES[tipo] : HAKI[paleta]
-  for (let q = 0; q < QUADROS; q++) {
-    g.save()
-    g.beginPath()
-    g.rect(q * L, 0, L, L)
-    g.clip()
-    g.translate(q * L, 0)
-    pintar(g, tipo, q / (QUADROS - 1), cores, paleta === 'rei')
-    g.restore()
-  }
-  t = new THREE.CanvasTexture(cv)
-  t.magFilter = THREE.NearestFilter
-  t.minFilter = THREE.NearestFilter
-  t.colorSpace = THREE.SRGBColorSpace
-  t.repeat.set(1 / QUADROS, 1)
-  folhas.set(chave, t)
-  return t
-}
+let sementes = 1
 
 export class Efeito {
   readonly sprite: THREE.Sprite
@@ -241,13 +525,28 @@ export class Efeito {
   private readonly para: THREE.Vector3 | null
   private readonly aoChegar?: () => void
   private readonly laco: boolean
+  private readonly canvas = document.createElement('canvas')
+  private readonly g: G
+  private readonly tex: THREE.CanvasTexture
+  private readonly tipo: TipoEfeito
+  private readonly paleta: Paleta
+  private readonly cores: Cores
+  private readonly semente = (sementes = (sementes * 48271) % 2147483647)
 
   constructor(tipo: TipoEfeito, paleta: Paleta, de: THREE.Vector3, opcoes: { para?: THREE.Vector3; dur?: number; escala?: number; aoChegar?: () => void; laco?: boolean } = {}) {
-    const tex = folha(tipo, paleta).clone()
-    tex.needsUpdate = true
-    tex.repeat.set(1 / QUADROS, 1)
-    this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }))
-    const e = opcoes.escala ?? 1
+    this.tipo = tipo
+    this.paleta = paleta
+    this.cores = paleta === 'normal' || tipo === 'raio' || tipo === 'choque' ? CORES[tipo] : HAKI[paleta]
+    this.canvas.width = this.canvas.height = S
+    this.g = this.canvas.getContext('2d')!
+    this.tex = new THREE.CanvasTexture(this.canvas)
+    this.tex.colorSpace = THREE.SRGBColorSpace
+    const soma = SOMA.has(tipo) && paleta === 'normal'
+    this.sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: this.tex, transparent: true, depthTest: false, depthWrite: false, blending: soma ? THREE.AdditiveBlending : THREE.NormalBlending }),
+    )
+    // o desenho ocupa ~70% do quadro (o resto é brilho)
+    const e = (opcoes.escala ?? 1) * 1.5
     this.sprite.scale.set(e, e, 1)
     this.sprite.renderOrder = 6
     this.de = de.clone()
@@ -261,22 +560,29 @@ export class Efeito {
       const d = this.para.clone().sub(this.de)
       this.sprite.material.rotation = Math.atan2(-d.z * 0.75 + d.y, d.x)
     }
+    this.desenhar(0)
+  }
+
+  private desenhar(f: number) {
+    this.g.clearRect(0, 0, S, S)
+    pintar(this.g, this.tipo, f, this.cores, this.paleta, this.semente, this.t)
+    this.tex.needsUpdate = true
   }
 
   atualizar(dt: number) {
     this.t += dt
-    const f = Math.min(1, this.t / this.dur)
-    const q = this.laco ? Math.floor(this.t * 16) % QUADROS : Math.min(QUADROS - 1, Math.floor(f * QUADROS))
-    this.sprite.material.map!.offset.set(q / QUADROS, 0)
+    const f = this.laco ? (this.t / this.dur) % 1 : Math.min(1, this.t / this.dur)
+    // projétil: o desenho fica inteiro enquanto voa
+    this.desenhar(this.para ? Math.min(0.5, f * 0.5) : f)
     if (this.para) this.sprite.position.lerpVectors(this.de, this.para, f)
-    if (f >= 1) {
+    if (!this.laco && this.t >= this.dur) {
       this.vivo = false
       this.aoChegar?.()
     }
   }
 
   descartar() {
-    this.sprite.material.map?.dispose()
+    this.tex.dispose()
     this.sprite.material.dispose()
   }
 }

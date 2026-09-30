@@ -31,6 +31,8 @@ export type EstadoTela = {
   flutuantes: Flutuante[]
   /** 0–1: tela escurecendo em vermelho (Haki do Rei) */
   aura: number
+  /** quadro de impacto (anime): a tela pisca; t de 0 a 1 some */
+  lampejo: { tipo: 'rei' | 'branco'; forca: number; fase: number } | null
   /** o personagem do botão B está com Haki de armamento */
   hakiArmamento: boolean
   velocidade: number
@@ -55,6 +57,9 @@ const FOV = 22
 
 export class CenaTabuleiro {
   readonly renderer: THREE.WebGLRenderer
+  /** efeitos das skills em resolução cheia, por cima da cena em pixel art */
+  private readonly rendererFx: THREE.WebGLRenderer
+  private readonly cenaFx = new THREE.Scene()
   private readonly cena = new THREE.Scene()
   private readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 1, 200)
   private readonly personagens: Personagem[] = []
@@ -127,6 +132,13 @@ export class CenaTabuleiro {
     cv.style.imageRendering = 'pixelated'
     cv.style.display = 'block'
     hospedeiro.appendChild(cv)
+    this.rendererFx = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    this.rendererFx.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
+    this.rendererFx.setClearColor(0x000000, 0)
+    this.rendererFx.outputColorSpace = THREE.SRGBColorSpace
+    const fx = this.rendererFx.domElement
+    Object.assign(fx.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' })
+    hospedeiro.appendChild(fx)
 
     this.cena.background = new THREE.Color(0x0b2a66)
     // sol da tarde vindo do fundo à esquerda (sombras para a frente/direita)
@@ -234,7 +246,7 @@ export class CenaTabuleiro {
       new Promise<void>((r) => {
         const ef = new Efeito(tipo, paleta, de, { ...op, aoChegar: r })
         this.efeitos.push(ef)
-        this.cena.add(ef.sprite)
+        this.cenaFx.add(ef.sprite)
       }),
     peito: (p: Personagem) => p.pos.clone().setY(p.pos.y + p.visual.altura * 0.5),
     centro: (c: Casa) => {
@@ -254,6 +266,9 @@ export class CenaTabuleiro {
     esquivar: (p: Personagem, de: Personagem) => this.esquivar(p, de),
     atravessar: (p: Personagem, elemento: string) => this.atravessar(p, elemento),
     focar: (pontos: THREE.Vector3[] | null) => this.focar(pontos),
+    lampejo: (tipo: 'rei' | 'branco', dur: number) => {
+      this.lampejoAtual = { tipo, t: 0, dur }
+    },
     choqueRei: (ponto: THREE.Vector3) => {
       const h = new HakiRei(ponto, 1.4)
       this.hakis.push(h)
@@ -268,6 +283,7 @@ export class CenaTabuleiro {
   }
 
   /** câmera de antes do foco (choque de Haki) */
+  private lampejoAtual: { tipo: 'rei' | 'branco'; t: number; dur: number } | null = null
   private semFoco: { zoom: number; pan: THREE.Vector3 } | null = null
 
   /** Aproxima a câmera no meio dos pontos; null volta para onde estava. */
@@ -368,6 +384,8 @@ export class CenaTabuleiro {
     window.removeEventListener('keydown', this.aoTecla)
     this.renderer.dispose()
     this.renderer.domElement.remove()
+    this.rendererFx.dispose()
+    this.rendererFx.domElement.remove()
   }
 
   // ------------------------------------------------------------ estado p/ React
@@ -453,6 +471,9 @@ export class CenaTabuleiro {
       flutuantes: this.flutuantes,
       hakiArmamento: !!(this.selecionado ?? this.personagens.find((x) => x.id === 'marinha-almirante'))?.haki,
       aura: this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0),
+      lampejo: this.lampejoAtual
+        ? { tipo: this.lampejoAtual.tipo, forca: 1 - this.lampejoAtual.t / this.lampejoAtual.dur, fase: Math.floor(this.lampejoAtual.t * 20) % 2 }
+        : null,
       velocidade: this.velocidade,
       escala: this.escala,
       dica: this.retratoBatalha?.dica ?? this.dica,
@@ -492,6 +513,7 @@ export class CenaTabuleiro {
     this.largura = Math.max(320, Math.floor((r.width * dpr) / this.escala))
     this.altura = Math.max(180, Math.floor((r.height * dpr) / this.escala))
     this.renderer.setSize(this.largura, this.altura, false)
+    this.rendererFx.setSize(r.width, r.height, false)
     this.camera.aspect = this.largura / this.altura
     this.enquadrar()
   }
@@ -626,7 +648,7 @@ export class CenaTabuleiro {
     for (const ef of this.efeitos) {
       ef.atualizar(dt)
       if (!ef.vivo) {
-        this.cena.remove(ef.sprite)
+        this.cenaFx.remove(ef.sprite)
         ef.descartar()
       }
     }
@@ -638,6 +660,7 @@ export class CenaTabuleiro {
     }
     this.tweens = this.tweens.filter((tw) => tw.t < tw.dur)
     this.tremorGolpe = Math.max(0, this.tremorGolpe - dtReal)
+    if (this.lampejoAtual && (this.lampejoAtual.t += dtReal) >= this.lampejoAtual.dur) this.lampejoAtual = null
     for (const s of this.sumindo) {
       s.t -= dtReal
       for (const o of s.p.visual.objetos) {
@@ -670,6 +693,7 @@ export class CenaTabuleiro {
       this.camera.position.add(new THREE.Vector3((Math.random() - 0.5) * a, (Math.random() - 0.5) * a, (Math.random() - 0.5) * a))
     }
     this.renderer.render(this.cena, this.camera)
+    if (this.efeitos.length || this.rendererFx.info.render.calls) this.rendererFx.render(this.cenaFx, this.camera)
     this.camera.position.copy(salva)
     this.estado = this.montarEstado()
     for (const f of this.ouvintes) f()

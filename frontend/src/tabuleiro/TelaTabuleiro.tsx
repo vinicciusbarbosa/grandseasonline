@@ -7,7 +7,7 @@ import { HudBatalha } from './batalha/HudBatalha'
  * tabuleiro 10×20, 5 piratas contra 5 da Marinha (IA). Roda sem API nem login.
  */
 
-const VAZIO: EstadoTela = { personagens: [], flutuantes: [], aura: 0, hakiArmamento: false, velocidade: 1, escala: 1, dica: '', batalha: null }
+const VAZIO: EstadoTela = { personagens: [], flutuantes: [], aura: 0, lampejo: null, hakiArmamento: false, velocidade: 1, escala: 1, dica: '', batalha: null }
 const nada = () => () => {}
 
 export default function TelaTabuleiro() {
@@ -36,6 +36,25 @@ export default function TelaTabuleiro() {
           mixBlendMode: 'multiply',
         }}
       />
+
+      {/* quadro de impacto do anime: a tela pisca negra e vermelha (Haki do Rei) ou branca */}
+      {estado.lampejo && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            opacity: Math.min(1, estado.lampejo.forca * 1.4),
+            background:
+              estado.lampejo.tipo === 'branco'
+                ? '#ffffff'
+                : estado.lampejo.fase
+                  ? 'radial-gradient(ellipse at center, rgba(255,30,50,0.2) 0%, rgba(120,0,15,0.85) 70%, #0a0003 100%)'
+                  : 'radial-gradient(ellipse at center, rgba(0,0,0,0.1) 0%, rgba(10,0,4,0.9) 65%, #000 100%)',
+            mixBlendMode: estado.lampejo.tipo === 'branco' ? 'screen' : 'multiply',
+          }}
+        />
+      )}
 
       {estado.personagens.map((p) => (
         <div
