@@ -8,6 +8,7 @@ import { Personagem } from './personagem'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
+import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
 import { ImpactoHaki } from './impactoHaki'
 import type { LuzPersonagem } from './luzSprite'
@@ -27,6 +28,8 @@ export type EstadoTela = {
   flutuantes: Flutuante[]
   /** 0–1: tela escurecendo em vermelho (Haki do Rei) */
   aura: number
+  /** o personagem do botão B está com Haki de armamento */
+  hakiArmamento: boolean
   velocidade: number
   escala: number
   dica: string
@@ -52,6 +55,9 @@ export class CenaTabuleiro {
   private readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 1, 200)
   private readonly personagens: Personagem[] = []
   private poeiras: Poeira[] = []
+  private golpes: GolpeHaki[] = []
+  /** tremor curto da câmera no impacto de um golpe com Haki (s) */
+  private tremorGolpe = 0
   private hakis: HakiRei[] = []
   private readonly marcas = new THREE.Group()
   private readonly moldura: THREE.Mesh
@@ -227,6 +233,21 @@ export class CenaTabuleiro {
     }, 250)
   }
 
+  /**
+   * Haki de armamento (Busoshoku) do selecionado (ou do almirante): liga e
+   * desliga. Ligado, a espada fica negra e o golpe estala raios vermelhos.
+   */
+  hakiArmamento() {
+    const p = this.selecionado ?? this.personagens.find((x) => x.id === 'almirante') ?? this.personagens[0]
+    if (!p) return
+    p.haki = !p.haki
+    const s = this.acimaDe(p, 1.25)
+    this.flutuantes = [
+      ...this.flutuantes,
+      { id: ++this.idFlut, texto: p.haki ? 'Busoshoku!' : 'Haki desligado', x: s.x, y: s.y, t: 0, cor: p.haki ? '#ff3a5a' : '#c9c9c9' },
+    ]
+  }
+
   /** Teste: madeira do convés arrebentando numa casa (sem o Haki). */
   quebrarConves(l: number, c: number) {
     const p = centroCasa(l, c)
@@ -259,6 +280,7 @@ export class CenaTabuleiro {
         return { id: p.id, nome: p.nome, vida: p.vida, vidaMax: p.vidaMax, x: s.x, y: s.y, selecionado: p === this.selecionado }
       }),
       flutuantes: this.flutuantes,
+      hakiArmamento: (this.selecionado ?? this.personagens.find((x) => x.id === 'almirante'))?.haki ?? false,
       aura: this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0),
       velocidade: this.velocidade,
       escala: this.escala,
@@ -421,6 +443,15 @@ export class CenaTabuleiro {
       if (!po.vivo) this.cena.remove(po.sprite)
     }
     this.poeiras = this.poeiras.filter((po) => po.vivo)
+    for (const g of this.golpes) {
+      g.atualizar(dt, this.camera, this.largura, this.altura)
+      if (!g.vivo) {
+        this.cena.remove(g.sprite)
+        g.descartar()
+      }
+    }
+    this.golpes = this.golpes.filter((g) => g.vivo)
+    this.tremorGolpe = Math.max(0, this.tremorGolpe - dtReal)
     this.flutuantes = this.flutuantes.map((f) => ({ ...f, t: f.t + dtReal })).filter((f) => f.t < 1.2)
     for (const h of this.hakis) {
       h.atualizar(dt, this.camera)
@@ -431,7 +462,7 @@ export class CenaTabuleiro {
     }
     this.hakis = this.hakis.filter((h) => h.vivo)
     // tremor da câmera durante o Haki
-    const tremor = this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0)
+    const tremor = Math.max(this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0), this.tremorGolpe * 2.5)
     const salva = this.camera.position.clone()
     if (tremor > 0) {
       const a = 0.06 * tremor * (1 / this.zoom + 0.3)
@@ -595,6 +626,7 @@ export class CenaTabuleiro {
     if (k === '-') this.irParaNivel(-1)
     if (k === '0') this.irParaNivel(-99)
     if (k === 'h' && !ev.repeat) this.hakiDoRei()
+    if (k === 'b' && !ev.repeat) this.hakiArmamento()
   }
 
   private aoClicar = (ev: PointerEvent) => {
@@ -629,10 +661,16 @@ export class CenaTabuleiro {
       this.dica = `${atacante.nome} ataca!`
       atacante.atacar(alvo, () => {
         const dano = DANO[0] + Math.floor(Math.random() * (DANO[1] - DANO[0] + 1))
-        alvo.sofrer(dano, atacante)
+        alvo.sofrer(atacante.haki ? Math.round(dano * 1.5) : dano, atacante)
+        if (atacante.haki) {
+          const g = new GolpeHaki(alvo.pos.clone().lerp(atacante.pos, 0.35).setY(alvo.visual.altura * 0.5))
+          this.golpes.push(g)
+          this.cena.add(g.sprite)
+          this.tremorGolpe = 0.22
+        }
         if (alvo.vida <= 0) alvo.vida = alvo.vidaMax // teste: volta a vida cheia
         const s = this.acimaDe(alvo, 0.7)
-        this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: `-${dano}`, x: s.x, y: s.y, t: 0, cor: '#ffe27a' }]
+        this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto: `-${atacante.haki ? Math.round(dano * 1.5) : dano}`, x: s.x, y: s.y, t: 0, cor: '#ffe27a' }]
       })
       this.selecionar(null)
     }

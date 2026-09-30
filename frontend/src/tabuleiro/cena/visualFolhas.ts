@@ -119,15 +119,16 @@ export class VisualFolhas implements Visual {
   private variacao: Folha | null = null
 
   /** Tira de quadros de uma animação numa direção (ou a pose parada). */
-  private tira(anim: NomeAnim, dir: Direcao, ciclo: number) {
+  private tira(anim: NomeAnim, dir: Direcao, ciclo: number, haki = false) {
     const base = this.man.anims[anim]?.[dir] ?? this.man.anims.parado?.[dir] ?? this.man.anims.parado?.S
     // parado em laço: a cada volta sorteia se toca a normal ou uma variação
     if (ciclo !== this.ciclo) {
       this.ciclo = ciclo
-      const vs = Object.values(base?.variantes ?? {})
+      const vs = anim === 'parado' ? Object.entries(base?.variantes ?? {}).filter(([k]) => k !== 'haki').map(([, v]) => v) : []
       this.variacao = vs.length && this.variacao === null && Math.random() < VisualFolhas.CHANCE_VARIACAO ? vs[Math.floor(Math.random() * vs.length)] : null
     }
-    const a = this.variacao ?? base
+    // Haki de armamento: o ataque troca pela versão com a lâmina negra
+    const a = (haki && base?.variantes?.haki) || (anim === 'parado' && this.variacao) || base
     if (!a) return null
     let t = this.texturas.get(a.arquivo)
     if (!t) {
@@ -158,7 +159,7 @@ export class VisualFolhas implements Visual {
     this.animAnterior = e.anim
     this.faseAnterior = fase
     const ciclo = this.voltas
-    const tira = this.tira(e.anim, dir, ciclo)
+    const tira = this.tira(e.anim, dir, ciclo, e.haki)
     if (!tira) return
     const q = tira.quadros > 1 ? Math.min(tira.quadros - 1, Math.floor(fase * tira.quadros)) : 0
     const mat = this.sprite.material

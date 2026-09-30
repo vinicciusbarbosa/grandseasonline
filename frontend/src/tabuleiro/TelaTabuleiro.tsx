@@ -6,7 +6,7 @@ import { CenaTabuleiro, type EstadoTela } from './cena/CenaTabuleiro'
  * lado, tabuleiro 10×20 e os dois capitães animados. Roda sem API nem login.
  */
 
-const VAZIO: EstadoTela = { personagens: [], flutuantes: [], aura: 0, velocidade: 1, escala: 1, dica: '' }
+const VAZIO: EstadoTela = { personagens: [], flutuantes: [], aura: 0, hakiArmamento: false, velocidade: 1, escala: 1, dica: '' }
 const nada = () => () => {}
 
 export default function TelaTabuleiro() {
@@ -95,6 +95,25 @@ export default function TelaTabuleiro() {
         }}
       >
         H
+      </button>
+      <button
+        onClick={() => cena?.hakiArmamento()}
+        title="Haki de armamento (liga/desliga) — tecla B"
+        style={{
+          position: 'absolute',
+          left: 64,
+          bottom: 12,
+          width: 44,
+          height: 44,
+          font: '700 18px monospace',
+          background: estado.hakiArmamento ? 'rgba(10,2,6,0.95)' : 'rgba(20,20,30,0.8)',
+          color: estado.hakiArmamento ? '#ff5a74' : '#d8d8e8',
+          border: `1px solid ${estado.hakiArmamento ? '#ff2a4a' : '#8888aa'}`,
+          boxShadow: estado.hakiArmamento ? '0 0 10px #c0102e' : 'none',
+          cursor: 'pointer',
+        }}
+      >
+        B
       </button>
     </div>
   )

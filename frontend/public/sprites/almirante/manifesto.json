@@ -138,27 +138,63 @@
   "atacar": {
    "S": {
     "arquivo": "atacar_S.png",
-    "quadros": 12
+    "quadros": 12,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_S.png",
+      "quadros": 12
+     }
+    }
    },
    "SE": {
     "arquivo": "atacar_SE.png",
-    "quadros": 12
+    "quadros": 12,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_SE.png",
+      "quadros": 12
+     }
+    }
    },
    "SW": {
     "arquivo": "atacar_SW.png",
-    "quadros": 12
+    "quadros": 12,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_SW.png",
+      "quadros": 12
+     }
+    }
    },
    "E": {
     "arquivo": "atacar_E.png",
-    "quadros": 12
+    "quadros": 12,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_E.png",
+      "quadros": 12
+     }
+    }
    },
    "W": {
     "arquivo": "atacar_W.png",
-    "quadros": 12
+    "quadros": 12,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_W.png",
+      "quadros": 12
+     }
+    }
    },
    "NE": {
     "arquivo": "atacar_NE.png",
-    "quadros": 12
+    "quadros": 12,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_NE.png",
+      "quadros": 12
+     }
+    }
    }
   }
  },
