@@ -216,6 +216,7 @@ export class CenaTabuleiro {
       .then((ps) => {
         ps.forEach((p) => this.adicionar(p))
         this.batalha = batalha
+        batalha.comecarTreino()
         this.palco.avisar()
       })
       .catch((e) => {

@@ -17,7 +17,7 @@ import type { Personagem } from '../cena/personagem'
 import { recurso } from '../cena/visualFolhas'
 import type { Paleta, TipoEfeito } from '../cena/efeitos'
 import { direcaoEfeito, type DirEfeito } from '../cena/efeitoFolha'
-import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill } from './armas'
+import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill, type TipoArma } from './armas'
 
 /** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
 const semMira = (s: Skill) => s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
@@ -143,6 +143,8 @@ export type RetratoBatalha = {
   tempoHaki: number
   animando: boolean
   auto: boolean
+  /** modo treino: um pirata e um boneco alvo, para testar skills e sprites */
+  treino: { fruta: string; arma: TipoArma; alvoFruta: string; armamento: 0 | 1 | 2; rei: boolean } | null
   config: (Config & { nome: string; lado: Lado })[]
   turno: number
   vez: Lado
@@ -203,6 +205,93 @@ export class ControleBatalha {
     this.palco = palco
     this.estado = criarBatalha(combatentesIniciais())
     this.relogio = window.setInterval(() => this.checarTempo(), 500)
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('treino')) this.treino = { fruta: 'fogo', arma: 'espada', alvoFruta: '', armamento: 0, rei: false }
+  }
+
+  // ------------------------------------------------------------ treino
+  /** modo treino (?treino na URL): um pirata contra um boneco alvo que não morre */
+  private treino: { fruta: string; arma: TipoArma; alvoFruta: string; armamento: 0 | 1 | 2; rei: boolean } | null = null
+  static readonly TREINO_JOGADOR = 'pirata-capitao'
+  static readonly TREINO_ALVO = 'marinha-soldado'
+
+  /** Começa o treino: some com os outros, arruma o pirata e o boneco. */
+  comecarTreino() {
+    if (!this.treino) return
+    const J = ControleBatalha.TREINO_JOGADOR
+    const A = ControleBatalha.TREINO_ALVO
+    const cs = combatentesIniciais().filter((c) => c.id === J || c.id === A)
+    const alvo = cs.find((c) => c.id === A)!
+    alvo.nome = 'Boneco alvo'
+    alvo.casa = { l: 6, c: 9 }
+    alvo.at = { ...alvo.at, agl: 0 } // não esquiva: dá para ver todo golpe
+    for (const p of TRIPULACOES) if (p.id !== J && p.id !== A) {
+      const per = this.palco.personagem(p.id)
+      if (per) this.palco.sumir(per)
+    }
+    const pa = this.palco.personagem(A)
+    if (pa) {
+      ;(pa as { nome: string }).nome = 'Boneco alvo'
+      pa.casa = { ...alvo.casa }
+      const cc = this.palco.centro(alvo.casa)
+      pa.pos.set(cc.x, 0, cc.z)
+    }
+    this.estado = criarBatalha(cs)
+    this.estado.vez = JOGADOR
+    this.inicioBatalha = performance.now()
+    this.log = []
+    this.aplicarTreino()
+    this.registrar('Treino: escolha fruta e arma no painel; o boneco não morre.')
+    this.novaVez()
+  }
+
+  /** Muda a fruta/arma/Haki no treino (a qualquer momento). */
+  mudarTreino(campo: 'fruta' | 'arma' | 'alvoFruta' | 'armamento' | 'rei', valor: string | number | boolean) {
+    if (!this.treino || this.animando) return
+    ;(this.treino as Record<string, unknown>)[campo] = valor
+    this.aplicarTreino()
+    this.skill = null
+    this.previa = null
+    this.redesenhar()
+  }
+
+  /** Recarrega tudo: vida do boneco, energia, espírito, recargas, Haki. */
+  private aplicarTreino() {
+    const t = this.treino
+    if (!t) return
+    const e = this.estado
+    e.vez = JOGADOR
+    e.vencedor = null
+    e.movimento = 6
+    for (const c of e.combatentes) {
+      const jogador = c.lado === JOGADOR
+      const fruta = jogador ? t.fruta : t.alvoFruta
+      if ((c.akuma?.fruta ?? '') !== fruta) c.akuma = fruta ? { fruta, transformado: 0 } : null
+      c.logia = fruta && FRUTAS[fruta].tipo === 'logia' ? { cargas: 99, max: 99 } : null
+      c.hp = c.hpMax
+      c.energia = 100
+      c.espirito = 100
+      c.recargas = {}
+      c.atordoado = false
+      c.queimadura = null
+      if (jogador) {
+        c.arma = t.arma
+        c.haki = {
+          overall: 80,
+          armamento: t.armamento ? { usos: 9, max: 9, avancado: t.armamento === 2 } : null,
+          observacao: null,
+          rei: t.rei,
+        }
+        if (!t.armamento) c.armamentoLigado = c.reiLigado = false
+        if (!t.rei || t.armamento !== 2) c.reiLigado = false
+      } else c.haki = { overall: 0, armamento: null, observacao: null, rei: false }
+      const p = this.palco.personagem(c.id)
+      if (p) {
+        p.vida = c.hp
+        p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
+        p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
+      }
+    }
+    this.palco.avisar()
   }
 
   get combatentes() {
@@ -337,7 +426,7 @@ export class ControleBatalha {
       else this.palco.avisar()
       return
     }
-    if (this.fase !== 'minha' || this.animando || this.auto) return
+    if (this.fase !== 'minha' || this.animando || this.auto || this.treino) return
     if (this.tempo() <= 0) void this.executar({ t: 'tempo' })
     else this.palco.avisar()
   }
@@ -369,6 +458,16 @@ export class ControleBatalha {
       p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
     }
     this.animando = false
+    if (this.treino) {
+      // treino: nunca passa a vez; tudo volta ao cheio
+      this.aplicarTreino()
+      this.previa = null
+      this.skill = null
+      this.fase = 'minha'
+      this.inicioVez = performance.now()
+      this.redesenhar()
+      return true
+    }
     if (this.estado.vez !== vezAntes || this.estado.vencedor) this.novaVez()
     else {
       // continua com o mesmo personagem escolhido
@@ -659,6 +758,7 @@ export class ControleBatalha {
           this.registrar('Tempo esgotado! A vez passa.')
           break
         case 'vez':
+          if (this.treino) break
           this.registrar(`— Vez ${e.turno}: ${e.lado === JOGADOR ? 'piratas' : 'Marinha'} —`)
           break
         case 'fim':
@@ -1074,6 +1174,7 @@ export class ControleBatalha {
       fase: this.fase,
       animando: this.animando,
       auto: this.auto,
+      treino: this.treino ? { ...this.treino } : null,
       config: this.config.map((k) => ({ ...k, nome: nomes.get(k.id)!.nome, lado: nomes.get(k.id)!.lado })),
       turno: e.turno,
       vez: e.vez,

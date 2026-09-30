@@ -415,6 +415,9 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
           <button className="bt" onClick={() => c.restaurarConfig()} title="Volta ao elenco de teste">
             ↺ Padrão
           </button>
+          <button className="bt" onClick={() => (location.search = '?treino')} title="Um pirata e um boneco alvo para testar skills e sprites">
+            🎯 Treino
+          </button>
           <button className="bt vermelho tit" style={{ fontSize: 22, padding: '6px 28px' }} onClick={() => c.comecar()}>
             Zarpar para a batalha!
           </button>
@@ -463,6 +466,73 @@ function PreparoHaki({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
   )
 }
 
+const ARMAS: [string, string][] = [
+  ['espada', 'Espada'],
+  ['maca', 'Maça'],
+  ['espingarda', 'Espingarda'],
+  ['adaga', 'Adaga'],
+]
+
+/** Painel do modo treino (?treino): troca fruta e arma do pirata, fruta do boneco. */
+function PainelTreino({ t, c }: { t: NonNullable<RetratoBatalha['treino']>; c: ControleBatalha }) {
+  const sel: React.CSSProperties = { font: 'inherit', fontSize: 12, background: '#fbf1d6', color: '#3a2410', border: '1px solid #8a6a3a', padding: '2px' }
+  const rotulo: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, color: '#6a4a1a' }
+  return (
+    <div className="pergaminho" style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', padding: '6px 14px 8px', borderRadius: 6, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+      <span className="tit" style={{ fontSize: 24, color: '#8a1a10', alignSelf: 'center' }}>
+        🎯 Treino
+      </span>
+      <label style={rotulo}>
+        Fruta
+        <select value={t.fruta} onChange={(ev) => c.mudarTreino('fruta', ev.target.value)} style={sel}>
+          {FRUTAS_OP.map(([v, n]) => (
+            <option key={v} value={v}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label style={rotulo}>
+        Arma
+        <select value={t.arma} onChange={(ev) => c.mudarTreino('arma', ev.target.value)} style={sel}>
+          {ARMAS.map(([v, n]) => (
+            <option key={v} value={v}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label style={rotulo}>
+        Armamento
+        <select value={t.armamento} onChange={(ev) => c.mudarTreino('armamento', Number(ev.target.value))} style={sel}>
+          {NIVEL.map((n, i) => (
+            <option key={i} value={i}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label style={{ ...rotulo, alignItems: 'center' }}>
+        Rei
+        <input type="checkbox" checked={t.rei} onChange={(ev) => c.mudarTreino('rei', ev.target.checked)} />
+      </label>
+      <label style={rotulo}>
+        Fruta do boneco
+        <select value={t.alvoFruta} onChange={(ev) => c.mudarTreino('alvoFruta', ev.target.value)} style={sel}>
+          {FRUTAS_OP.map(([v, n]) => (
+            <option key={v} value={v}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button className="bt" style={{ alignSelf: 'center' }} onClick={() => (location.search = '')} title="Volta para a batalha">
+        Sair
+      </button>
+    </div>
+  )
+}
+
 export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBatalha; c: ControleBatalha; velocidade: number; mudarVelocidade: (v: number) => void }) {
   const [verLog, setVerLog] = useState(true)
   const [bandeja, setBandeja] = useState<'skills' | 'haki' | null>(null)
@@ -502,8 +572,11 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
             ))}
           </div>
 
+          {/* treino: escolher fruta, arma e Haki */}
+          {b.treino && <PainelTreino t={b.treino} c={c} />}
+
           {/* faixa da vez (pergaminho) */}
-          {b.fase !== 'fim' && (
+          {b.fase !== 'fim' && !b.treino && (
             <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none' }}>
               <div
                 className="pergaminho tit"
@@ -561,9 +634,9 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                   <span className="i">✚</span> Profissão
                 </button>
               ))}
-              <button className="tabua" onClick={() => c.passar()}>
+              {!b.treino && <button className="tabua" onClick={() => c.passar()}>
                 <span className="i">⏭</span> Passar a vez
-              </button>
+              </button>}
             </div>
           )}
 
