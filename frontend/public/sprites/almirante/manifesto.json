@@ -139,6 +139,10 @@
    "S": {
     "arquivo": "atacar_S.png",
     "quadros": 12
+   },
+   "SE": {
+    "arquivo": "atacar_SE.png",
+    "quadros": 12
    }
   }
  },
