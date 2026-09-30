@@ -17,7 +17,7 @@ import type { Personagem } from '../cena/personagem'
 import { recurso } from '../cena/visualFolhas'
 import type { Paleta, TipoEfeito } from '../cena/efeitos'
 import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill } from './armas'
-import { TRIPULACOES, combatentesIniciais } from './elenco'
+import { TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, type Config } from './elenco'
 import { proximaAcao } from './ia'
 import {
   HAOSHOKU,
@@ -107,36 +107,6 @@ const VISUAL: Record<string, Visual> = {
 const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura'])
 
 // ------------------------------------------------------------ preparação
-export type Config = { id: string; akuma: string; armamento: 0 | 1 | 2; observacao: 0 | 1 | 2; rei: boolean; overall: number }
-
-/** Config inicial a partir do elenco de teste. */
-function configPadrao(): Config[] {
-  return TRIPULACOES.map((m) => ({
-    id: m.id,
-    akuma: m.akuma ?? '',
-    armamento: m.haki?.armamento ? (m.haki.armamento.avancado ? 2 : 1) : 0,
-    observacao: m.haki?.observacao ? (m.haki.observacao.avancado ? 2 : 1) : 0,
-    rei: !!m.haki?.rei,
-    overall: m.haki?.overall ?? 0,
-  }))
-}
-
-function aplicarConfig(cs: Combatente[], cfg: Config[]) {
-  for (const k of cfg) {
-    const c = cs.find((x) => x.id === k.id)!
-    c.akuma = k.akuma ? { fruta: k.akuma, transformado: 0 } : null
-    c.logia = k.akuma && FRUTAS[k.akuma].tipo === 'logia' ? { cargas: 5, max: 5 } : null
-    const usosA = k.armamento === 2 ? 6 : 4
-    c.haki = {
-      overall: k.overall,
-      armamento: k.armamento ? { usos: usosA, max: usosA, avancado: k.armamento === 2 } : null,
-      observacao: k.observacao ? { usos: 3, max: 3, avancado: k.observacao === 2 } : null,
-      rei: k.rei,
-    }
-  }
-  return cs
-}
-
 // ------------------------------------------------------------ HUD
 export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; motivo: string | null; fruta: boolean }
 export type RetratoBatalha = {
@@ -658,7 +628,7 @@ export class ControleBatalha {
     this.palco.lampejo('rei', 0.5)
     this.palco.choqueRei(meio.clone().setY(0))
     this.palco.tremer(0.9)
-    void this.palco.efeito('choque', 'rei', meio, { dur: 1.5, escala: 3.2 })
+    void this.palco.efeito('choque', 'rei', meio, { dur: 1.6, escala: 4.6 })
     void this.palco.efeito('impacto', 'rei', meio, { dur: 0.5, escala: 2.2 })
     await esperar(700)
     this.palco.lampejo('rei', 0.3)

@@ -16,6 +16,7 @@
 
 import type { Direcao } from '../cena/personagem'
 import type { TipoArma } from './armas'
+import { FRUTAS } from './armas'
 import type { Atributos, Combatente, Haki, Lado } from './regras'
 
 type Papel = 'capitao' | 'espadachim' | 'lutador' | 'atirador' | 'medico'
@@ -92,3 +93,38 @@ export function combatentesIniciais(): Combatente[] {
     }
   })
 }
+
+// ------------------------------------------------------------ preparação (tela e simulações)
+/** cargas de intangibilidade da Logia no teste */
+export const CARGAS_LOGIA = 3
+
+export type Config = { id: string; akuma: string; armamento: 0 | 1 | 2; observacao: 0 | 1 | 2; rei: boolean; overall: number }
+
+/** Config inicial a partir do elenco de teste. */
+export function configPadrao(): Config[] {
+  return TRIPULACOES.map((m) => ({
+    id: m.id,
+    akuma: m.akuma ?? '',
+    armamento: m.haki?.armamento ? (m.haki.armamento.avancado ? 2 : 1) : 0,
+    observacao: m.haki?.observacao ? (m.haki.observacao.avancado ? 2 : 1) : 0,
+    rei: !!m.haki?.rei,
+    overall: m.haki?.overall ?? 0,
+  }))
+}
+
+export function aplicarConfig(cs: Combatente[], cfg: Config[]) {
+  for (const k of cfg) {
+    const c = cs.find((x) => x.id === k.id)!
+    c.akuma = k.akuma ? { fruta: k.akuma, transformado: 0 } : null
+    c.logia = k.akuma && FRUTAS[k.akuma].tipo === 'logia' ? { cargas: CARGAS_LOGIA, max: CARGAS_LOGIA } : null
+    const usosA = k.armamento === 2 ? 6 : 4
+    c.haki = {
+      overall: k.overall,
+      armamento: k.armamento ? { usos: usosA, max: usosA, avancado: k.armamento === 2 } : null,
+      observacao: k.observacao ? { usos: 3, max: 3, avancado: k.observacao === 2 } : null,
+      rei: k.rei,
+    }
+  }
+  return cs
+}
+
