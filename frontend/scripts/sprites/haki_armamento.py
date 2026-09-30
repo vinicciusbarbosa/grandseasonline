@@ -246,17 +246,27 @@ def _desenhar(W, H, pinta):
     return rgb, alfa > 127
 
 
+def _cobertura(W, H, pinta):
+    """Desenha em SS× e devolve a cobertura (0–1) de cada pixel."""
+    from PIL import ImageDraw
+    img = Image.new('L', (W * SS, H * SS), 0)
+    pinta(ImageDraw.Draw(img))
+    a = np.asarray(img).astype(np.float32) / 255.0
+    return a.reshape(H, SS, W, SS).mean((1, 3))
+
+
 def espiral(q, ml, guarda, fase, semente=0):
-    """Haki do anime: fios negros enrolando e girando em volta da lâmina, com
-    borda roxa, brilho e fiapos que escapam. Pixels opacos (o jogo corta
-    alfa < 0.5)."""
+    """Haki do anime como AURA: energia negra enrolando e girando na lâmina
+    (fios que se partem e tremulam), labaredas negras de borda roxa saindo
+    dela, faíscas e um brilho roxo difuso e translúcido em volta.
+    O jogo mostra pixels com alfa ≥ 0.5 (misturando), então o brilho usa
+    alfa entre 0.5 e 0.9 no vazio e clareia o que está por baixo no corpo."""
     e = eixo(ml, guarda)
     if e is None:
         return q
-    # a espiral passa um pouco da ponta (o Haki "escorre" da lâmina)
     tg = e[-1] - e[-3]
     tg /= np.hypot(*tg) or 1
-    e = np.vstack([e, e[-1] + tg * 4, e[-1] + tg * 8, e[-1] + tg * 12])
+    e = np.vstack([e, e[-1] + tg * 5, e[-1] + tg * 10])
     seg = np.diff(e, axis=0)
     comp = np.hypot(seg[:, 0], seg[:, 1]) + 1e-6
     s = np.r_[0, np.cumsum(comp)]
@@ -264,76 +274,111 @@ def espiral(q, ml, guarda, fase, semente=0):
     tang = np.vstack([seg / comp[:, None], seg[-1:] / comp[-1]])
     norm = np.stack([-tang[:, 1], tang[:, 0]], 1)
     t = s / max(L, 1)
-    envol = np.clip(np.minimum((t - 0.04) * 6, (1.0 - t) * 7), 0, 1) ** 0.7
-    fios = []
-    for k in range(2):
-        ang = s / 56.0 * 2 * np.pi + fase + k * np.pi
-        amp = 9.5 * envol + 1.5
-        pts = (e + norm * (amp * np.sin(ang))[:, None]) * SS
-        prof = np.cos(ang)
-        larg = (5.4 + 2.6 * prof) * (0.35 + 0.65 * envol) * SS
-        fios.append((pts, prof, larg))
+    envol = np.clip(np.minimum((t - 0.04) * 6, (1.0 - t) * 6), 0, 1) ** 0.7
     rnd = random.Random(semente)
-    # fiapos: pedacinhos de fio que se soltam da lâmina e se enrolam
-    fiapos = []
-    for _ in range(3):
-        i = rnd.randrange(len(e) // 5, len(e))
-        lado = rnd.choice((-1, 1))
-        p = e[i] + norm[i] * lado * 9
-        a0 = math.atan2(norm[i][1] * lado, norm[i][0] * lado) + rnd.uniform(-0.6, 0.6)
-        pts, larg = [], []
-        for j in range(9):
-            a0 += rnd.uniform(0.2, 0.55) * lado
-            p = p + np.array([math.cos(a0), math.sin(a0)]) * 2.4
-            pts.append(p * SS)
-            larg.append((3.2 - j * 0.3) * SS)
-        fiapos.append((pts, larg))
     H, W = q.shape[:2]
-    ESCURO, BORDA, LUZ = (8, 3, 14, 255), (92, 34, 170, 255), (206, 150, 255, 255)
 
-    def tras(d):
-        for pts, prof, larg in fios:
-            for i in range(len(pts) - 1):
-                if prof[i] <= 0:
-                    _fita(d, pts[i:i + 2], [larg[i] + 2 * SS, larg[i + 1] + 2 * SS], BORDA)
-                    _fita(d, pts[i:i + 2], larg[i:i + 2], (34, 10, 58, 255))
+    # --- fios de energia: espiral que se parte em trechos e afina nas pontas
+    trechos = []
+    for k in range(3):
+        ang = s / 50.0 * 2 * np.pi + fase * (1 + 0.15 * k) + k * 2 * np.pi / 3
+        amp = (7.5 + 2.5 * np.sin(s / 17 + fase * 2 + k)) * envol + 1
+        pts = e + norm * (amp * np.sin(ang))[:, None]
+        prof = np.cos(ang)
+        # liga/desliga ao longo do fio (tremula a cada quadro)
+        ligado = np.sin(s / 9.0 - fase * 3.1 + k * 2.3) + 0.5 * np.sin(s / 4.3 + fase * 5 + k) > -0.35
+        i = 0
+        while i < len(pts) - 1:
+            if not ligado[i]:
+                i += 1
+                continue
+            j = i
+            while j < len(pts) - 1 and ligado[j]:
+                j += 1
+            if j - i >= 2:
+                u = np.linspace(0, np.pi, j - i + 1)
+                larg = (1.5 + 4.8 * np.sin(u)) * (0.6 + 0.4 * (prof[i:j + 1] > 0)) * (0.4 + 0.6 * envol[i:j + 1])
+                trechos.append((pts[i:j + 1], larg, prof[i:j + 1].mean() > 0))
+            i = j + 1
 
-    def frente(d):
-        for pts, larg in fiapos:
-            _fita(d, pts, [w + 2 * SS for w in larg], BORDA)
-            _fita(d, pts, larg, ESCURO)
-        for pts, prof, larg in fios:
-            for i in range(len(pts) - 1):
-                if prof[i] > 0:
-                    _fita(d, pts[i:i + 2], [larg[i] + 2.4 * SS, larg[i + 1] + 2.4 * SS], BORDA)
-            for i in range(len(pts) - 1):
-                if prof[i] > 0:
-                    _fita(d, pts[i:i + 2], larg[i:i + 2], ESCURO)
-            # brilho: filete claro no meio do fio, só onde ele está mais "de frente"
-            for i in range(len(pts) - 1):
-                if prof[i] > 0.35:
-                    dx, dy = pts[i + 1] - pts[i]
-                    n = math.hypot(dx, dy) or 1
-                    off = np.array([dy, -dx]) / n * larg[i] * 0.22
-                    w = SS * (0.8 + 0.8 * prof[i])
-                    _fita(d, [pts[i] + off, pts[i + 1] + off], [w, w], LUZ)
+    # --- labaredas: línguas afinando que saem da lâmina para os lados
+    chamas = []
+    for _ in range(rnd.randint(8, 12)):
+        i = rnd.randrange(max(1, len(e) // 6), len(e))
+        lado = rnd.choice((-1, 1))
+        p = e[i].copy()
+        d = norm[i] * lado * 0.8 + tang[i] * rnd.uniform(-0.2, 0.7)
+        d /= np.hypot(*d)
+        tam = rnd.uniform(10, 22) * (0.5 + 0.5 * envol[i])
+        pts, larg = [], []
+        n = 7
+        for j in range(n):
+            pts.append(p.copy())
+            larg.append(5.5 * (1 - j / (n - 1)) ** 1.2 + 0.4)
+            ang = math.atan2(d[1], d[0]) + math.sin(j * 0.9 + fase * 2 + i) * 0.5
+            d = np.array([math.cos(ang), math.sin(ang)])
+            p = p + d * tam / n
+        chamas.append((np.array(pts), np.array(larg)))
 
-    rgb_t, m_t = _desenhar(W, H, tras)
-    rgb_f, m_f = _desenhar(W, H, frente)
-    out = q.copy()
-    al = out[..., 3] > 0
-    tudo = ml | m_t | m_f
-    # aura roxa em degradê em volta de tudo (só no vazio, não pinta o corpo)
-    dist = cv2.distanceTransform((~tudo).astype(np.uint8), cv2.DIST_L2, 5)
-    for lim, cor in ((4.6, (54, 16, 100)), (3.2, (96, 36, 180)), (1.8, (158, 86, 240))):
-        anel = (dist > 0) & (dist <= lim) & ~al
-        out[anel] = (*cor, 255)
-    m = m_t & ~ml
-    out[m, :3] = rgb_t[m].astype(np.uint8)
-    out[m, 3] = 255
-    out[m_f, :3] = rgb_f[m_f].astype(np.uint8)
-    out[m_f, 3] = 255
-    return out
+    def riscar(lista, extra, so_frente=None):
+        def pinta(d):
+            for pts, larg, *fr in lista:
+                if so_frente is not None and fr and fr[0] != so_frente:
+                    continue
+                _fita(d, [tuple(p * SS) for p in pts], [(w + extra) * SS for w in larg], 255)
+        return pinta
+
+    nucleo_f = _cobertura(W, H, riscar(trechos, 0, True))
+    borda_f = _cobertura(W, H, riscar(trechos, 2.2, True))
+    nucleo_t = _cobertura(W, H, riscar(trechos, 0, False))
+    chama_n = _cobertura(W, H, riscar(chamas, 0))
+    chama_b = _cobertura(W, H, riscar(chamas, 2.0))
+
+    out = q.astype(np.float32)
+    al = q[..., 3] > 0
+    # brilho difuso: blur da lâmina + energia
+    fonte = np.maximum(ml.astype(np.float32), np.maximum(borda_f, chama_b))
+    brilho = cv2.GaussianBlur(fonte, (0, 0), 5.5) * 2.1
+    brilho = np.clip(brilho, 0, 1)
+    cor_brilho = np.array([150, 70, 255], np.float32)
+    # no corpo: clareia em roxo
+    k = (brilho * 0.55)[..., None] * (al & ~ml)[..., None]
+    out[..., :3] = out[..., :3] * (1 - k) + cor_brilho * k
+    # no vazio: aura translúcida (alfa 0.5–0.85), com um pontilhado na franja
+    yy, xx = np.mgrid[:H, :W]
+    vazio = ~al
+    forte = vazio & (brilho > 0.22)
+    franja = vazio & (brilho > 0.12) & (brilho <= 0.22) & ((xx + yy + int(fase * 7)) % 2 == 0)
+    tom = np.clip((brilho - 0.12) / 0.6, 0, 1)[..., None]
+    cor = np.array([70, 20, 140], np.float32) * (1 - tom) + np.array([176, 104, 255], np.float32) * tom
+    for m, a0 in ((forte, 150), (franja, 132)):
+        out[m, :3] = cor[m]
+        out[m, 3] = np.clip(a0 + tom[m, 0] * 90, 0, 225)
+
+    def por(cob, rgb, lim=0.45, somente_fora=None):
+        m = cob > lim
+        if somente_fora is not None:
+            m &= ~somente_fora
+        out[m, :3] = rgb
+        out[m, 3] = 255
+
+    # energia de trás (só fora da lâmina), labaredas, energia da frente
+    por(nucleo_t, (40, 10, 72), somente_fora=ml)
+    por(chama_b, (132, 60, 230))
+    por(chama_n, (14, 4, 24))
+    por(borda_f, (150, 76, 245))
+    por(nucleo_f, (8, 2, 14))
+    # miolo quente: um filete lilás no meio dos trechos mais grossos da frente
+    miolo = cv2.erode((nucleo_f > 0.5).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    out[miolo, :3] = (52, 16, 92)
+    # faíscas: pontinhos claros soltos em volta
+    ys, xs = np.nonzero(borda_f > 0.3)
+    for _ in range(min(len(ys), 10)):
+        i = rnd.randrange(len(ys))
+        y, x = ys[i] + rnd.randint(-8, 8), xs[i] + rnd.randint(-8, 8)
+        if 0 <= y < H - 1 and 0 <= x < W - 1:
+            out[y:y + 2, x:x + 2] = (225, 190, 255, 255)
+    return np.clip(out, 0, 255).astype(np.uint8)
 
 
 # quadros (1..12) com a espada fora da bainha em todos os ataques
