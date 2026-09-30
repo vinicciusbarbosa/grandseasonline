@@ -297,18 +297,19 @@ def _cobertura(W, H, pinta):
     return a.reshape(H, SS, W, SS).mean((1, 3))
 
 
-def espiral(q, ml, guarda, fase, semente=0):
+def espiral(q, ml, guarda, fase, semente=0, esc=1.0):
     """Haki do anime como AURA: energia negra enrolando e girando na lâmina
     (fios que se partem e tremulam), labaredas negras de borda roxa saindo
     dela, faíscas e um brilho roxo difuso e translúcido em volta.
     O jogo mostra pixels com alfa ≥ 0.5 (misturando), então o brilho usa
-    alfa entre 0.5 e 0.9 no vazio e clareia o que está por baixo no corpo."""
+    alfa entre 0.5 e 0.9 no vazio e clareia o que está por baixo no corpo.
+    `esc`: tamanho do efeito (1 = lâmina do almirante, ~200 px)."""
     e = eixo(ml, guarda)
     if e is None:
         return q
     tg = e[-1] - e[-3]
     tg /= np.hypot(*tg) or 1
-    e = np.vstack([e, e[-1] + tg * 5, e[-1] + tg * 10])
+    e = np.vstack([e, e[-1] + tg * 5 * esc, e[-1] + tg * 10 * esc])
     seg = np.diff(e, axis=0)
     comp = np.hypot(seg[:, 0], seg[:, 1]) + 1e-6
     s = np.r_[0, np.cumsum(comp)]
@@ -323,12 +324,12 @@ def espiral(q, ml, guarda, fase, semente=0):
     # --- fios de energia: espiral que se parte em trechos e afina nas pontas
     trechos = []
     for k in range(3):
-        ang = s / 50.0 * 2 * np.pi + fase * (1 + 0.15 * k) + k * 2 * np.pi / 3
-        amp = (7.5 + 2.5 * np.sin(s / 17 + fase * 2 + k)) * envol + 1
+        ang = s / (50.0 * esc) * 2 * np.pi + fase * (1 + 0.15 * k) + k * 2 * np.pi / 3
+        amp = ((7.5 + 2.5 * np.sin(s / (17 * esc) + fase * 2 + k)) * envol + 1) * esc
         pts = e + norm * (amp * np.sin(ang))[:, None]
         prof = np.cos(ang)
         # liga/desliga ao longo do fio (tremula a cada quadro)
-        ligado = np.sin(s / 9.0 - fase * 3.1 + k * 2.3) + 0.5 * np.sin(s / 4.3 + fase * 5 + k) > -0.35
+        ligado = np.sin(s / (9.0 * esc) - fase * 3.1 + k * 2.3) + 0.5 * np.sin(s / (4.3 * esc) + fase * 5 + k) > -0.35
         i = 0
         while i < len(pts) - 1:
             if not ligado[i]:
@@ -339,7 +340,7 @@ def espiral(q, ml, guarda, fase, semente=0):
                 j += 1
             if j - i >= 2:
                 u = np.linspace(0, np.pi, j - i + 1)
-                larg = (1.5 + 4.8 * np.sin(u)) * (0.6 + 0.4 * (prof[i:j + 1] > 0)) * (0.4 + 0.6 * envol[i:j + 1])
+                larg = esc * (1.5 + 4.8 * np.sin(u)) * (0.6 + 0.4 * (prof[i:j + 1] > 0)) * (0.4 + 0.6 * envol[i:j + 1])
                 trechos.append((pts[i:j + 1], larg, prof[i:j + 1].mean() > 0))
             i = j + 1
 
@@ -350,13 +351,13 @@ def espiral(q, ml, guarda, fase, semente=0):
         lado = rnd.choice((-1, 1))
         p = e[i].copy()
         d = norm[i] * lado * 0.8 + tang[i] * rnd.uniform(-0.2, 0.7)
-        d /= np.hypot(*d)
-        tam = rnd.uniform(10, 22) * (0.5 + 0.5 * envol[i])
+        d /= np.hypot(*d) or 1
+        tam = rnd.uniform(10, 22) * (0.5 + 0.5 * envol[i]) * esc
         pts, larg = [], []
         n = 7
         for j in range(n):
             pts.append(p.copy())
-            larg.append(5.5 * (1 - j / (n - 1)) ** 1.2 + 0.4)
+            larg.append((5.5 * (1 - j / (n - 1)) ** 1.2 + 0.4) * esc)
             ang = math.atan2(d[1], d[0]) + math.sin(j * 0.9 + fase * 2 + i) * 0.5
             d = np.array([math.cos(ang), math.sin(ang)])
             p = p + d * tam / n
@@ -371,16 +372,16 @@ def espiral(q, ml, guarda, fase, semente=0):
         return pinta
 
     nucleo_f = _cobertura(W, H, riscar(trechos, 0, True))
-    borda_f = _cobertura(W, H, riscar(trechos, 2.2, True))
+    borda_f = _cobertura(W, H, riscar(trechos, 2.2 * max(esc, 0.5), True))
     nucleo_t = _cobertura(W, H, riscar(trechos, 0, False))
     chama_n = _cobertura(W, H, riscar(chamas, 0))
-    chama_b = _cobertura(W, H, riscar(chamas, 2.0))
+    chama_b = _cobertura(W, H, riscar(chamas, 2.0 * max(esc, 0.5)))
 
     out = q.astype(np.float32)
     al = q[..., 3] > 0
     # brilho difuso: blur da lâmina + energia
     fonte = np.maximum(ml.astype(np.float32), np.maximum(borda_f, chama_b))
-    brilho = cv2.GaussianBlur(fonte, (0, 0), 5.5) * 2.1
+    brilho = cv2.GaussianBlur(fonte, (0, 0), 5.5 * max(esc, 0.45)) * 2.1
     brilho = np.clip(brilho, 0, 1)
     cor_brilho = np.array([150, 70, 255], np.float32)
     # no corpo: clareia em roxo
@@ -411,13 +412,14 @@ def espiral(q, ml, guarda, fase, semente=0):
     por(borda_f, (150, 76, 245))
     por(nucleo_f, (8, 2, 14))
     # miolo quente: um filete lilás no meio dos trechos mais grossos da frente
-    miolo = cv2.erode((nucleo_f > 0.5).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    miolo = cv2.erode((nucleo_f > 0.5).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0 if esc > 0.6 else np.zeros(q.shape[:2], bool)
     out[miolo, :3] = (52, 16, 92)
     # faíscas: pontinhos claros soltos em volta
     ys, xs = np.nonzero(borda_f > 0.3)
     for _ in range(min(len(ys), 10)):
         i = rnd.randrange(len(ys))
-        y, x = ys[i] + rnd.randint(-8, 8), xs[i] + rnd.randint(-8, 8)
+        y, x = ys[i] + rnd.randint(-8, 8) * esc, xs[i] + rnd.randint(-8, 8) * esc
+        y, x = int(y), int(x)
         if 0 <= y < H - 1 and 0 <= x < W - 1:
             out[y:y + 2, x:x + 2] = (225, 190, 255, 255)
     return np.clip(out, 0, 255).astype(np.uint8)

@@ -25,73 +25,169 @@
   "parado": {
    "N": {
     "arquivo": "parado_N.png",
-    "quadros": 1
+    "quadros": 1,
+    "variantes": {
+     "haki": {
+      "arquivo": "parado-haki_N.png",
+      "quadros": 1
+     }
+    }
    },
    "W": {
     "arquivo": "parado_W.png",
-    "quadros": 1
+    "quadros": 1,
+    "variantes": {
+     "haki": {
+      "arquivo": "parado-haki_W.png",
+      "quadros": 1
+     }
+    }
    },
    "S": {
     "arquivo": "parado_S.png",
-    "quadros": 1
+    "quadros": 1,
+    "variantes": {
+     "haki": {
+      "arquivo": "parado-haki_S.png",
+      "quadros": 1
+     }
+    }
    },
    "E": {
     "arquivo": "parado_E.png",
-    "quadros": 1
+    "quadros": 1,
+    "variantes": {
+     "haki": {
+      "arquivo": "parado-haki_E.png",
+      "quadros": 1
+     }
+    }
    }
   },
   "andar": {
    "N": {
     "arquivo": "andar_N.png",
-    "quadros": 8
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_N.png",
+      "quadros": 8
+     }
+    }
    },
    "W": {
     "arquivo": "andar_W.png",
-    "quadros": 8
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_W.png",
+      "quadros": 8
+     }
+    }
    },
    "S": {
     "arquivo": "andar_S.png",
-    "quadros": 8
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_S.png",
+      "quadros": 8
+     }
+    }
    },
    "E": {
     "arquivo": "andar_E.png",
-    "quadros": 8
-   }
-  },
-  "correr": {
-   "N": {
-    "arquivo": "correr_N.png",
-    "quadros": 8
-   },
-   "W": {
-    "arquivo": "correr_W.png",
-    "quadros": 8
-   },
-   "S": {
-    "arquivo": "correr_S.png",
-    "quadros": 8
-   },
-   "E": {
-    "arquivo": "correr_E.png",
-    "quadros": 8
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_E.png",
+      "quadros": 8
+     }
+    }
    }
   },
   "atacar": {
    "N": {
     "arquivo": "atacar_N.png",
-    "quadros": 6
+    "quadros": 6,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_N.png",
+      "quadros": 6
+     }
+    }
    },
    "W": {
     "arquivo": "atacar_W.png",
-    "quadros": 6
+    "quadros": 6,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_W.png",
+      "quadros": 6
+     }
+    }
    },
    "S": {
     "arquivo": "atacar_S.png",
-    "quadros": 6
+    "quadros": 6,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_S.png",
+      "quadros": 6
+     }
+    }
    },
    "E": {
     "arquivo": "atacar_E.png",
-    "quadros": 6
+    "quadros": 6,
+    "variantes": {
+     "haki": {
+      "arquivo": "atacar-haki_E.png",
+      "quadros": 6
+     }
+    }
+   }
+  },
+  "correr": {
+   "N": {
+    "arquivo": "andar_N.png",
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_N.png",
+      "quadros": 8
+     }
+    }
+   },
+   "W": {
+    "arquivo": "andar_W.png",
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_W.png",
+      "quadros": 8
+     }
+    }
+   },
+   "S": {
+    "arquivo": "andar_S.png",
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_S.png",
+      "quadros": 8
+     }
+    }
+   },
+   "E": {
+    "arquivo": "andar_E.png",
+    "quadros": 8,
+    "variantes": {
+     "haki": {
+      "arquivo": "andar-haki_E.png",
+      "quadros": 8
+     }
+    }
    }
   }
  },
