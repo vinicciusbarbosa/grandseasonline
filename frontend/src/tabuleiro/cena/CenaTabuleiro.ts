@@ -80,6 +80,7 @@ export class CenaTabuleiro {
   private readonly matCura: THREE.MeshBasicMaterial
   private readonly matDestino: THREE.MeshBasicMaterial
   private readonly matArea: THREE.MeshBasicMaterial
+  private readonly matMira: THREE.MeshBasicMaterial
   private readonly mar: ReturnType<typeof criarMar>
   private readonly navios: ReturnType<typeof montarNavios>
   private tempo = 0
@@ -151,9 +152,10 @@ export class CenaTabuleiro {
     this.cena.add(this.mar.mar)
 
     this.matAlcance = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(160,230,255,0.95)', 'rgba(90,170,230,0.28)'), transparent: true, depthWrite: false })
-    this.matAlvo = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,110,90,1)', 'rgba(230,60,40,0.30)'), transparent: true, depthWrite: false })
+    this.matAlvo = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,90,70,1)', 'rgba(240,50,30,0.55)'), transparent: true, depthWrite: false })
     this.matCura = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(120,255,140,1)', 'rgba(60,220,90,0.28)'), transparent: true, depthWrite: false })
     this.matDestino = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,220,90,1)', 'rgba(255,200,60,0.22)'), transparent: true, depthWrite: false })
+    this.matMira = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,110,90,0.45)', 'rgba(230,60,40,0.10)'), transparent: true, depthWrite: false })
     this.matArea = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,160,40,1)', 'rgba(255,120,30,0.45)'), transparent: true, depthWrite: false })
     this.moldura = new THREE.Mesh(
       this.geoCasa,
@@ -221,7 +223,7 @@ export class CenaTabuleiro {
   private readonly palco = {
     personagem: (id: string) => this.personagens.find((p) => p.id === id),
     marcar: (c: Casa, tipo: Marca) =>
-      this.marcar(c, { mover: this.matAlcance, alvo: this.matAlvo, cura: this.matCura, destino: this.matDestino, area: this.matArea }[tipo]),
+      this.marcar(c, { mover: this.matAlcance, alcance: this.matMira, alvo: this.matAlvo, cura: this.matCura, destino: this.matDestino, area: this.matArea }[tipo]),
     limparMarcas: () => this.limparMarcas(),
     flutuar: (p: Personagem, texto: string, cor: string, linha = 0) => {
       const s = this.acimaDe(p, 0.75 + linha * 0.3)
@@ -797,6 +799,7 @@ export class CenaTabuleiro {
       return
     }
     const alvo = this.pegar(ev)
+    this.batalha?.sobre(alvo?.casa ?? null)
     if (!alvo) {
       this.hover.visible = false
       this.renderer.domElement.style.cursor = 'default'
@@ -834,6 +837,8 @@ export class CenaTabuleiro {
 
   private marcar(c: Casa, mat: THREE.Material) {
     const m = new THREE.Mesh(this.geoCasa, mat)
+    // de baixo para cima: alcance, movimento, alvo/cura, área
+    m.renderOrder = mat === this.matMira ? 0.1 : mat === this.matAlcance ? 0.2 : mat === this.matArea ? 0.4 : 0.3
     const p = centroCasa(c.l, c.c)
     m.rotation.x = -Math.PI / 2
     m.position.set(p.x, 0.003, p.z)

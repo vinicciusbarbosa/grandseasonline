@@ -124,12 +124,13 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   - Turno **alternado** (mudou: o simultâneo não combina com o tabuleiro —
     o movimento de um estragaria o plano do outro). Quem começa depende da
     **agilidade**; um lado age enquanto o outro assiste, e a vez passa na
-    hora. Postura secreta fica para depois. Cada tripulação tem um
-    **número limitado de ações por turno**,
-    usadas como o jogador quiser (ex.: 5 ações = atacar 5 vezes com o mesmo
-    tripulante), desde que ele tenha os recursos (energia, espírito...).
-  - **Movimento com orçamento separado** das ações (casas por turno da
-    tripulação, como no Sugoi).
+    hora. Postura secreta fica para depois. **Como no Sugoi: UM ataque por
+    vez da tripulação** — usar uma skill (ou o Haki do Rei em área) encerra
+    a vez (mudou: várias ações por vez deixavam um personagem atacar 5
+    vezes, muito roubado). Skills com **recarga** (vezes da tripulação sem
+    poder usar de novo); o golpe básico da arma não tem recarga.
+  - **Movimento igual ao Sugoi**: 5 movimentos por vez para a tripulação
+    toda (1 casa cada, em 8 direções), antes do ataque.
   - **Haki de armamento**: o jogador liga nos ataques; usos por batalha
     limitados pela **maestria** (ex.: maestria 100 → 10 usos, 50 → 5).
     **Armamento avançado**: fura % da defesa, dá bônus de dano e (quando a
@@ -164,9 +165,15 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
     próprio **espírito** — sobe pouco a pouco a cada turno e mais ao acertar
     ou ser atingido; é gasto para usar o Haki do Rei.
   - **Vez da tripulação** (testar primeiro): o lado mais ágil começa; na sua
-    vez gasta as ações e o movimento com quem quiser. Depois testar a **fila
-    por personagem** (ordem pela AGL de cada um). **Tempo por vez** (2 min):
-    estourar dá penalidade (qual, a definir).
+    vez anda com quem quiser e ataca uma vez. Depois testar a **fila por
+    personagem** (ordem pela AGL de cada um). **Tempo por vez** igual ao
+    Sugoi: 90 s; quem perde a vez pelo tempo 3 vezes passa a ter só 30 s.
+  - **Mirar**: escolher um pirata já deixa o golpe básico pronto; inimigos
+    que dá para acertar ficam em vermelho forte, o alcance em vermelho
+    fraco e a área do golpe em laranja. Mouse: passar por cima mostra a
+    área e um clique ataca; toque: o primeiro toque mostra a área e o botão
+    "Atacar", o segundo confirma. Clicar no inimigo ou na casa dele dá no
+    mesmo. Golpe que não pega ninguém não é aceito (não gasta a vez à toa).
   - Tudo aqui é **teste**: o que ficar bom entra, o resto sai.
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
   determinístico pela semente — o servidor do multiplayer usa o mesmo):

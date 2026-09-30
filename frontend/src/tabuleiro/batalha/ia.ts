@@ -1,6 +1,6 @@
 /**
- * IA simples para a vez de um lado: decide uma ação de cada vez (o
- * resultado de cada golpe muda a próxima escolha). Liga a observação de
+ * IA simples para a vez de um lado: decide uma ação de cada vez — anda
+ * (dentro dos 5 movimentos) e ataca uma vez, o que encerra a vez. Liga a observação de
  * quem está perto do inimigo, solta o Haki do Rei quando pega vários,
  * escolhe o golpe de mais dano esperado (andando antes, se precisar), usa o
  * armamento contra a Logia e a médica cura quem está ferido.
@@ -41,7 +41,7 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
   const inimigos = vivos(e, outro(c.lado))
   const aliados = vivos(e, c.lado)
   for (const s of skillsDe(c)) {
-    if (c.energia < s.energia) continue
+    if (c.energia < s.energia || c.recargas[s.id]) continue
     // casas candidatas: inimigos (e aliados, para curar) e, para área, a própria casa
     const alvos: Casa[] = s.area === 'volta' ? [de] : s.cura ? aliados.map((a) => a.casa) : inimigos.map((i) => i.casa)
     for (const alvo of alvos) {
@@ -96,7 +96,7 @@ export function proximaAcao(e: Estado): Acao {
   for (const c of vivos(e, lado)) {
     if (!c.observando && (c.haki.observacao?.usos ?? 0) > 0 && perto(c, 4)) return { t: 'observar', id: c.id, ligado: true }
   }
-  if (e.acoes > 0) {
+  {
     // Haki do Rei em área, se pega pelo menos dois mais fracos
     for (const c of meus) {
       if (!c.haki.rei || c.espirito < HAOSHOKU.espirito) continue

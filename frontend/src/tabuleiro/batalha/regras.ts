@@ -2,10 +2,11 @@
  * Regras da batalha de tripulação — protótipo de TESTE (DESIGN.md: nada aqui
  * está fechado; o que ficar bom entra no jogo).
  *
- * Vez da tripulação: o lado mais ágil começa. Na sua vez, a tripulação tem
- * um número de AÇÕES (usar uma skill = 1 ação, com qualquer tripulante,
- * quantas vezes quiser, se tiver energia) e um ORÇAMENTO DE MOVIMENTO em
- * casas, dividido entre todos. Depois passa a vez (ou o tempo acaba).
+ * Vez da tripulação, como no Sugoi: o lado mais ágil começa. Na sua vez, a
+ * tripulação tem 5 MOVIMENTOS (1 casa cada, em 8 direções) divididos entre
+ * todos e UM ataque: usar uma skill (ou o Haki do Rei em área) encerra a
+ * vez. Skills fortes têm RECARGA (vezes da tripulação sem poder usar).
+ * 90 s por vez; quem perde 3 vezes pelo tempo passa a ter só 30 s.
  *
  * Recursos de cada personagem:
  *   - energia  : paga as skills da arma; volta um pouco a cada vez;
@@ -68,6 +69,8 @@ export type Combatente = {
   observando: boolean
   /** Haki do Rei / congelado: perde a próxima vez */
   atordoado: boolean
+  /** skill → vezes da tripulação que ainda faltam para poder usar */
+  recargas: Record<string, number>
   /** queimadura: dano no começo de cada vez */
   queimadura: { dano: number; vezes: number } | null
 }
@@ -77,8 +80,9 @@ export type Estado = {
   vez: Lado
   /** quantas vezes já passou (1 = primeira vez do primeiro lado) */
   turno: number
-  acoes: number
   movimento: number
+  /** vezes perdidas pelo tempo (3 ou mais: vez de 30 s) */
+  perdidas: Record<Lado, number>
   semente: number
   vencedor: Lado | null
 }
@@ -104,9 +108,10 @@ export type Evento =
   | { t: 'fim'; vencedor: Lado }
 
 // ------------------------------------------------------------ números (teste)
-export const ACOES_POR_VEZ = 5
-export const MOVIMENTO_POR_VEZ = 8
-export const TEMPO_POR_VEZ = 120 // s
+export const MOVIMENTO_POR_VEZ = 5
+export const TEMPO_POR_VEZ = 90 // s
+export const TEMPO_PENALIDADE = 30 // s, depois de perder 3 vezes pelo tempo
+export const tempoDaVez = (e: Estado) => (e.perdidas[e.vez] >= 3 ? TEMPO_PENALIDADE : TEMPO_POR_VEZ)
 export const ENERGIA_MAX = 100
 export const ENERGIA_INICIAL = 60
 export const ENERGIA_POR_VEZ = 20
@@ -123,7 +128,7 @@ export const REI_IMBUIDO = { espirito: 40, mult: 1.6 }
  * explode e anula; atacante que vence ganha `bonus` no golpe; que perde
  * leva de volta o dano base puro. */
 export const CLASH = { espirito: 30, empate: 3, bonus: 1.3 }
-export const FORCA = 0.8
+export const FORCA = 1.4
 const MULT_ARMAMENTO = 1.25
 const MULT_AVANCADO = 1.4
 const FURA_AVANCADO = 0.3
@@ -201,6 +206,7 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
     c.observando = false
     c.atordoado = false
     c.queimadura = null
+    c.recargas = {}
   }
   const media = (l: Lado) => {
     const v = cs.filter((c) => c.lado === l)
@@ -210,7 +216,7 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
   const dp = media('piratas')
   const dm = media('marinha')
   const vez: Lado = dp > dm ? 'piratas' : dm > dp ? 'marinha' : rnd() < 0.5 ? 'piratas' : 'marinha'
-  return { combatentes: cs, vez, turno: 1, acoes: ACOES_POR_VEZ, movimento: MOVIMENTO_POR_VEZ, semente: Math.floor(rnd() * 2147483646) + 1, vencedor: null }
+  return { combatentes: cs, vez, turno: 1, movimento: MOVIMENTO_POR_VEZ, perdidas: { piratas: 0, marinha: 0 }, semente: Math.floor(rnd() * 2147483646) + 1, vencedor: null }
 }
 
 // ------------------------------------------------------------ ações
@@ -243,13 +249,13 @@ export function motivo(e: Estado, a: Acao): string | null {
     }
     return null
   }
-  if (e.acoes <= 0) return 'Sem ações nesta vez.'
   if (a.t === 'haoshoku') {
     if (!c.haki.rei) return `${c.nome} não tem Haki do Rei.`
     return c.espirito < HAOSHOKU.espirito ? `Espírito insuficiente (${HAOSHOKU.espirito}).` : null
   }
   const s = skillsDe(c).find((x) => x.id === a.skill)
   if (!s) return 'Skill inválida.'
+  if (c.recargas[s.id]) return `Em recarga (${c.recargas[s.id]}).`
   if (c.energia < s.energia) return 'Energia insuficiente.'
   if (!alvoValido(s, c.casa, a.alvo)) return 'Fora de alcance.'
   if (a.armamento && !c.haki.armamento?.usos) return 'Sem usos de Haki de armamento.'
@@ -261,6 +267,10 @@ export function motivo(e: Estado, a: Acao): string | null {
   if (s.cura) {
     const o = ocupante(e, a.alvo)
     if (!o || o.lado !== c.lado) return 'Escolha um aliado.'
+  } else if (!s.transforma) {
+    // não deixa gastar a vez num golpe que não pega ninguém
+    const pega = casasDaArea(s, c.casa, a.alvo).some((x) => dentro(x) && ocupante(e, x)?.lado === outro(c.lado))
+    if (!pega) return s.area === 'alvo' ? 'Escolha um inimigo.' : 'Nenhum inimigo na área.'
   }
   return null
 }
@@ -283,6 +293,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
   }
 
   /** resultado do choque de Haki do Rei por alvo, nesta ação */
+  let fimDaVez = false
   const clashes = new Map<string, 'venceu' | 'perdeu' | 'empate'>()
 
   /** Um golpe de `c` em `alvo`. */
@@ -382,7 +393,6 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     case 'haoshoku': {
       const c = porId(e, a.id)!
       c.espirito -= HAOSHOKU.espirito
-      e.acoes--
       ev.push({ t: 'haoshoku', id: c.id })
       for (const o of vivos(e, outro(c.lado))) {
         if (distancia(o.casa, c.casa) > HAOSHOKU.raio) continue
@@ -399,7 +409,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       const armamento = !!a.armamento
       const rei = !!a.rei
       c.energia -= s.energia
-      e.acoes--
+      if (s.recarga) c.recargas[s.id] = s.recarga + 1 // conta a partir do fim desta vez
       if (armamento) c.haki.armamento!.usos--
       if (rei) c.espirito -= REI_IMBUIDO.espirito
       const casas = casasDaArea(s, c.casa, a.alvo).filter(dentro)
@@ -426,29 +436,41 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     }
     case 'passar':
     case 'tempo': {
-      if (a.t === 'tempo') ev.push({ t: 'tempo', lado: e.vez })
-      // quem estava atordoado perdeu esta vez
-      for (const c of vivos(e, e.vez)) c.atordoado = false
-      e.vez = outro(e.vez)
-      e.turno++
-      e.acoes = ACOES_POR_VEZ
-      e.movimento = MOVIMENTO_POR_VEZ
-      for (const c of vivos(e, e.vez)) {
-        if (c.queimadura) {
-          const d = Math.min(c.hp - 1, c.queimadura.dano) // queimadura não derruba
-          if (d > 0) {
-            c.hp -= d
-            ev.push({ t: 'queimou', id: c.id, dano: d })
-          }
-          if (--c.queimadura.vezes <= 0) c.queimadura = null
-        }
-        if (c.akuma?.transformado) c.akuma.transformado--
-        c.energia = Math.min(ENERGIA_MAX, c.energia + ENERGIA_POR_VEZ)
-        espirito(c, ESPIRITO_POR_VEZ)
+      if (a.t === 'tempo') {
+        e.perdidas[e.vez]++
+        ev.push({ t: 'tempo', lado: e.vez })
       }
-      ev.push({ t: 'vez', lado: e.vez, turno: e.turno })
+      fimDaVez = true
       break
     }
+  }
+  // atacar (skill ou Haki do Rei em área) encerra a vez, como no Sugoi
+  if (a.t === 'skill' || a.t === 'haoshoku') fimDaVez = true
+
+  const acabou = ['piratas', 'marinha'].some((l) => !vivos(e, l as Lado).length)
+  if (fimDaVez && !acabou) {
+    // quem estava atordoado perdeu esta vez; as recargas andam uma vez
+    for (const c of vivos(e, e.vez)) {
+      c.atordoado = false
+      for (const k of Object.keys(c.recargas)) if (--c.recargas[k] <= 0) delete c.recargas[k]
+    }
+    e.vez = outro(e.vez)
+    e.turno++
+    e.movimento = MOVIMENTO_POR_VEZ
+    for (const c of vivos(e, e.vez)) {
+      if (c.queimadura) {
+        const d = Math.min(c.hp - 1, c.queimadura.dano) // queimadura não derruba
+        if (d > 0) {
+          c.hp -= d
+          ev.push({ t: 'queimou', id: c.id, dano: d })
+        }
+        if (--c.queimadura.vezes <= 0) c.queimadura = null
+      }
+      if (c.akuma?.transformado) c.akuma.transformado--
+      c.energia = Math.min(ENERGIA_MAX, c.energia + ENERGIA_POR_VEZ)
+      espirito(c, ESPIRITO_POR_VEZ)
+    }
+    ev.push({ t: 'vez', lado: e.vez, turno: e.turno })
   }
 
   for (const lado of ['piratas', 'marinha'] as Lado[]) {

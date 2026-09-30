@@ -57,8 +57,8 @@ export const TRIPULACOES: Membro[] = [
   { id: 'pirata-lutador', nome: 'Lutador', papel: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'borracha' },
   { id: 'pirata-atiradora', nome: 'Atiradora', papel: 'atirador', lado: 'piratas', casa: { l: 2, c: 6 }, dir: 'S', haki: haki(50, null, null, true) },
   { id: 'pirata-medico', nome: 'Médico', papel: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S' },
-  { id: 'marinha-almirante', nome: 'Comandante', papel: 'capitao', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true], [2, false], true), akuma: 'fumaca', cargasLogia: 5 },
-  { id: 'marinha-oficial', nome: 'Oficial', papel: 'espadachim', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [3, true]) },
+  { id: 'marinha-almirante', nome: 'Comandante', papel: 'capitao', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true], [2, false], true), akuma: 'fumaca', cargasLogia: 3 },
+  { id: 'marinha-oficial', nome: 'Oficial', papel: 'espadachim', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [2, true]) },
   { id: 'marinha-soldado', nome: 'Soldado', papel: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'bisao' },
   { id: 'marinha-atirador', nome: 'Atirador', papel: 'atirador', lado: 'marinha', casa: { l: 7, c: 6 }, dir: 'N', haki: haki(50, null, null, true) },
   { id: 'marinha-enfermeira', nome: 'Enfermeira', papel: 'medico', lado: 'marinha', casa: { l: 7, c: 12 }, dir: 'N' },
@@ -85,6 +85,7 @@ export function combatentesIniciais(): Combatente[] {
       logia: m.cargasLogia ? { cargas: m.cargasLogia, max: m.cargasLogia } : null,
       observando: false,
       atordoado: false,
+      recargas: {},
       queimadura: null,
     }
   })

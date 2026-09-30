@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
-import { ACOES_POR_VEZ, MOVIMENTO_POR_VEZ } from './regras'
+import { MOVIMENTO_POR_VEZ } from './regras'
 
 /**
  * HUD da batalha (protótipo de teste, vez da tripulação):
@@ -172,13 +172,13 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
           {b.fase === 'minha' && <span style={{ color: b.tempo <= 20 ? '#ff6a5a' : '#dfe6f3' }}> · {Math.floor(b.tempo / 60)}:{String(b.tempo % 60).padStart(2, '0')}</span>}
         </div>
         <div>
-          Ações{' '}
-          {Array.from({ length: ACOES_POR_VEZ }, (_, i) => (
-            <span key={i} style={{ color: i < b.acoes ? '#ffd34a' : '#333a4a' }}>
+          Movimento{' '}
+          {Array.from({ length: MOVIMENTO_POR_VEZ }, (_, i) => (
+            <span key={i} style={{ color: i < b.movimento ? '#8ac4ff' : '#333a4a' }}>
               ◆
             </span>
           ))}{' '}
-          · Movimento {b.movimento}/{MOVIMENTO_POR_VEZ}
+          · 1 ataque encerra a vez
         </div>
         <div style={{ color: '#b8c4da', fontWeight: 400, marginTop: 2 }}>{b.dica}</div>
       </div>
@@ -213,12 +213,13 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
               >
                 {k.nome}
                 <span style={{ color: '#4ab0ff', fontWeight: 400 }}> {k.energia}</span>
+                {k.recarga > 0 && <span style={{ color: '#ff9a4a', fontWeight: 400 }}> ⟳{k.recarga}</span>}
               </Botao>
             ))}
           </div>
           {skill && (
             <div style={{ color: '#9aa6bc', fontWeight: 400 }}>
-              {skill.descricao} (alcance {skill.alcance}, área {skill.area})
+              {skill.descricao} (alcance {skill.alcance}, área {skill.area}{skill.espera ? `, recarga ${skill.espera}` : ''})
             </div>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -242,9 +243,9 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                 Haki do Rei (área)
               </Botao>
             )}
-            {skill && (skill.area === 'si' || skill.area === 'volta') && (
-              <Botao ativo onClick={() => c.usarPrevia()}>
-                Usar
+            {skill && s.previa && (
+              <Botao ativo grande cor="#ff8a5a" onClick={() => c.usarPrevia()} titulo="Usa a skill na área marcada (encerra a vez)">
+                Atacar ▸ {skill.nome}
               </Botao>
             )}
           </div>

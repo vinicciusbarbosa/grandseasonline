@@ -2,10 +2,10 @@
  * Controle da batalha na tela (protótipo de teste — vez da tripulação).
  *
  * Preparação: escolhe a Akuma no Mi e o Haki de cada personagem.
- * Sua vez: toque num pirata → casas azuis andam (gasta o movimento da
+ * Sua vez: toque num pirata → casas azuis andam (gasta os 5 movimentos da
  * tripulação); escolha uma skill no painel → casas vermelhas são alvos
- * válidos; toque num alvo para ver a área e toque de novo para usar
- * (gasta 1 ação e a energia). Liga o Haki de armamento / do Rei no painel.
+ * válidos; toque num alvo para ver a área e toque de novo para atacar —
+ * o ataque gasta a energia, põe a skill em recarga e encerra a vez. Liga o Haki de armamento / do Rei no painel.
  * Vez da Marinha: a IA joga, uma ação de cada vez, animada.
  *
  * Não desenha nada sozinho: pede ao `Palco` (a cena).
@@ -15,13 +15,13 @@ import * as THREE from 'three'
 import { mesmaCasa, type Casa } from '../tabuleiro'
 import type { Personagem } from '../cena/personagem'
 import type { Paleta, TipoEfeito } from '../cena/efeitos'
-import { FRUTAS, alvoValido, casasDaArea, type Skill } from './armas'
+import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill } from './armas'
 import { TRIPULACOES, combatentesIniciais } from './elenco'
 import { proximaAcao } from './ia'
 import {
   HAOSHOKU,
   REI_IMBUIDO,
-  TEMPO_POR_VEZ,
+  tempoDaVez,
   aplicar,
   criarBatalha,
   motivo,
@@ -36,7 +36,7 @@ import {
   type Lado,
 } from './regras'
 
-export type Marca = 'mover' | 'alvo' | 'cura' | 'destino' | 'area'
+export type Marca = 'mover' | 'alcance' | 'alvo' | 'cura' | 'destino' | 'area'
 
 export interface Palco {
   personagem(id: string): Personagem | undefined
@@ -135,7 +135,7 @@ function aplicarConfig(cs: Combatente[], cfg: Config[]) {
 }
 
 // ------------------------------------------------------------ HUD
-export type SkillHud = { id: string; nome: string; descricao: string; energia: number; alcance: number; area: string; motivo: string | null; fruta: boolean }
+export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; motivo: string | null; fruta: boolean }
 export type RetratoBatalha = {
   fase: 'preparar' | 'minha' | 'inimiga' | 'fim'
   animando: boolean
@@ -143,13 +143,13 @@ export type RetratoBatalha = {
   config: (Config & { nome: string; lado: Lado })[]
   turno: number
   vez: Lado
-  acoes: number
+  tempoMax: number
   movimento: number
   tempo: number
   vencedor: Lado | null
   tripulacao: FichaHud[]
   inimigos: FichaHud[]
-  selecionado: (FichaHud & { skills: SkillHud[]; skill: string | null; usarArmamento: boolean; usarRei: boolean; podeArmamento: boolean; podeRei: boolean; podeHaoshoku: boolean }) | null
+  selecionado: (FichaHud & { skills: SkillHud[]; skill: string | null; previa: boolean; usarArmamento: boolean; usarRei: boolean; podeArmamento: boolean; podeRei: boolean; podeHaoshoku: boolean }) | null
   log: string[]
   dica: string
 }
@@ -264,7 +264,7 @@ export class ControleBatalha {
   }
 
   private tempo() {
-    return Math.max(0, Math.ceil(TEMPO_POR_VEZ - (performance.now() - this.inicioVez) / 1000))
+    return Math.max(0, Math.ceil(tempoDaVez(this.estado) - (performance.now() - this.inicioVez) / 1000))
   }
 
   /** Aplica uma ação e anima. Devolve se deu certo. */
@@ -298,6 +298,31 @@ export class ControleBatalha {
   }
 
   // ------------------------------------------------------------ toques
+  /** mouse (passa por cima mostra a área; um clique ataca) ou toque (dois toques) */
+  private readonly umClique = typeof matchMedia !== 'undefined' && matchMedia('(hover: hover) and (pointer: fine)').matches
+
+  /** Skill em uso: a escolhida no painel ou o golpe básico da arma. */
+  private efetiva(c: Combatente): Skill | undefined {
+    const ss = skillsDe(c)
+    return (this.skill ? ss.find((x) => x.id === this.skill) : undefined) ?? ss.find((x) => x.energia === 0 && !x.cura && x.area === 'alvo')
+  }
+
+  private acaoEm(c: Combatente, s: Skill, casa: Casa): Acao {
+    return { t: 'skill', id: c.id, skill: s.id, alvo: casa, armamento: this.armamento, rei: this.rei }
+  }
+
+  /** Mouse passando por cima: mostra a área do golpe naquela casa. */
+  sobre(casa: Casa | null) {
+    if (this.fase !== 'minha' || this.animando || !this.sel) return
+    const c = porId(this.estado, this.sel)!
+    const s = this.efetiva(c)
+    if (!s || s.area === 'si' || s.area === 'volta') return
+    const nova = casa && !motivo(this.estado, this.acaoEm(c, s, casa)) ? casa : null
+    if ((nova && this.previa && mesmaCasa(nova, this.previa)) || (!nova && !this.previa)) return
+    this.previa = nova
+    this.redesenhar()
+  }
+
   clique(alvo: { casa: Casa; personagem: Personagem | null } | null) {
     if (this.fase !== 'minha' || this.animando) {
       if (alvo?.personagem) this.inspecionar(alvo.personagem.id)
@@ -305,27 +330,40 @@ export class ControleBatalha {
     }
     if (!alvo) return this.selecionar(null)
     const sel = this.sel ? porId(this.estado, this.sel) : null
-    const s = sel && this.skill ? skillsDe(sel).find((x) => x.id === this.skill) : null
-    if (sel && s) {
-      if (!alvoValido(s, sel.casa, alvo.casa)) {
-        this.dica = 'Fora do alcance da skill.'
-        return this.palco.avisar()
-      }
-      if (this.previa && mesmaCasa(this.previa, alvo.casa)) return void this.usar(alvo.casa)
-      this.previa = alvo.casa
-      this.dica = 'Toque de novo para confirmar.'
-      return this.redesenhar()
-    }
-    const c = alvo.personagem ? porId(this.estado, alvo.personagem.id) : null
-    if (c && c.hp > 0) {
-      if (c.lado === JOGADOR) return this.selecionar(c.id === this.sel ? null : c.id)
-      return this.inspecionar(c.id)
-    }
-    if (sel && this.mov?.caminho(alvo.casa)) {
-      void this.executar({ t: 'mover', id: sel.id, caminho: this.mov.caminho(alvo.casa)! })
+    const quem = alvo.personagem ? porId(this.estado, alvo.personagem.id) : null
+    const casa = quem ? quem.casa : alvo.casa
+    if (!sel) {
+      if (quem && quem.hp > 0 && quem.lado === JOGADOR) return this.selecionar(quem.id)
+      if (quem) this.inspecionar(quem.id)
       return
     }
-    this.selecionar(null)
+    const s = this.efetiva(sel)
+    const acao = s ? this.acaoEm(sel, s, casa) : null
+    const erro = acao ? motivo(this.estado, acao) : 'Sem skill.'
+    // pode atacar/curar ali: ataca (mouse) ou mostra a área e confirma (toque)
+    if (acao && !erro) {
+      if (this.umClique || (this.previa && mesmaCasa(this.previa, casa)) || s!.area === 'si' || s!.area === 'volta') return void this.executar(acao)
+      this.previa = casa
+      this.dica = `Toque de novo no alvo (ou em Atacar) para usar ${s!.nome}.`
+      return this.redesenhar()
+    }
+    // outro pirata: troca a seleção
+    if (quem && quem.lado === JOGADOR && quem.hp > 0) return this.selecionar(quem.id === sel.id ? null : quem.id)
+    // casa livre ao alcance do movimento: anda
+    const cam = !quem ? this.mov?.caminho(casa) : null
+    if (cam) return void this.executar({ t: 'mover', id: sel.id, caminho: cam })
+    // inimigo que não dá para atacar: diz por quê em cima dele
+    if (quem && quem.hp > 0) {
+      const p = this.palco.personagem(quem.id)
+      const d = distancia(sel.casa, quem.casa)
+      const txt = erro === 'Fora de alcance.' ? `Fora de alcance (${d} > ${s?.alcance})` : (erro ?? '')
+      if (p) this.palco.flutuar(p, txt, '#ff8a7a', 1)
+      this.dica = `${s?.nome ?? ''}: ${txt}. Aproxime-se (casas azuis) ou escolha outra skill.`
+      return this.palco.avisar()
+    }
+    this.previa = null
+    this.dica = erro === 'Fora de alcance.' || !erro ? 'Casa fora do movimento e do alcance.' : erro
+    this.redesenhar()
   }
 
   private inspecionar(id: string) {
@@ -343,19 +381,27 @@ export class ControleBatalha {
     this.rei = false
     if (id) {
       const c = porId(this.estado, id)!
-      this.dica = c.atordoado ? `${c.nome} está atordoado nesta vez.` : `${c.nome}: casa azul anda; escolha uma skill para atacar.`
+      this.dica = c.atordoado
+        ? `${c.nome} está atordoado nesta vez.`
+        : `${c.nome}: casas azuis andam; inimigo marcado em vermelho dá para atacar (${this.umClique ? 'clique nele' : 'toque nele'}).`
     } else this.dica = this.fase === 'minha' ? 'Sua vez: toque num pirata.' : ''
     this.redesenhar()
   }
 
   escolherSkill(id: string | null) {
     if (!this.sel) return
+    const c = porId(this.estado, this.sel)!
     this.skill = this.skill === id ? null : id
     this.previa = null
-    const c = porId(this.estado, this.sel)!
-    const s = this.skill ? skillsDe(c).find((x) => x.id === this.skill) : null
+    const s = this.efetiva(c)
     if (s && (s.area === 'si' || s.area === 'volta')) this.previa = c.casa
-    this.dica = s ? (s.area === 'si' || s.area === 'volta' ? 'Toque no personagem (ou em Usar) para confirmar.' : 'Toque numa casa vermelha para mirar.') : ''
+    this.dica = !s
+      ? ''
+      : s.area === 'si' || s.area === 'volta'
+        ? 'Toque no personagem ou em Atacar para usar.'
+        : s.area === 'alvo'
+          ? 'Inimigo marcado em vermelho forte = dá para acertar.'
+          : 'Mire numa casa vermelha: a área em laranja mostra quem é atingido.'
     this.redesenhar()
   }
 
@@ -390,8 +436,9 @@ export class ControleBatalha {
   }
 
   private async usar(alvo: Casa) {
-    if (!this.sel || !this.skill) return
-    await this.executar({ t: 'skill', id: this.sel, skill: this.skill, alvo, armamento: this.armamento, rei: this.rei })
+    const c = this.sel ? porId(this.estado, this.sel) : null
+    const s = c && this.efetiva(c)
+    if (c && s) await this.executar(this.acaoEm(c, s, alvo))
   }
 
   private redesenhar() {
@@ -399,17 +446,27 @@ export class ControleBatalha {
     this.mov = null
     const sel = this.sel ? porId(this.estado, this.sel) : null
     if (sel && this.fase === 'minha' && !sel.atordoado) {
-      const s = this.skill ? skillsDe(sel).find((x) => x.id === this.skill) : null
-      if (s) {
-        for (let l = 0; l < 10; l++)
-          for (let c = 0; c < 20; c++) {
-            const casa = { l, c }
-            if (alvoValido(s, sel.casa, casa)) this.palco.marcar(casa, s.cura ? 'cura' : 'alvo')
-          }
-        if (this.previa) for (const x of casasDaArea(s, sel.casa, this.previa)) this.palco.marcar(x, 'area')
-      } else if (this.estado.movimento > 0) {
+      const s = this.efetiva(sel)
+      // skill de área escolhida: só a mira (clicar numa casa livre não anda)
+      const soMira = !!this.skill && !!s && s.area !== 'alvo'
+      if (!soMira && this.estado.movimento > 0) {
         this.mov = movimentos(this.estado, sel)
         for (const c of this.mov.casas) this.palco.marcar(c, 'mover')
+      }
+      if (s) {
+        const mira = s.area === 'si' || s.area === 'volta'
+        if (!mira)
+          for (let l = 0; l < 10; l++)
+            for (let c = 0; c < 20; c++) {
+              const casa = { l, c }
+              if (alvoValido(s, sel.casa, casa)) this.palco.marcar(casa, 'alcance')
+            }
+        // quem dá para acertar (ou curar) agora
+        for (const o of vivos(this.estado)) {
+          if (o === sel && !mira) continue
+          if (!motivo(this.estado, this.acaoEm(sel, s, o.casa))) this.palco.marcar(o.casa, s.cura ? 'cura' : 'alvo')
+        }
+        if (this.previa) for (const x of casasDaArea(s, sel.casa, this.previa)) this.palco.marcar(x, 'area')
       }
     }
     this.palco.avisar()
@@ -740,9 +797,9 @@ export class ControleBatalha {
       config: this.config.map((k) => ({ ...k, nome: nomes.get(k.id)!.nome, lado: nomes.get(k.id)!.lado })),
       turno: e.turno,
       vez: e.vez,
-      acoes: e.acoes,
       movimento: e.movimento,
-      tempo: this.fase === 'minha' ? this.tempo() : TEMPO_POR_VEZ,
+      tempo: this.fase === 'minha' ? this.tempo() : tempoDaVez(e),
+      tempoMax: tempoDaVez(e),
       vencedor: e.vencedor,
       tripulacao: e.combatentes.filter((c) => c.lado === JOGADOR).map((c) => this.ficha(c)),
       inimigos: e.combatentes.filter((c) => c.lado !== JOGADOR).map((c) => this.ficha(c)),
@@ -757,9 +814,12 @@ export class ControleBatalha {
               alcance: k.alcance,
               area: k.area,
               fruta: !!s.akuma && FRUTAS[s.akuma.fruta].skills.includes(k),
-              motivo: s.energia < k.energia ? 'Energia insuficiente' : e.acoes <= 0 ? 'Sem ações' : s.atordoado ? 'Atordoado' : null,
+              recarga: s.recargas[k.id] ?? 0,
+              espera: k.recarga ?? 0,
+              motivo: s.recargas[k.id] ? `Recarga: ${s.recargas[k.id]} vez(es)` : s.energia < k.energia ? 'Energia insuficiente' : s.atordoado ? 'Atordoado' : null,
             })),
-            skill: this.skill,
+            skill: this.efetiva(s)?.id ?? null,
+            previa: !!this.previa,
             usarArmamento: this.armamento,
             usarRei: this.rei,
             podeArmamento: (s.haki.armamento?.usos ?? 0) > 0,
