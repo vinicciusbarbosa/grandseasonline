@@ -92,6 +92,13 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   (como acima), **contra a IA e também em multiplayer para testes** (dois
   jogadores pelo servidor de teste `/mp`: cada um manda o plano do turno,
   o servidor resolve e devolve o resultado para os dois).
+- **Batalha — decisões (conversa de 30/09)**:
+  turnos **simultâneos com postura secreta** (mantido); tripulação de **2 a
+  10** conforme o nível do capitão (tabela do `docs/projeto/OP_PROJECT.md`);
+  **movimento da tripulação inteira** (pontos de movimento do lado, como no
+  Sugoi); só algumas **profissões** dão efeito na batalha (médico, cozinheiro
+  e outras a definir). Em aberto: atributos (base do Sugoi, modificada?) e
+  árvore de habilidades (estilo Path of Exile?).
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
   determinístico pela semente — o servidor do multiplayer usa o mesmo):
   cada um anda até 3 casas e age; ordem por AGL. Golpes: comum, pesado
