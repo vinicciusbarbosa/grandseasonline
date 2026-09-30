@@ -25,6 +25,7 @@ import { proximaAcao } from './ia'
 import {
   HAOSHOKU,
   REI_IMBUIDO,
+  hakiPreparacao,
   tempoDaVez,
   aplicar,
   criarBatalha,
@@ -123,6 +124,8 @@ const VISUAL: Record<string, Visual> = {
   'gear-second': { efeito: 'vapor', modo: 'si', escala: 2 },
   'forma-hibrida': { efeito: 'poeira', modo: 'si', escala: 2 },
 }
+/** segundos de preparação (ligar o Haki) antes da batalha */
+const PREPARO = 10
 /** aparência de cada transformação/buff */
 const FORMAS: Record<string, 'zoan' | 'gear' | 'sabre'> = { bisao: 'zoan', borracha: 'gear', luz: 'sabre' }
 /** Efeitos de fruta não mudam de cor com o Haki; os de arma sim. */
@@ -132,7 +135,9 @@ const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura',
 // ------------------------------------------------------------ HUD
 export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; motivo: string | null; fruta: boolean }
 export type RetratoBatalha = {
-  fase: 'preparar' | 'minha' | 'inimiga' | 'fim'
+  fase: 'preparar' | 'haki' | 'minha' | 'inimiga' | 'fim'
+  /** segundos que faltam da preparação de Haki */
+  tempoHaki: number
   animando: boolean
   auto: boolean
   config: (Config & { nome: string; lado: Lado })[]
@@ -145,7 +150,7 @@ export type RetratoBatalha = {
   tripulacao: FichaHud[]
   inimigos: FichaHud[]
   selecionado: (FichaHud & { skills: SkillHud[]; skill: string | null; previa: boolean; usarArmamento: boolean; usarRei: boolean; podeArmamento: boolean; podeRei: boolean; podeHaoshoku: boolean }) | null
-  log: string[]
+  log: { t: number; texto: string }[]
   dica: string
 }
 export type HakiHud = { usos: number; max: number; avancado: boolean; ligado: boolean }
@@ -181,7 +186,9 @@ export class ControleBatalha {
   private previa: Casa | null = null
   private mov: ReturnType<typeof movimentos> | null = null
   private dica = ''
-  private log: string[] = []
+  private log: { t: number; texto: string }[] = []
+  private inicioBatalha = 0
+  private fimPreparo = 0
   private inicioVez = 0
   private relogio = 0
   private readonly palco: Palco
@@ -231,10 +238,50 @@ export class ControleBatalha {
     this.palco.avisar()
   }
 
+  /** Começa a preparação: 10 s para ligar (ou não) o Haki de cada um. */
   comecar() {
     this.estado = criarBatalha(aplicarConfig(combatentesIniciais(), this.config))
-    this.log = [`Batalha começa: ${this.estado.vez === JOGADOR ? 'os piratas' : 'a Marinha'} (mais ágil) começa.`]
+    this.inicioBatalha = performance.now()
+    this.log = []
+    this.registrar('Preparação: liguem o Haki (10 s).')
+    this.fase = 'haki'
+    this.fimPreparo = performance.now() + PREPARO * 1000
+    // a Marinha (IA) liga o que tem
+    for (const c of this.estado.combatentes.filter((x) => x.lado !== JOGADOR)) {
+      if (c.haki.armamento) this.estado = hakiPreparacao(this.estado, c.id, 'armamento', true)
+      if (c.haki.observacao) this.estado = hakiPreparacao(this.estado, c.id, 'observacao', true)
+    }
+    this.sincronizar()
+    this.dica = 'Preparação: ligue o Haki de cada pirata (ou não) antes da batalha.'
+    this.palco.avisar()
+  }
+
+  /** Fim da preparação: a batalha começa de verdade. */
+  pronto() {
+    if (this.fase !== 'haki') return
+    this.registrar(`Batalha começa: ${this.estado.vez === JOGADOR ? 'os piratas' : 'a Marinha'} (mais ágil) começa.`)
     this.novaVez()
+  }
+
+  /** Haki e forma de cada personagem na cena, pelo estado. */
+  private sincronizar() {
+    for (const c of this.estado.combatentes) {
+      const p = this.palco.personagem(c.id)
+      if (!p) continue
+      p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
+      p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
+    }
+  }
+
+  private alternarPreparo(id: string | undefined, tipo: 'armamento' | 'rei' | 'observacao') {
+    const c = id ? porId(this.estado, id) : null
+    if (!c || c.lado !== JOGADOR) return
+    const ligado = tipo === 'armamento' ? c.armamentoLigado : tipo === 'rei' ? c.reiLigado : c.observando
+    this.estado = hakiPreparacao(this.estado, c.id, tipo, !ligado)
+    this.sincronizar()
+    const p = this.palco.personagem(c.id)
+    if (p && !ligado) this.palco.flutuar(p, tipo === 'armamento' ? 'Busoshoku!' : tipo === 'rei' ? 'Haki do Rei!' : 'Kenbunshoku!', tipo === 'armamento' ? '#c890ff' : tipo === 'rei' ? '#ff5a6a' : '#9fe0ff', 1)
+    this.palco.avisar()
   }
 
   novaBatalha() {
@@ -279,6 +326,11 @@ export class ControleBatalha {
   }
 
   private checarTempo() {
+    if (this.fase === 'haki') {
+      if (performance.now() >= this.fimPreparo) this.pronto()
+      else this.palco.avisar()
+      return
+    }
     if (this.fase !== 'minha' || this.animando || this.auto) return
     if (this.tempo() <= 0) void this.executar({ t: 'tempo' })
     else this.palco.avisar()
@@ -435,20 +487,24 @@ export class ControleBatalha {
   }
 
   /** Liga/desliga o Haki de armamento (não gasta a vez; cada ataque ligado gasta 1 uso). */
-  alternarArmamento() {
-    const c = this.sel ? porId(this.estado, this.sel) : null
+  alternarArmamento(id?: string) {
+    if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'armamento')
+    const c = (id ?? this.sel) ? porId(this.estado, (id ?? this.sel)!) : null
     if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'armamento', ligado: !c.armamentoLigado })
   }
 
   /** Liga/desliga o Haki do Rei imbuído (liga o armamento junto; cada ataque gasta espírito). */
-  alternarRei() {
-    const c = this.sel ? porId(this.estado, this.sel) : null
+  alternarRei(id?: string) {
+    if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'rei')
+    const c = (id ?? this.sel) ? porId(this.estado, (id ?? this.sel)!) : null
     if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'rei', ligado: !c.reiLigado })
   }
 
-  observar() {
-    if (!this.sel) return
-    const c = porId(this.estado, this.sel)!
+  observar(id?: string) {
+    if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'observacao')
+    const alvo = id ?? this.sel
+    if (!alvo) return
+    const c = porId(this.estado, alvo)!
     void this.executar({ t: 'observar', id: c.id, ligado: !c.observando })
   }
 
@@ -503,7 +559,7 @@ export class ControleBatalha {
 
   // ------------------------------------------------------------ animação
   private registrar(texto: string) {
-    this.log = [...this.log.slice(-40), texto]
+    this.log = [...this.log.slice(-60), { t: this.inicioBatalha ? Math.floor((performance.now() - this.inicioBatalha) / 1000) : 0, texto }]
   }
 
   private async animar(antes: Estado, eventos: Evento[]) {
@@ -609,7 +665,8 @@ export class ControleBatalha {
     const s = skillsDe(c).find((x) => x.id === e.skill) as Skill
     const v = VISUAL[s.id] ?? { efeito: 'impacto', modo: 'perto' }
     const paleta: Paleta = ELEMENTAIS.has(v.efeito) ? 'normal' : e.rei ? 'rei' : e.armamento ? 'armamento' : 'normal'
-    this.registrar(`${c.nome} usa ${s.nome}${e.rei ? ' com Haki do Rei' : e.armamento ? ' com Haki de armamento' : ''}.`)
+    const comHaki = !s.livre && s.mult > 0
+    this.registrar(`${c.nome} usa ${s.nome}${comHaki && e.rei ? ' com Haki do Rei' : comHaki && e.armamento ? ' com Haki de armamento' : ''}.`)
     this.palco.flutuar(a, s.nome, e.rei ? '#ff5a6a' : e.armamento ? '#c890ff' : '#ffffff', 2)
     a.haki = e.rei ? 'rei' : e.armamento ? 'armamento' : false
     const alvoCasa = e.alvo
@@ -1013,7 +1070,8 @@ export class ControleBatalha {
             podeHaoshoku: s.haki.rei && s.espirito >= HAOSHOKU.espirito && !motivo(e, { t: 'haoshoku', id: s.id }),
           }
         : null,
-      log: this.log.slice(-8),
+      log: this.log.slice(-40),
+      tempoHaki: this.fase === 'haki' ? Math.max(0, Math.ceil((this.fimPreparo - performance.now()) / 1000)) : 0,
       dica: this.dica,
     }
   }

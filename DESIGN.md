@@ -131,6 +131,18 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
     poder usar de novo); o golpe básico da arma não tem recarga.
   - **Movimento igual ao Sugoi**: 5 movimentos por vez para a tripulação
     toda (1 casa cada, em 8 direções), antes do ataque.
+  - **Preparação de Haki (10 s)** antes da primeira vez: cada lado liga (ou
+    não) o Haki dos seus personagens; depois o Haki fica num painel próprio,
+    separado das skills.
+  - **Disputas de Haki por chance** (sem degrau): atordoar com o Rei e o
+    choque de Rei usam 50% com overall igual, +3% por ponto de diferença
+    (entre 5% e 95%); choque com diferença ≤ 3 ainda empata. Rei imbuído
+    ×1,35 (era ×1,6).
+  - **Frutas no estilo do anime** (teste): Mera (Hiken, Hotarubi, Enjōmō,
+    Entei), Pika (espada de luz, Yasakani, chute da luz, raio), Hie
+    (Partisan, sabre de gelo, Ice Time, Ice Age no mapa inteiro), Gomu
+    (Pistol, Gatling, Gear Second). Buffs/transformações aparecem no
+    personagem (Zoan cresce, Gear Second vermelho com vapor, luz dourada).
   - **O que não gasta a vez**: ligar/desligar Haki, buffs e transformação
     (Zoan), Haki do Rei em área, consumir itens e **habilidades de
     profissão** (ex.: a cura do médico). Só o ataque encerra a vez.

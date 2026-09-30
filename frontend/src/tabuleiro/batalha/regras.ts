@@ -240,6 +240,25 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
   return { combatentes: cs, vez, turno: 1, movimento: MOVIMENTO_POR_VEZ, perdidas: { piratas: 0, marinha: 0 }, semente: Math.floor(rnd() * 2147483646) + 1, vencedor: null }
 }
 
+/**
+ * Preparação (antes da primeira vez): cada lado liga ou não o Haki dos seus
+ * personagens. Não gasta nada além do que o Haki já gasta no ataque.
+ */
+export function hakiPreparacao(anterior: Estado, id: string, tipo: 'armamento' | 'rei' | 'observacao', ligado: boolean): Estado {
+  const e: Estado = structuredClone(anterior)
+  const c = porId(e, id)
+  if (!c) return anterior
+  if (tipo === 'observacao') c.observando = ligado && (c.haki.observacao?.usos ?? 0) > 0
+  else if (tipo === 'armamento') {
+    c.armamentoLigado = ligado && (c.haki.armamento?.usos ?? 0) > 0
+    if (!c.armamentoLigado) c.reiLigado = false
+  } else {
+    c.reiLigado = ligado && c.haki.rei && !!c.haki.armamento?.avancado && c.espirito >= REI_IMBUIDO.espirito
+    if (c.reiLigado) c.armamentoLigado = true
+  }
+  return e
+}
+
 // ------------------------------------------------------------ ações
 export type Acao =
   | { t: 'mover'; id: string; caminho: Casa[] }
