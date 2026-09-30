@@ -113,9 +113,11 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   árvore própria.
   **Itens com afixos aleatórios (prefixos/sufixos, como no Path of Exile 2)**,
   em vez dos itens predefinidos do Sugoi. Relíquias também têm afixos
-  aleatórios; só a skill única delas é fixa. (Sugestão ainda a confirmar:
-  quantidade de afixos crescendo com a raridade, lista inicial pequena de
-  afixos, destino para itens sobrando — vender, desmontar para o Ferreiro.)
+  aleatórios; só a skill única delas é fixa. Afixos por raridade:
+  Comum 0 · Incomum 1 · Raro 2–3 · Épico 3–4 · Lendário 4 + skill extra
+  sorteada · Relíquia até 4 + 2 buffs especiais aleatórios + skill única
+  fixa embutida. (A confirmar: lista inicial de afixos e buffs especiais,
+  destino para itens sobrando — vender, desmontar para o Ferreiro.)
   Em aberto: atributos (base do Sugoi, modificada?) e
   árvore de habilidades (estilo Path of Exile?).
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
