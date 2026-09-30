@@ -3,6 +3,8 @@ Importa uma folha de efeito (spritesheet em fundo magenta) para o jogo.
 
 Uso: python3 importar_efeito.py <folha> <nome> <linhas> <colunas> <direcoes> [fps] [grade]
   grade: quadros em grade uniforme (senão acha as colunas pelo desenho)
+  girar: uma linha só, desenhada apontando para → (o jogo gira para as 8 direções)
+  unico: uma linha só, igual para todas as direções (explosão, pilar, aura)
   direcoes: as linhas da folha em ordem, separadas por vírgula (ex.: E,SE,NE,S,N)
 
 Tira o magenta (chroma key) calculando a transparência de cada pixel e
@@ -71,7 +73,7 @@ def faixas_ocupadas(perfil):
     return [f for f in faixas if f[1] - f[0] > 3]
 
 
-def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False):
+def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False, modo='direcoes'):
     im = np.asarray(Image.open(folha).convert('RGB')).astype(np.float32)
     H, W = im.shape[:2]
     ch = H / linhas
@@ -160,7 +162,7 @@ def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False):
             ok = (qx >= 0) & (qx < L) & (qy >= 0) & (qy < A)
             tira[qy[ok], qx[ok] + ci * L] = rgba[ys[ok], xs[ok]]
         Image.fromarray(tira).save(os.path.join(pasta, f'{d}.png'), optimize=True)
-    man = {'quadro': [L, A], 'quadros': colunas, 'fps': fps, 'direcoes': direcoes}
+    man = {'quadro': [L, A], 'quadros': colunas, 'fps': fps, 'direcoes': direcoes, 'modo': modo}
     with open(os.path.join(pasta, 'manifesto.json'), 'w') as f:
         json.dump(man, f, indent=1)
     print(nome, man, 'colunas em', [int(c) for c in centros])
@@ -168,4 +170,5 @@ def importar(folha, nome, linhas, colunas, direcoes, fps, grade=False):
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    importar(a[0], a[1], int(a[2]), int(a[3]), a[4].split(','), int(a[5]) if len(a) > 5 else 16, 'grade' in a[6:])
+    modo = 'girar' if 'girar' in a[6:] else 'unico' if 'unico' in a[6:] else 'direcoes'
+    importar(a[0], a[1], int(a[2]), int(a[3]), a[4].split(','), int(a[5]) if len(a) > 5 else 16, 'grade' in a[6:], modo)

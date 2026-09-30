@@ -12,7 +12,18 @@ import { recurso } from './visualFolhas'
  */
 
 export type DirEfeito = 'E' | 'SE' | 'NE' | 'S' | 'N' | 'W' | 'SW' | 'NW'
-type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[] }
+/**
+ * modo: 'direcoes' (uma linha por direção desenhada; as outras por espelho),
+ * 'girar' (uma linha só, desenhada apontando para → : o jogo gira para
+ * qualquer direção) ou 'unico' (uma linha só, igual para todas — explosão,
+ * pilar, aura).
+ */
+type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico' }
+
+/** vetor na tela (x para a direita, y para cima) de cada direção do tabuleiro */
+const TELA: Record<DirEfeito, [number, number]> = {
+  E: [1, 0], W: [-1, 0], N: [0, 0.75], S: [0, -0.75], NE: [1, 0.75], NW: [-1, 0.75], SE: [1, -0.75], SW: [-1, -0.75],
+}
 
 /** par espelhado de cada direção (a folha pode trazer qualquer lado) */
 const PAR: Record<DirEfeito, DirEfeito> = { E: 'W', W: 'E', SE: 'SW', SW: 'SE', NE: 'NW', NW: 'NE', S: 'S', N: 'N' }
@@ -78,7 +89,17 @@ export class EfeitoFolha {
    */
   constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void } = {}) {
     this.man = man
-    const [d, espelha] = escolher(man.direcoes, dir)
+    const modo = man.modo ?? 'direcoes'
+    let [d, espelha] = modo === 'direcoes' ? escolher(man.direcoes, dir) : [man.direcoes[0] as DirEfeito, false]
+    let giro = 0
+    if (modo === 'girar') {
+      // desenhado para →; para a esquerda espelha (não fica de cabeça para baixo)
+      const [vx, vy] = TELA[dir]
+      espelha = vx < 0
+      giro = espelha ? Math.atan2(vy, vx) - Math.PI : Math.atan2(vy, vx)
+      if (espelha && giro < -Math.PI) giro += 2 * Math.PI
+      if (!espelha && vx === 0) giro = Math.atan2(vy, 0)
+    }
     this.espelha = espelha
     const chave = `${nome}/${d}`
     let tex = texturas.get(chave)
@@ -95,6 +116,7 @@ export class EfeitoFolha {
     this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }))
     const L = op.largura ?? 2
     this.sprite.scale.set(L, (L * man.quadro[1]) / man.quadro[0], 1)
+    this.sprite.material.rotation = espelha ? -giro : giro
     this.sprite.renderOrder = 7
     this.de = de.clone()
     this.para = op.para?.clone() ?? null
