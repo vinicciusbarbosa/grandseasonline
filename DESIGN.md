@@ -97,7 +97,10 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   10** conforme o nível do capitão (tabela do `docs/projeto/OP_PROJECT.md`);
   **movimento da tripulação inteira** (pontos de movimento do lado, como no
   Sugoi); só algumas **profissões** dão efeito na batalha (médico, cozinheiro
-  e outras a definir). Em aberto: atributos (base do Sugoi, modificada?) e
+  e outras a definir). **Todos os tripulantes lutam** (sem reservas, como no
+  Sugoi — até 10 cabem na metade 5×20). Cada tripulante tem a **árvore de
+  habilidades completa**; as ações do turno são da tripulação (como no Sugoi).
+  Em aberto: atributos (base do Sugoi, modificada?) e
   árvore de habilidades (estilo Path of Exile?).
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
   determinístico pela semente — o servidor do multiplayer usa o mesmo):
