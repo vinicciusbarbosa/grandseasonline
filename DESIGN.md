@@ -195,9 +195,10 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   - **Sem vontade da tripulação** (a do Sugoi sai): cada personagem tem o
     próprio **espírito** — sobe pouco a pouco a cada turno e mais ao acertar
     ou ser atingido; é gasto para usar o Haki do Rei.
-  - **Vez da tripulação** (testar primeiro): o lado mais ágil começa; na sua
-    vez anda com quem quiser e ataca uma vez. Depois testar a **fila por
-    personagem** (ordem pela AGL de cada um). **Tempo por vez** igual ao
+  - **Vez da tripulação** (decidido): o lado mais ágil começa; na sua vez
+    anda com quem quiser e ataca uma vez. A fila por personagem (ordem pela
+    AGL de cada um) foi descartada — tira a tática de mover a tripulação
+    junta e sai do escopo. **Tempo por vez** igual ao
     Sugoi: 90 s; quem perde a vez pelo tempo 3 vezes passa a ter só 30 s.
   - **Mirar**: escolher um pirata já deixa o golpe básico pronto; inimigos
     que dá para acertar ficam em vermelho forte, o alcance em vermelho
