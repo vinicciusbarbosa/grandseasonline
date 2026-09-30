@@ -100,6 +100,11 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   e outras a definir). **Todos os tripulantes lutam** (sem reservas, como no
   Sugoi — até 10 cabem na metade 5×20). Cada tripulante tem a **árvore de
   habilidades completa**; as ações do turno são da tripulação (como no Sugoi).
+  **Habilidades das armas**: cada **tipo** de arma dá as mesmas habilidades
+  (toda katana dá as skills A, B e C); raridade maior = mais dano; **Lendária**
+  e **Relíquia** dão habilidades a mais. Relíquias são as armas que existem em
+  One Piece (Wado Ichimonji, Yoru...). A árvore de habilidades (estilo PoE,
+  enxuta) modifica e fortalece; Akuma no Mi tem árvore própria.
   Em aberto: atributos (base do Sugoi, modificada?) e
   árvore de habilidades (estilo Path of Exile?).
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
