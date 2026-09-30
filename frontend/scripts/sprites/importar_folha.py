@@ -411,23 +411,38 @@ def registrar(quadros, molde, busca=14):
     return saida
 
 
-def costura(ocup, alvo, j):
-    """Caminho vertical de menor ocupação (pode curvar 1px por linha) dentro de
-    alvo±j — separa figuras encostadas sem cortar a capa numa linha reta."""
-    h = ocup.shape[0]
-    faixa = ocup[:, alvo - j:alvo + j].astype(np.float64) + 1e-3
+def costura(ocup, alvo, j, passo=1):
+    """Caminho vertical de menor custo (pode curvar `passo` px por linha)
+    dentro de alvo±j — separa figuras encostadas sem cortar a capa numa linha
+    reta. `ocup` é o custo de cortar cada pixel."""
+    h, w = ocup.shape
+    a0, a1 = max(0, alvo - j), min(w, alvo + j)
+    faixa = ocup[:, a0:a1].astype(np.float64) + 1e-3
+    # leve preferência pelo meio (desempata o vazio)
+    faixa += np.abs(np.arange(a0, a1) - alvo)[None, :] * 1e-4
     custo = faixa.copy()
     for y in range(1, h):
         ant = custo[y - 1]
-        viz = np.minimum(ant, np.minimum(np.r_[np.inf, ant[:-1]], np.r_[ant[1:], np.inf]))
+        viz = ant.copy()
+        for d in range(1, passo + 1):
+            viz = np.minimum(viz, np.minimum(np.r_[[np.inf] * d, ant[:-d]], np.r_[ant[d:], [np.inf] * d]))
         custo[y] += viz
     xs = np.empty(h, int)
     xs[-1] = int(np.argmin(custo[-1]))
     for y in range(h - 2, -1, -1):
         x = xs[y + 1]
-        a, b = max(0, x - 1), min(2 * j, x + 2)
+        a, b = max(0, x - passo), min(a1 - a0, x + passo + 1)
         xs[y] = a + int(np.argmin(custo[y, a:b]))
-    return xs + alvo - j
+    return xs + a0
+
+
+def custo_corte(alfa):
+    """Cortar partes finas (lâmina, bainha, pontas) custa bem mais que cortar
+    a capa: a costura prefere passar pela roupa do vizinho a partir a espada."""
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+    grosso = cv2.morphologyEx(alfa.astype(np.uint8), cv2.MORPH_OPEN, k) > 0
+    fino = alfa & ~grosso
+    return alfa.astype(np.float64) + 8.0 * fino
 
 
 def grade_fixa(alfa, achados):
@@ -447,14 +462,42 @@ def grade_fixa(alfa, achados):
             return None
         caixas = []
         for y0, y1 in linhas:
-            ocup = alfa[y0:y1]
-            j = max(8, W // (col * 5))
+            ocup = custo_corte(alfa[y0:y1])
+            j = max(8, W // (col * 3))
             cortes = [np.zeros(y1 - y0, int)]
-            cortes += [costura(ocup, W * k // col, j) for k in range(1, col)]
+            cortes += [costura(ocup, W * k // col, j, 2) for k in range(1, col)]
             cortes.append(np.full(y1 - y0, W))
             caixas += [(int(e.min()), int(d.max()), y0, y1, e, d) for e, d in zip(cortes, cortes[1:])]
         return caixas
     return None
+
+
+def inteirar(alfa, grade, dono_min=0.12):
+    """Máscara de cada quadro (folha inteira). O corte entre quadros é quase
+    reto, então a ponta da espada que invade o quadro vizinho seria cortada:
+    cada peça ligada da folha vai inteira para o quadro que tem a maior parte
+    dela. Só quando duas figuras se tocam de verdade (as duas com um pedaço
+    grande da peça) vale o corte."""
+    H, W = alfa.shape
+    dono = np.full((H, W), -1, np.int32)
+    xs = np.arange(W)[None, :]
+    for i, (x0, x1, y0, y1, esq, dir) in enumerate(grade):
+        faixa = (xs >= esq[:, None]) & (xs < dir[:, None]) & alfa[y0:y1]
+        dono[y0:y1][faixa] = i
+    n, rot = cv2.connectedComponents(alfa.astype(np.uint8), connectivity=8)
+    novo = dono.copy()
+    for c in range(1, n):
+        sel = rot == c
+        donos = dono[sel]
+        donos = donos[donos >= 0]
+        if not donos.size:
+            continue
+        cont = np.bincount(donos)
+        ordem = np.argsort(cont)[::-1]
+        if len(ordem) > 1 and cont[ordem[1]] > dono_min * donos.size and cont[ordem[1]] > 1500:
+            continue  # figuras encostadas: fica o corte
+        novo[sel] = ordem[0]
+    return [novo == i for i in range(len(grade))]
 
 
 def recortar_costura(rgb, alfa, x0, x1, y0, y1, esq, dir):
@@ -476,10 +519,9 @@ def importar_animacao(arquivos, personagem, anim, direcao, ordem=None):
         rgb, alfa = carregar(arquivo)
         caixas = achar_quadros(alfa)
         grade = grade_fixa(alfa, len(caixas))
-        if grade:
-            celulas += [recortar_costura(rgb, alfa, *c) for c in grade]
-        else:
-            celulas += [recortar(rgb, alfa, x0, x1, y0, y1) for x0, x1, y0, y1 in caixas]
+        if grade is None:
+            grade = [(x0, x1, y0, y1, np.full(y1 - y0, x0), np.full(y1 - y0, x1)) for x0, x1, y0, y1 in caixas]
+        celulas += [recortar(rgb, m, 0, m.shape[1], 0, m.shape[0]) for m in inteirar(alfa, grade)]
         origem += [n] * (len(celulas) - len(origem))
     if ordem:
         idx = [int(i) - 1 for i in ordem.split(',')]
