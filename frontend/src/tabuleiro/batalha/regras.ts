@@ -202,13 +202,26 @@ export function movimentos(e: Estado, c: Combatente, max = e.movimento) {
       fila.push(v)
     }
   }
+  /**
+   * Caminho mais curto até a casa, o mais reto possível: entre os caminhos de
+   * mesmo tamanho, escolhe a cada passo a casa mais perto da reta entre a
+   * origem e o destino (anda reto em linha, coluna ou diagonal; nada de
+   * desviar para a linha do lado e voltar).
+   */
   const caminho = (ate: Casa): Casa[] | null => {
-    if (!veio.has(chave(ate)) || mesmaCasa(ate, c.casa)) return null
-    const r: Casa[] = []
-    let p: Casa | null = ate
-    while (p && !mesmaCasa(p, c.casa)) {
+    if (!dist.has(chave(ate)) || mesmaCasa(ate, c.casa)) return null
+    const dl = ate.l - c.casa.l
+    const dc = ate.c - c.casa.c
+    const n = Math.hypot(dl, dc) || 1
+    const fora = (x: Casa) => Math.abs((x.l - c.casa.l) * dc - (x.c - c.casa.c) * dl) / n
+    const r: Casa[] = [ate]
+    let p = ate
+    while (dist.get(chave(p))! > 1) {
+      const d = dist.get(chave(p))!
+      const antes = vizinhos8(p).filter((v) => dist.get(chave(v)) === d - 1)
+      antes.sort((x, y) => fora(x) - fora(y) || (x.l === p.l || x.c === p.c ? 0 : 1) - (y.l === p.l || y.c === p.c ? 0 : 1))
+      p = antes[0]
       r.unshift(p)
-      p = veio.get(chave(p)) ?? null
     }
     return r
   }
