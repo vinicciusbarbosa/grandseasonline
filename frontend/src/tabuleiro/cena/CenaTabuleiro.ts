@@ -367,24 +367,22 @@ export class CenaTabuleiro {
   private readonly proxRaio = new Map<Personagem, number>()
 
   /**
-   * Haki ligado aparece no personagem: com o Rei imbuído, raios negros e
-   * vermelhos saem do corpo de tempos em tempos (aleatório); com o
-   * armamento, faíscas roxas de vez em quando.
+   * Haki do Rei imbuído ligado: raios negros e vermelhos saem do corpo de
+   * tempos em tempos (aleatório). O armamento só deixa a arma negra.
    */
   private atualizarHakiLigado(dt: number) {
     for (const p of this.personagens) {
-      if (!p.haki || p.ocupado) continue
+      if (p.haki !== 'rei' || p.ocupado) continue
       const t = (this.proxRaio.get(p) ?? Math.random() * 0.8) - dt
       if (t > 0) {
         this.proxRaio.set(p, t)
         continue
       }
-      const rei = p.haki === 'rei'
-      this.proxRaio.set(p, rei ? 0.35 + Math.random() * 1.1 : 1.2 + Math.random() * 1.8)
+      this.proxRaio.set(p, 0.35 + Math.random() * 1.1)
       const pt = p.pos.clone().setY(p.visual.altura * (0.25 + Math.random() * 0.7)).add(new THREE.Vector3((Math.random() - 0.5) * 0.7, 0, (Math.random() - 0.5) * 0.3))
-      void this.palco.efeito('faisca', rei ? 'rei' : 'armamento', pt, { dur: rei ? 0.3 + Math.random() * 0.2 : 0.25, escala: rei ? 1.1 + Math.random() * 0.8 : 0.6 })
+      void this.palco.efeito('faisca', 'rei', pt, { dur: 0.3 + Math.random() * 0.2, escala: 1.1 + Math.random() * 0.8 })
       // às vezes um estalo maior, com a câmera tremendo de leve
-      if (rei && Math.random() < 0.15) {
+      if (Math.random() < 0.15) {
         void this.palco.efeito('faisca', 'rei', p.pos.clone().setY(p.visual.altura * 0.5), { dur: 0.4, escala: 2.4 })
         this.tremorGolpe = Math.max(this.tremorGolpe, 0.06)
       }

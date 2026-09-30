@@ -257,7 +257,7 @@ function pintar(g: G, tipo: TipoEfeito, f: number, k: Cores, paleta: Paleta, sem
       g.arc(C - 44, C, 144, a0 + 0.2, a0 + arco - 0.2)
       g.stroke()
       g.restore()
-      if (haki) for (let i = 0; i < 3; i++) desenharRaio(g, caminhoRaio(r, C + 60, C + (r() - 0.5) * 200, r() * 6.3, 4, 26), 3, k, some)
+      if (paleta === 'rei') for (let i = 0; i < 3; i++) desenharRaio(g, caminhoRaio(r, C + 60, C + (r() - 0.5) * 200, r() * 6.3, 4, 26), 3, k, some)
       break
     }
     case 'bala':
@@ -302,7 +302,7 @@ function pintar(g: G, tipo: TipoEfeito, f: number, k: Cores, paleta: Paleta, sem
         g.fillRect(-60, -7, 22, 14)
       }
       g.restore()
-      if (haki) desenharRaio(g, caminhoRaio(r, C + 30, C, Math.PI + (r() - 0.5), 5, 24), 2.5, k)
+      if (paleta === 'rei') desenharRaio(g, caminhoRaio(r, C + 30, C, Math.PI + (r() - 0.5), 5, 24), 2.5, k)
       break
     }
     case 'punho': {
@@ -471,7 +471,7 @@ function pintar(g: G, tipo: TipoEfeito, f: number, k: Cores, paleta: Paleta, sem
       g.arc(C, C, R * (0.6 + f * 0.8), 0, Math.PI * 2)
       g.stroke()
       g.restore()
-      if (haki) for (let i = 0; i < (paleta === 'rei' ? 6 : 3); i++) desenharRaio(g, caminhoRaio(r, C, C, r() * 6.3, 5, 34), 4, k, some)
+      if (paleta === 'rei') for (let i = 0; i < 6; i++) desenharRaio(g, caminhoRaio(r, C, C, r() * 6.3, 5, 34), 4, k, some)
       break
     }
     case 'onda': {
