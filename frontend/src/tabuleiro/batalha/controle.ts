@@ -178,8 +178,6 @@ export class ControleBatalha {
   private animando = false
   private sel: string | null = null
   private skill: string | null = null
-  private armamento = false
-  private rei = false
   private previa: Casa | null = null
   private mov: ReturnType<typeof movimentos> | null = null
   private dica = ''
@@ -283,7 +281,10 @@ export class ControleBatalha {
     this.estado = r.estado
     for (const c of this.estado.combatentes) {
       const p = this.palco.personagem(c.id)
-      if (p) p.vida = c.hp
+      if (!p) continue
+      p.vida = c.hp
+      // o Haki ligado fica aparecendo na arma
+      p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
     }
     this.animando = false
     if (this.estado.vez !== vezAntes || this.estado.vencedor) this.novaVez()
@@ -308,7 +309,7 @@ export class ControleBatalha {
   }
 
   private acaoEm(c: Combatente, s: Skill, casa: Casa): Acao {
-    return { t: 'skill', id: c.id, skill: s.id, alvo: casa, armamento: this.armamento, rei: this.rei }
+    return { t: 'skill', id: c.id, skill: s.id, alvo: casa }
   }
 
   /** Mouse passando por cima: mostra a área do golpe naquela casa. */
@@ -377,8 +378,6 @@ export class ControleBatalha {
     this.sel = id
     this.skill = null
     this.previa = null
-    this.armamento = false
-    this.rei = false
     if (id) {
       const c = porId(this.estado, id)!
       this.dica = c.atordoado
@@ -405,16 +404,16 @@ export class ControleBatalha {
     this.redesenhar()
   }
 
+  /** Liga/desliga o Haki de armamento (não gasta a vez; cada ataque ligado gasta 1 uso). */
   alternarArmamento() {
-    this.armamento = !this.armamento
-    if (!this.armamento) this.rei = false
-    this.palco.avisar()
+    const c = this.sel ? porId(this.estado, this.sel) : null
+    if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'armamento', ligado: !c.armamentoLigado })
   }
 
+  /** Liga/desliga o Haki do Rei imbuído (liga o armamento junto; cada ataque gasta espírito). */
   alternarRei() {
-    this.rei = !this.rei
-    if (this.rei) this.armamento = true
-    this.palco.avisar()
+    const c = this.sel ? porId(this.estado, this.sel) : null
+    if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'rei', ligado: !c.reiLigado })
   }
 
   observar() {
@@ -535,6 +534,27 @@ export class ControleBatalha {
             await this.palco.efeito('aura', 'normal', this.palco.peito(p), { dur: 0.8, escala: 1.8 })
           }
           this.registrar(`${nome(e.id)} se transforma (${e.vezes} vezes).`)
+          break
+        }
+        case 'haki': {
+          const p = P(e.id)
+          const rei = e.tipo === 'rei'
+          if (p) {
+            p.haki = e.ligado ? (rei ? 'rei' : 'armamento') : false
+            this.palco.flutuar(p, e.ligado ? (rei ? 'Haki do Rei imbuído!' : 'Busoshoku!') : 'Haki desligado', e.ligado ? (rei ? '#ff5a6a' : '#c890ff') : '#c9c9c9', 1)
+            if (e.ligado) {
+              if (rei) this.palco.tremer(0.2)
+              await this.palco.efeito(rei ? 'raio' : 'impacto', rei ? 'rei' : 'armamento', this.palco.peito(p), { dur: 0.45, escala: 1 })
+            }
+          }
+          this.registrar(`${nome(e.id)} ${e.ligado ? 'liga' : 'desliga'} o ${rei ? 'Haki do Rei imbuído' : 'Haki de armamento'}.`)
+          break
+        }
+        case 'recuperou': {
+          const p = P(e.id)
+          if (p) this.palco.flutuar(p, `Armamento +1 (${e.usos})`, '#c890ff', 1)
+          this.registrar(`${nome(e.id)} recupera 1 uso de armamento com espírito (${e.usos}).`)
+          await esperar(250)
           break
         }
         case 'tempo':
@@ -767,6 +787,8 @@ export class ControleBatalha {
     if (c.atordoado) estados.push('atordoado')
     if (c.queimadura) estados.push('queimando')
     if (c.akuma?.transformado) estados.push(`transformado (${c.akuma.transformado})`)
+    if (c.reiLigado) estados.push('Rei imbuído ligado')
+    else if (c.armamentoLigado) estados.push('armamento ligado')
     return {
       id: c.id,
       nome: c.nome,
@@ -820,8 +842,8 @@ export class ControleBatalha {
             })),
             skill: this.efetiva(s)?.id ?? null,
             previa: !!this.previa,
-            usarArmamento: this.armamento,
-            usarRei: this.rei,
+            usarArmamento: s.armamentoLigado,
+            usarRei: s.reiLigado,
             podeArmamento: (s.haki.armamento?.usos ?? 0) > 0,
             podeRei: s.haki.rei && !!s.haki.armamento?.avancado && s.espirito >= REI_IMBUIDO.espirito,
             podeHaoshoku: s.haki.rei && s.espirito >= HAOSHOKU.espirito && !motivo(e, { t: 'haoshoku', id: s.id }),

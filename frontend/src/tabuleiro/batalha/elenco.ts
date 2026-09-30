@@ -84,6 +84,8 @@ export function combatentesIniciais(): Combatente[] {
       akuma: m.akuma ? { fruta: m.akuma, transformado: 0 } : null,
       logia: m.cargasLogia ? { cargas: m.cargasLogia, max: m.cargasLogia } : null,
       observando: false,
+      armamentoLigado: false,
+      reiLigado: false,
       atordoado: false,
       recargas: {},
       queimadura: null,

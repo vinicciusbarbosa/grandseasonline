@@ -224,13 +224,13 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
             {s.armamento && (
-              <Botao ativo={s.usarArmamento} cor="#c890ff" desligado={!s.podeArmamento && !s.usarArmamento} onClick={() => c.alternarArmamento()} titulo="Haki de armamento no próximo golpe (gasta 1 uso)">
-                Armamento {s.armamento}
+              <Botao ativo={s.usarArmamento} cor="#c890ff" desligado={!s.podeArmamento && !s.usarArmamento} onClick={() => c.alternarArmamento()} titulo="Liga/desliga (não gasta a vez). Ligado, cada ataque gasta 1 uso; recupera 1 uso por vez gastando 25 de espírito">
+                Armamento {s.usarArmamento ? 'ligado' : 'desligado'} · {s.armamento}
               </Botao>
             )}
             {s.rei && s.armamento?.startsWith('avançado') && (
-              <Botao ativo={s.usarRei} cor="#ff5a6a" desligado={!s.podeRei && !s.usarRei} onClick={() => c.alternarRei()} titulo="Haki do Rei imbuído no golpe (40 de espírito)">
-                Rei imbuído
+              <Botao ativo={s.usarRei} cor="#ff5a6a" desligado={!s.podeRei && !s.usarRei} onClick={() => c.alternarRei()} titulo="Liga/desliga (não gasta a vez). Ligado, cada ataque gasta 40 de espírito">
+                Rei imbuído {s.usarRei ? 'ligado' : 'desligado'}
               </Botao>
             )}
             {s.observacao && (

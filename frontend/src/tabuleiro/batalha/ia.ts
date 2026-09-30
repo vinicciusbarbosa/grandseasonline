@@ -34,7 +34,7 @@ function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number,
   return d
 }
 
-type Opcao = { valor: number; acao: Acao; andar?: Casa[] }
+type Opcao = { valor: number; acao: Acao; andar?: Casa[]; haki?: { armamento: boolean; rei: boolean } }
 
 function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
   let melhor: Opcao | null = null
@@ -70,7 +70,7 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
       if (v <= 0) continue
       // armamento: contra Logia com cargas, ou em golpe forte se sobra uso
       const usos = c.haki.armamento?.usos ?? 0
-      const armamento = usos > 0 && (logia || (usos > 2 && s.energia > 0))
+      const armamento = usos > 0 && (logia || (usos > 1 && s.energia > 0))
       if (armamento) {
         v = 0
         for (const x of casas) {
@@ -80,7 +80,7 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
       }
       const rei = armamento && c.haki.rei && !!c.haki.armamento?.avancado && c.espirito >= REI_IMBUIDO.espirito
       v -= s.energia * 0.3 // guarda energia
-      if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo, armamento, rei } }
+      if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo }, haki: { armamento, rei } }
     }
   }
   return melhor
@@ -121,6 +121,13 @@ export function proximaAcao(e: Estado): Acao {
       if (melhor.andar) {
         const id = (melhor.acao as { id: string }).id
         return { t: 'mover', id, caminho: melhor.andar }
+      }
+      // liga/desliga o Haki antes (não gasta a vez)
+      const c = meus.find((x) => x.id === (melhor!.acao as { id: string }).id)!
+      const h = melhor.haki
+      if (h) {
+        if (h.rei !== c.reiLigado) return { t: 'haki', id: c.id, tipo: 'rei', ligado: h.rei }
+        if (h.armamento !== c.armamentoLigado) return { t: 'haki', id: c.id, tipo: 'armamento', ligado: h.armamento }
       }
       if (!motivo(e, melhor.acao)) return melhor.acao
     }

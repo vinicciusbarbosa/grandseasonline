@@ -12,7 +12,9 @@
  *   - energia  : paga as skills da arma; volta um pouco a cada vez;
  *   - espírito : sobe aos poucos e mais ao acertar/ser atingido; paga o
  *                Haki do Rei;
- *   - Haki     : usos por batalha (pela maestria) de armamento e observação;
+ *   - Haki     : usos (pela maestria) de armamento e observação; ligar e
+ *                desligar é separado do ataque (não gasta a vez). O
+ *                armamento recupera usos com espírito;
  *   - Logia    : cargas de intangibilidade (pela raridade da fruta).
  *
  * Módulo puro e determinístico (semente no estado): cada ação vira uma
@@ -67,6 +69,10 @@ export type Combatente = {
   logia: { cargas: number; max: number } | null
   /** gasta Haki de observação quando atacado */
   observando: boolean
+  /** Haki de armamento ligado: todo ataque usa (gasta 1 uso por ataque) */
+  armamentoLigado: boolean
+  /** Haki do Rei imbuído ligado: todo ataque usa (gasta espírito por ataque) */
+  reiLigado: boolean
   /** Haki do Rei / congelado: perde a próxima vez */
   atordoado: boolean
   /** skill → vezes da tripulação que ainda faltam para poder usar */
@@ -102,6 +108,8 @@ export type Evento =
   | { t: 'queimou'; id: string; dano: number }
   | { t: 'atordoou'; id: string }
   | { t: 'resistiu'; id: string }
+  | { t: 'haki'; id: string; tipo: 'armamento' | 'rei'; ligado: boolean }
+  | { t: 'recuperou'; id: string; usos: number }
   | { t: 'clash'; de: string; alvo: string; resultado: 'venceu' | 'perdeu' | 'empate'; dano: number }
   | { t: 'caiu'; id: string }
   | { t: 'tempo'; lado: Lado }
@@ -123,6 +131,8 @@ export const ESPIRITO_AO_APANHAR = 12
 export const HAOSHOKU = { espirito: 70, raio: 3 }
 /** Haki do Rei imbuído no golpe: espírito a mais (precisa de armamento avançado) */
 export const REI_IMBUIDO = { espirito: 40, mult: 1.6 }
+/** no começo da vez: gasta espírito para recuperar 1 uso de armamento */
+export const RECUPERA_ARMAMENTO = { espirito: 25, usos: 1 }
 /** Choque de Haki do Rei: quem é atacado com o Rei imbuído e também tem o
  * Rei (e espírito) responde; ganha o maior overall. Diferença até `empate`
  * explode e anula; atacante que vence ganha `bonus` no golpe; que perde
@@ -204,6 +214,8 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
     c.energia = ENERGIA_INICIAL
     c.espirito = 0
     c.observando = false
+    c.armamentoLigado = false
+    c.reiLigado = false
     c.atordoado = false
     c.queimadura = null
     c.recargas = {}
@@ -222,8 +234,9 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
 // ------------------------------------------------------------ ações
 export type Acao =
   | { t: 'mover'; id: string; caminho: Casa[] }
-  | { t: 'skill'; id: string; skill: string; alvo: Casa; armamento?: boolean; rei?: boolean }
+  | { t: 'skill'; id: string; skill: string; alvo: Casa }
   | { t: 'observar'; id: string; ligado: boolean }
+  | { t: 'haki'; id: string; tipo: 'armamento' | 'rei'; ligado: boolean }
   | { t: 'haoshoku'; id: string }
   | { t: 'passar' }
   | { t: 'tempo' }
@@ -238,6 +251,16 @@ export function motivo(e: Estado, a: Acao): string | null {
   if (!c || c.hp <= 0) return 'Personagem inválido.'
   if (c.lado !== e.vez) return 'Não é a vez dele.'
   if (a.t === 'observar') return a.ligado && !c.haki.observacao?.usos ? 'Sem usos de Haki de observação.' : null
+  if (a.t === 'haki') {
+    if (!a.ligado) return null
+    if (!c.haki.armamento) return `${c.nome} não tem Haki de armamento.`
+    if (!c.haki.armamento.usos) return 'Sem usos de Haki de armamento (recupera com espírito).'
+    if (a.tipo === 'rei') {
+      if (!c.haki.rei || !c.haki.armamento.avancado) return 'Precisa de Haki do Rei e armamento avançado.'
+      if (c.espirito < REI_IMBUIDO.espirito) return `Espírito insuficiente (${REI_IMBUIDO.espirito}).`
+    }
+    return null
+  }
   if (c.atordoado) return `${c.nome} está atordoado.`
   if (a.t === 'mover') {
     if (!a.caminho.length) return 'Caminho vazio.'
@@ -258,12 +281,6 @@ export function motivo(e: Estado, a: Acao): string | null {
   if (c.recargas[s.id]) return `Em recarga (${c.recargas[s.id]}).`
   if (c.energia < s.energia) return 'Energia insuficiente.'
   if (!alvoValido(s, c.casa, a.alvo)) return 'Fora de alcance.'
-  if (a.armamento && !c.haki.armamento?.usos) return 'Sem usos de Haki de armamento.'
-  if (a.rei) {
-    if (!c.haki.rei || !c.haki.armamento?.avancado) return 'Precisa de Haki do Rei e armamento avançado.'
-    if (!a.armamento) return 'O Haki do Rei vai imbuído no armamento.'
-    if (c.espirito < REI_IMBUIDO.espirito) return `Espírito insuficiente (${REI_IMBUIDO.espirito}).`
-  }
   if (s.cura) {
     const o = ocupante(e, a.alvo)
     if (!o || o.lado !== c.lado) return 'Escolha um aliado.'
@@ -294,6 +311,8 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
 
   /** resultado do choque de Haki do Rei por alvo, nesta ação */
   let fimDaVez = false
+  /** observação já usada neste ataque, por alvo (true = previu e esquiva de tudo) */
+  const observados = new Map<string, boolean>()
   const clashes = new Map<string, 'venceu' | 'perdeu' | 'empate'>()
 
   /** Um golpe de `c` em `alvo`. */
@@ -322,14 +341,19 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
         return
       }
     }
-    // Haki de observação: gasta um uso e tenta esquivar
+    // Haki de observação: um uso por ataque; se prevê, esquiva de todos os
+    // hits dele (o resultado vale para os golpes seguintes do mesmo ataque)
     const obs = alvo.haki.observacao
-    if (alvo.observando && obs && obs.usos > 0) {
+    const previu = observados.get(alvo.id)
+    if (previu) return
+    if (previu === undefined && alvo.observando && obs && obs.usos > 0) {
       obs.usos--
       if (!obs.usos) alvo.observando = false
+      observados.set(alvo.id, false)
       const base = limitar((alvo.at.agl - c.at.pre) * 2 + 5, 0, 45)
       const chance = alvo.haki.overall > c.haki.overall ? 1 : limitar((base + 40 - (c.haki.overall - alvo.haki.overall)) / 100, 0.05, 0.9)
       if (rnd() < chance) {
+        observados.set(alvo.id, true)
         ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'observou' })
         // observação avançada: prevê e revida na hora (de perto)
         if (obs.avancado && distancia(alvo.casa, c.casa) <= 1) {
@@ -390,6 +414,18 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       porId(e, a.id)!.observando = a.ligado
       break
     }
+    case 'haki': {
+      const c = porId(e, a.id)!
+      if (a.tipo === 'armamento') {
+        c.armamentoLigado = a.ligado
+        if (!a.ligado) c.reiLigado = false
+      } else {
+        c.reiLigado = a.ligado
+        if (a.ligado) c.armamentoLigado = true
+      }
+      ev.push({ t: 'haki', id: c.id, tipo: a.tipo, ligado: a.ligado })
+      break
+    }
     case 'haoshoku': {
       const c = porId(e, a.id)!
       c.espirito -= HAOSHOKU.espirito
@@ -406,12 +442,16 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     case 'skill': {
       const c = porId(e, a.id)!
       const s = skillsDe(c).find((x) => x.id === a.skill)!
-      const armamento = !!a.armamento
-      const rei = !!a.rei
+      // o Haki que estiver ligado vai no ataque
+      const armamento = c.armamentoLigado && (c.haki.armamento?.usos ?? 0) > 0
+      const rei = armamento && c.reiLigado && c.espirito >= REI_IMBUIDO.espirito
       c.energia -= s.energia
       if (s.recarga) c.recargas[s.id] = s.recarga + 1 // conta a partir do fim desta vez
       if (armamento) c.haki.armamento!.usos--
       if (rei) c.espirito -= REI_IMBUIDO.espirito
+      // acabou o recurso: desliga sozinho
+      if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
+      if (c.espirito < REI_IMBUIDO.espirito) c.reiLigado = false
       const casas = casasDaArea(s, c.casa, a.alvo).filter(dentro)
       ev.push({ t: 'skill', id: c.id, skill: s.id, nome: s.nome, alvo: a.alvo, casas, armamento, rei })
       if (s.transforma && c.akuma) {
@@ -469,6 +509,13 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       if (c.akuma?.transformado) c.akuma.transformado--
       c.energia = Math.min(ENERGIA_MAX, c.energia + ENERGIA_POR_VEZ)
       espirito(c, ESPIRITO_POR_VEZ)
+      // armamento recupera com espírito
+      const arm = c.haki.armamento
+      if (arm && arm.usos < arm.max && c.espirito >= RECUPERA_ARMAMENTO.espirito) {
+        c.espirito -= RECUPERA_ARMAMENTO.espirito
+        arm.usos = Math.min(arm.max, arm.usos + RECUPERA_ARMAMENTO.usos)
+        ev.push({ t: 'recuperou', id: c.id, usos: arm.usos })
+      }
     }
     ev.push({ t: 'vez', lado: e.vez, turno: e.turno })
   }

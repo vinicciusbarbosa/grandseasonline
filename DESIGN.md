@@ -131,6 +131,12 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
     poder usar de novo); o golpe básico da arma não tem recarga.
   - **Movimento igual ao Sugoi**: 5 movimentos por vez para a tripulação
     toda (1 casa cada, em 8 direções), antes do ataque.
+  - **Ligar/desligar o Haki é separado do ataque** (não gasta a vez): ligado,
+    todo ataque usa o Haki (armamento gasta 1 uso por ataque; Rei imbuído
+    gasta espírito por ataque) até desligar ou acabar o recurso. O
+    **armamento recupera usos com espírito** (teste: no começo da vez, 25 de
+    espírito → +1 uso). **Observação**: um ataque de vários hits gasta só 1
+    uso; se prevê, esquiva de todos os hits.
   - **Haki de armamento**: o jogador liga nos ataques; usos por batalha
     limitados pela **maestria** (ex.: maestria 100 → 10 usos, 50 → 5).
     **Armamento avançado**: fura % da defesa, dá bônus de dano e (quando a
