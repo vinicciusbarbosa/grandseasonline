@@ -56,7 +56,39 @@ export default function TelaTabuleiro() {
         />
       )}
 
-      {/* nome e vida ficam nos quadros das laterais (HUD) */}
+      {estado.personagens.map((p) => {
+        const inimigo = p.id.startsWith('marinha')
+        const c = inimigo ? '#ff4a3a' : '#3de0b0'
+        return (
+          <div
+            key={p.id}
+            style={{
+              position: 'absolute',
+              left: p.x,
+              top: p.y,
+              transform: 'translate(-50%, -100%)',
+              pointerEvents: 'none',
+              font: "700 11px/1.1 'Cinzel', Georgia, serif",
+              color: '#fff',
+              textShadow: '0 1px 2px #000',
+              background: 'linear-gradient(90deg, rgba(6,10,22,.85), rgba(6,10,22,.55))',
+              borderLeft: `3px solid ${c}`,
+              padding: '2px 6px 3px 5px',
+              clipPath: 'polygon(0 0,100% 0,94% 100%,0 100%)',
+              minWidth: 78,
+              opacity: p.selecionado ? 1 : 0.92,
+            }}
+          >
+            <div style={{ whiteSpace: 'nowrap', marginBottom: 2 }}>{p.nome}</div>
+            <div style={{ height: 4, background: '#1a0d0a', transform: 'skewX(-20deg)' }}>
+              <div style={{ width: `${(100 * Math.max(0, p.vida)) / p.vidaMax}%`, height: '100%', background: c }} />
+            </div>
+            <div style={{ fontSize: 9, textAlign: 'right', marginTop: 1, fontFamily: 'Trebuchet MS, sans-serif' }}>
+              {Math.max(0, Math.round(p.vida))} / {p.vidaMax}
+            </div>
+          </div>
+        )
+      })}
 
       {estado.flutuantes.map((f) => (
         <div

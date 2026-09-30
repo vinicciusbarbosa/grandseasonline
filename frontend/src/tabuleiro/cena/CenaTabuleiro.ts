@@ -378,12 +378,12 @@ export class CenaTabuleiro {
         this.proxRaio.set(p, t)
         continue
       }
-      this.proxRaio.set(p, 0.35 + Math.random() * 1.1)
+      this.proxRaio.set(p, 0.5 + Math.random() * 1.3)
       const pt = p.pos.clone().setY(p.visual.altura * (0.25 + Math.random() * 0.7)).add(new THREE.Vector3((Math.random() - 0.5) * 0.7, 0, (Math.random() - 0.5) * 0.3))
-      void this.palco.efeito('faisca', 'rei', pt, { dur: 0.3 + Math.random() * 0.2, escala: 1.1 + Math.random() * 0.8 })
+      void this.palco.efeito('faisca', 'rei', pt, { dur: 0.22 + Math.random() * 0.15, escala: 0.5 + Math.random() * 0.35 })
       // às vezes um estalo maior, com a câmera tremendo de leve
-      if (Math.random() < 0.15) {
-        void this.palco.efeito('faisca', 'rei', p.pos.clone().setY(p.visual.altura * 0.5), { dur: 0.4, escala: 2.4 })
+      if (Math.random() < 0.1) {
+        void this.palco.efeito('faisca', 'rei', p.pos.clone().setY(p.visual.altura * 0.5), { dur: 0.3, escala: 1.1 })
         this.tremorGolpe = Math.max(this.tremorGolpe, 0.06)
       }
     }

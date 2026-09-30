@@ -549,10 +549,11 @@ function pintar(g: G, tipo: TipoEfeito, f: number, k: Cores, paleta: Paleta, sem
       // estalo de Haki saindo do corpo (Haki ligado): 2–3 raios finos, sem clarão
       brilhoRadial(g, 120, k.brilho, 0.3 * some)
       const rr = rng(semente + Math.floor(t * 14) * 97)
-      const n = 2 + Math.floor(fixo() * 2)
+      // 1–2 raios curtos (é pequeno na tela: traço grosso para continuar legível)
+      const n = 1 + Math.floor(fixo() * 2)
       for (let i = 0; i < n; i++) {
         const a = fixo() * Math.PI * 2
-        raioAfilado(g, rr, C, C, a, 140 + fixo() * 90, 9 + fixo() * 5, k, some, 1)
+        raioAfilado(g, rr, C, C, a, 150 + fixo() * 60, 20 + fixo() * 8, k, some, 0)
       }
       break
     }
