@@ -153,7 +153,13 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
     cargas, fica "desgastado" e toma os golpes. Haki e Kairoseki sempre
     atingem, sem gastar carga.
   - **Sem vontade da tripulação** (a do Sugoi sai): cada personagem tem o
-    próprio **espírito**.
+    próprio **espírito** — sobe pouco a pouco a cada turno e mais ao acertar
+    ou ser atingido; é gasto para usar o Haki do Rei.
+  - **Vez da tripulação** (testar primeiro): o lado mais ágil começa; na sua
+    vez gasta as ações e o movimento com quem quiser. Depois testar a **fila
+    por personagem** (ordem pela AGL de cada um). **Tempo por vez** (2 min):
+    estourar dá penalidade (qual, a definir).
+  - Tudo aqui é **teste**: o que ficar bom entra, o resto sai.
 - **Regras do protótipo** (`frontend/src/tabuleiro/batalha/regras.ts`, puro e
   determinístico pela semente — o servidor do multiplayer usa o mesmo):
   cada um anda até 3 casas e age; ordem por AGL. Golpes: comum, pesado
