@@ -19,7 +19,7 @@ export type DirEfeito = 'E' | 'SE' | 'NE' | 'S' | 'N' | 'W' | 'SW' | 'NW'
  * pilar, aura).
  */
 /** grade: [colunas, linhas] quando a animação é longa e vem em várias linhas (lida em ordem) */
-type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico'; grade?: [number, number] }
+type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico'; grade?: [number, number]; centro?: [number, number]; voo?: [number, number] }
 
 /** vetor na tela (x para a direita, y para cima) de cada direção do tabuleiro */
 const TELA: Record<DirEfeito, [number, number]> = {
@@ -122,11 +122,12 @@ export class EfeitoFolha {
     this.sprite.renderOrder = 7
     this.de = de.clone()
     this.para = op.para?.clone() ?? null
-    this.voo = op.voo ?? [0, man.quadros - 1]
+    this.voo = op.voo ?? man.voo ?? [0, man.quadros - 1]
     this.aoChegar = op.aoChegar
     this.sprite.position.copy(de)
     // a folha vem ancorada no chão (base do desenho no pé do quadro)
-    if (op.chao) this.sprite.center.set(0.5, 6 / man.quadro[1])
+    if (man.centro) this.sprite.center.set(man.centro[0], man.centro[1])
+    else if (op.chao) this.sprite.center.set(0.5, 6 / man.quadro[1])
     this.mostrar(0)
   }
 

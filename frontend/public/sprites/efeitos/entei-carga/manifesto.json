@@ -1,0 +1,21 @@
+{
+ "quadro": [
+  264,
+  264
+ ],
+ "quadros": 28,
+ "grade": [
+  28,
+  1
+ ],
+ "fps": 12,
+ "direcoes": [
+  "S"
+ ],
+ "modo": "unico",
+ "centro": [
+  0.5,
+  0.0758
+ ],
+ "largura": 1.76
+}

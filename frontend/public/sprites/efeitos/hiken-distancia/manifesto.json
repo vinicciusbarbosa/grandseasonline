@@ -1,15 +1,25 @@
 {
  "quadro": [
-  329,
-  249
+  394,
+  166
  ],
- "quadros": 11,
- "fps": 16,
+ "quadros": 51,
+ "grade": [
+  20,
+  3
+ ],
+ "fps": 24,
  "direcoes": [
-  "E",
-  "SE",
-  "NE",
-  "S",
-  "N"
+  "S"
+ ],
+ "modo": "girar",
+ "centro": [
+  0.9213,
+  0.4458
+ ],
+ "largura": 2.318,
+ "voo": [
+  6,
+  30
  ]
 }

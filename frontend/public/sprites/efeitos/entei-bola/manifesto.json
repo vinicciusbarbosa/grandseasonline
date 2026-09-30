@@ -1,0 +1,22 @@
+{
+ "quadro": [
+  264,
+  196
+ ],
+ "quadros": 4,
+ "grade": [
+  4,
+  1
+ ],
+ "fps": 12,
+ "direcoes": [
+  "S"
+ ],
+ "modo": "unico",
+ "centro": [
+  0.5,
+  0.5306
+ ],
+ "largura": 1.76,
+ "bola_altura": 1.013
+}

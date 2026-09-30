@@ -858,7 +858,7 @@ export class ControleBatalha {
       case 'hiken-distancia': {
         // Hiken à distância: o punho de fogo (arte desenhada) voa até o alvo
         const alvoFim = casas.length ? casas[casas.length - 1] : ate
-        const desenhado = await P.efeitoFolha('hiken-distancia', dirF, origem, { para: alvoFim, largura: 2.2, voo: [3, 8] })
+        const desenhado = await P.efeitoFolha('hiken-distancia', dirF, origem, { para: alvoFim, largura: 2.2 })
         if (desenhado) break
         // sem a folha: jato de fogo por código
         const n = 12

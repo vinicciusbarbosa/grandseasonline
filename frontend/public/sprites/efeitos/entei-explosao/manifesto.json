@@ -1,0 +1,21 @@
+{
+ "quadro": [
+  319,
+  292
+ ],
+ "quadros": 13,
+ "grade": [
+  13,
+  1
+ ],
+ "fps": 14,
+ "direcoes": [
+  "S"
+ ],
+ "modo": "unico",
+ "centro": [
+  0.4984,
+  0.5205
+ ],
+ "largura": 2.127
+}
