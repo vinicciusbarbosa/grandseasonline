@@ -137,6 +137,14 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   - **Haki do Rei imbuído** no ataque: precisa ter Haki do Rei **e** o
     armamento avançado; também pode ser lançado em área. Só depois que o
     personagem acumula **espírito** suficiente.
+  - **Choque de Haki do Rei (clash)**: quem ataca com o Rei imbuído um
+    alvo que também tem Haki do Rei e espírito suficiente entra num choque
+    (a câmera aproxima os dois, os golpes se encontram sem as armas se
+    tocarem, raios e explosão como no anime). Ganha o maior **overall**:
+    atacante vence → o golpe entra com bônus de dano; atacante perde →
+    leva de volta o dano base puro do próprio golpe; overall praticamente
+    igual → o choque explode e o ataque se anula. (Teste: o defensor gasta
+    30 de espírito; diferença ≤ 3 = empate; bônus ×1,3.)
   - **Haki de observação**: gasta usos como o armamento (não fica ligado o
     tempo todo). Ao gastar: esquiva garantida contra quem tem Haki menor;
     contra Haki igual ou maior, a chance sai de uma fórmula (esquiva atual +

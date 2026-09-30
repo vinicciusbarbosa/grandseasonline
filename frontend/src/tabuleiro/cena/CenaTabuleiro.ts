@@ -12,6 +12,7 @@ import { VisualFolhas } from './visualFolhas'
 import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
+import { Efeito, type Paleta, type TipoEfeito } from './efeitos'
 import { ImpactoHaki } from './impactoHaki'
 import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
@@ -62,6 +63,9 @@ export class CenaTabuleiro {
   /** tremor curto da câmera no impacto de um golpe com Haki (s) */
   private tremorGolpe = 0
   private hakis: HakiRei[] = []
+  private efeitos: Efeito[] = []
+  /** animações curtas por tempo (esquiva, Logia), f de 0 a 1 */
+  private tweens: { t: number; dur: number; passo: (f: number) => void; fim: () => void }[] = []
   private readonly marcas = new THREE.Group()
   private readonly moldura: THREE.Mesh
   private readonly hover: THREE.Mesh
@@ -75,6 +79,7 @@ export class CenaTabuleiro {
   private sumindo: { p: Personagem; t: number }[] = []
   private readonly matCura: THREE.MeshBasicMaterial
   private readonly matDestino: THREE.MeshBasicMaterial
+  private readonly matArea: THREE.MeshBasicMaterial
   private readonly mar: ReturnType<typeof criarMar>
   private readonly navios: ReturnType<typeof montarNavios>
   private tempo = 0
@@ -149,6 +154,7 @@ export class CenaTabuleiro {
     this.matAlvo = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,110,90,1)', 'rgba(230,60,40,0.30)'), transparent: true, depthWrite: false })
     this.matCura = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(120,255,140,1)', 'rgba(60,220,90,0.28)'), transparent: true, depthWrite: false })
     this.matDestino = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,220,90,1)', 'rgba(255,200,60,0.22)'), transparent: true, depthWrite: false })
+    this.matArea = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,160,40,1)', 'rgba(255,120,30,0.45)'), transparent: true, depthWrite: false })
     this.moldura = new THREE.Mesh(
       this.geoCasa,
       new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,248,190,1)', 'rgba(255,230,120,0.30)'), transparent: true, depthWrite: false }),
@@ -215,18 +221,137 @@ export class CenaTabuleiro {
   private readonly palco = {
     personagem: (id: string) => this.personagens.find((p) => p.id === id),
     marcar: (c: Casa, tipo: Marca) =>
-      this.marcar(c, { mover: this.matAlcance, alvo: this.matAlvo, cura: this.matCura, destino: this.matDestino }[tipo]),
+      this.marcar(c, { mover: this.matAlcance, alvo: this.matAlvo, cura: this.matCura, destino: this.matDestino, area: this.matArea }[tipo]),
     limparMarcas: () => this.limparMarcas(),
     flutuar: (p: Personagem, texto: string, cor: string, linha = 0) => {
       const s = this.acimaDe(p, 0.75 + linha * 0.3)
       this.flutuantes = [...this.flutuantes, { id: ++this.idFlut, texto, x: s.x, y: s.y, t: 0, cor }]
     },
     sumir: (p: Personagem) => this.sumindo.push({ p, t: 0.8 }),
+    efeito: (tipo: TipoEfeito, paleta: Paleta, de: THREE.Vector3, op: { para?: THREE.Vector3; dur?: number; escala?: number } = {}) =>
+      new Promise<void>((r) => {
+        const ef = new Efeito(tipo, paleta, de, { ...op, aoChegar: r })
+        this.efeitos.push(ef)
+        this.cena.add(ef.sprite)
+      }),
+    peito: (p: Personagem) => p.pos.clone().setY(p.pos.y + p.visual.altura * 0.5),
+    centro: (c: Casa) => {
+      const p = centroCasa(c.l, c.c)
+      return new THREE.Vector3(p.x, 0.7, p.z)
+    },
+    hakiDoRei: (p: Personagem) => {
+      const h = new HakiRei(p.pos, p.visual.altura)
+      h.dono = p
+      this.hakis.push(h)
+      this.cena.add(...h.objetos)
+      window.setTimeout(() => h.desligar(), 1400 / this.velocidade)
+    },
+    tremer: (s: number) => {
+      this.tremorGolpe = Math.max(this.tremorGolpe, s)
+    },
+    esquivar: (p: Personagem, de: Personagem) => this.esquivar(p, de),
+    atravessar: (p: Personagem, elemento: string) => this.atravessar(p, elemento),
+    focar: (pontos: THREE.Vector3[] | null) => this.focar(pontos),
+    choqueRei: (ponto: THREE.Vector3) => {
+      const h = new HakiRei(ponto, 1.4)
+      this.hakis.push(h)
+      this.cena.add(...h.objetos)
+      window.setTimeout(() => h.desligar(), 1100 / this.velocidade)
+    },
     avisar: () => {
       this.retratoBatalha = this.batalha?.retrato() ?? null
       const id = this.retratoBatalha?.selecionado?.id
       this.selecionado = id ? (this.personagens.find((p) => p.id === id) ?? null) : null
     },
+  }
+
+  /** câmera de antes do foco (choque de Haki) */
+  private semFoco: { zoom: number; pan: THREE.Vector3 } | null = null
+
+  /** Aproxima a câmera no meio dos pontos; null volta para onde estava. */
+  private focar(pontos: THREE.Vector3[] | null) {
+    if (pontos && !this.semFoco) this.semFoco = { zoom: this.zoomAlvo, pan: this.pan.clone() }
+    const volta = this.semFoco
+    if (!pontos && !volta) return
+    const de = this.pan.clone()
+    let para: THREE.Vector3
+    if (pontos) {
+      const m = pontos.reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(1 / pontos.length)
+      para = new THREE.Vector3(m.x, 0, m.z - 0.3)
+      this.zoomAlvo = 3
+    } else {
+      para = volta!.pan
+      this.zoomAlvo = volta!.zoom
+      this.semFoco = null
+    }
+    this.zoomAncora = undefined
+    void this.animarPor(0.45, (f) => {
+      const k = 1 - (1 - f) ** 2
+      this.pan.lerpVectors(de, para, k)
+      this.enquadrar()
+    })
+  }
+
+  private animarPor(dur: number, passo: (f: number) => void) {
+    return new Promise<void>((fim) => this.tweens.push({ t: 0, dur, passo, fim }))
+  }
+
+  /**
+   * Esquiva da observação: sai de lado num passo rápido, deixando uma
+   * imagem azulada no lugar (o golpe passa por ela), e volta.
+   */
+  private async esquivar(p: Personagem, de: Personagem) {
+    const sprite = p.visual.objetos.find((o) => (o as THREE.Sprite).isSprite) as THREE.Sprite | undefined
+    // de lado em relação a quem ataca
+    const ida = new THREE.Vector3(p.pos.x - de.pos.x, 0, p.pos.z - de.pos.z).normalize()
+    const lado = new THREE.Vector3(-ida.z, 0, ida.x).multiplyScalar(0.55)
+    if (sprite) {
+      const m = sprite.material
+      const fantasma = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: m.map!.clone(), color: 0x9fe0ff, transparent: true, opacity: 0.7, depthWrite: false }),
+      )
+      fantasma.material.map!.needsUpdate = true
+      fantasma.position.copy(sprite.position)
+      fantasma.scale.copy(sprite.scale)
+      fantasma.center.copy(sprite.center)
+      fantasma.renderOrder = 1
+      this.cena.add(fantasma)
+      void this.animarPor(0.6, (f) => {
+        fantasma.material.opacity = 0.7 * (1 - f)
+        if (f >= 1) {
+          this.cena.remove(fantasma)
+          fantasma.material.map!.dispose()
+          fantasma.material.dispose()
+        }
+      })
+    }
+    void this.palco.efeito('corte', 'normal', this.palco.peito(p), { dur: 0.25, escala: 0.9 })
+    await this.animarPor(0.18, (f) => p.deslize.copy(lado).multiplyScalar(Math.sin((f * Math.PI) / 2)))
+    await this.animarPor(0.25, () => undefined)
+    await this.animarPor(0.2, (f) => p.deslize.copy(lado).multiplyScalar(1 - f))
+    p.deslize.set(0, 0, 0)
+  }
+
+  /**
+   * Logia: o golpe atravessa — o corpo vira o elemento (cor e pisca), solta
+   * partículas pelo buraco e se refaz.
+   */
+  private async atravessar(p: Personagem, elemento: string) {
+    const cor = { fumaca: 0xe8ecf2, fogo: 0xffa040, luz: 0xfff27a, gelo: 0x9fe8ff }[elemento] ?? 0xe8ecf2
+    const tipo: TipoEfeito = (['fumaca', 'fogo', 'luz', 'gelo'].includes(elemento) ? elemento : 'fumaca') as TipoEfeito
+    const peito = this.palco.peito(p)
+    for (let i = 0; i < 4; i++) {
+      const d = new THREE.Vector3((Math.random() - 0.5) * 0.9, (Math.random() - 0.3) * 0.8, (Math.random() - 0.5) * 0.4)
+      window.setTimeout(() => void this.palco.efeito(tipo, 'normal', peito.clone().add(d), { dur: 0.55, escala: 0.8 + Math.random() * 0.5 }), i * 90)
+    }
+    const tinta = new THREE.Color(cor).multiplyScalar(1.6)
+    await this.animarPor(0.9, (f) => {
+      p.tinta = tinta
+      // pisca (corpo desfeito) no meio, se refaz no fim
+      p.oculto = f > 0.15 && f < 0.7 && Math.floor(f * 30) % 2 === 0
+    })
+    p.tinta = null
+    p.oculto = false
   }
 
   /** Botões do HUD da batalha. */
@@ -235,6 +360,7 @@ export class CenaTabuleiro {
   }
 
   destruir() {
+    this.batalha?.destruir()
     cancelAnimationFrame(this.quadro)
     window.removeEventListener('resize', this.redimensionar)
     window.removeEventListener('keydown', this.aoTecla)
@@ -283,7 +409,7 @@ export class CenaTabuleiro {
   hakiArmamento() {
     const p = this.selecionado ?? this.personagens.find((x) => x.id === 'marinha-almirante') ?? this.personagens[0]
     if (!p) return
-    p.haki = !p.haki
+    p.haki = p.haki ? false : 'armamento'
     const s = this.acimaDe(p, 1.25)
     this.flutuantes = [
       ...this.flutuantes,
@@ -323,7 +449,7 @@ export class CenaTabuleiro {
         return { id: p.id, nome: p.nome, vida: p.vida, vidaMax: p.vidaMax, x: s.x, y: s.y, selecionado: p === this.selecionado }
       }),
       flutuantes: this.flutuantes,
-      hakiArmamento: (this.selecionado ?? this.personagens.find((x) => x.id === 'marinha-almirante'))?.haki ?? false,
+      hakiArmamento: !!(this.selecionado ?? this.personagens.find((x) => x.id === 'marinha-almirante'))?.haki,
       aura: this.hakis.reduce((m, h) => Math.max(m, h.forca()), 0),
       velocidade: this.velocidade,
       escala: this.escala,
@@ -495,6 +621,20 @@ export class CenaTabuleiro {
       }
     }
     this.golpes = this.golpes.filter((g) => g.vivo)
+    for (const ef of this.efeitos) {
+      ef.atualizar(dt)
+      if (!ef.vivo) {
+        this.cena.remove(ef.sprite)
+        ef.descartar()
+      }
+    }
+    this.efeitos = this.efeitos.filter((ef) => ef.vivo)
+    for (const tw of this.tweens) {
+      tw.t += dt
+      tw.passo(Math.min(1, tw.t / tw.dur))
+      if (tw.t >= tw.dur) tw.fim()
+    }
+    this.tweens = this.tweens.filter((tw) => tw.t < tw.dur)
     this.tremorGolpe = Math.max(0, this.tremorGolpe - dtReal)
     for (const s of this.sumindo) {
       s.t -= dtReal

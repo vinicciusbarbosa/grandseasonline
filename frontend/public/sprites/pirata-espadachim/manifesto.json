@@ -114,6 +114,10 @@
      "haki": {
       "arquivo": "atacar-haki_N.png",
       "quadros": 6
+     },
+     "rei": {
+      "arquivo": "atacar-rei_N.png",
+      "quadros": 6
      }
     },
     "quadro": [
@@ -131,6 +135,10 @@
     "variantes": {
      "haki": {
       "arquivo": "atacar-haki_W.png",
+      "quadros": 6
+     },
+     "rei": {
+      "arquivo": "atacar-rei_W.png",
       "quadros": 6
      }
     },
@@ -150,6 +158,10 @@
      "haki": {
       "arquivo": "atacar-haki_S.png",
       "quadros": 6
+     },
+     "rei": {
+      "arquivo": "atacar-rei_S.png",
+      "quadros": 6
      }
     },
     "quadro": [
@@ -167,6 +179,10 @@
     "variantes": {
      "haki": {
       "arquivo": "atacar-haki_E.png",
+      "quadros": 6
+     },
+     "rei": {
+      "arquivo": "atacar-rei_E.png",
       "quadros": 6
      }
     },

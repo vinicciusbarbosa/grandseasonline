@@ -1,78 +1,143 @@
 /**
- * IA simples para um lado da batalha: escolhe para onde cada um anda, quem
- * ataca (o inimigo mais perto e mais ferido), com que golpe, e a postura —
- * gastando a vontade do lado com cuidado. A médica cura quem está ferido.
+ * IA simples para a vez de um lado: decide uma ação de cada vez (o
+ * resultado de cada golpe muda a próxima escolha). Liga a observação de
+ * quem está perto do inimigo, solta o Haki do Rei quando pega vários,
+ * escolhe o golpe de mais dano esperado (andando antes, se precisar), usa o
+ * armamento contra a Logia e a médica cura quem está ferido.
  */
 
-import { mesmaCasa, type Casa } from '../tabuleiro'
-import { CUSTO, casasDeMovimento, distancia, inimigo, vivos, type Combatente, type Estado, type Golpe, type Lado, type Plano, type Postura } from './regras'
+import type { Casa } from '../tabuleiro'
+import { alvoValido, casasDaArea } from './armas'
+import {
+  HAOSHOKU,
+  REI_IMBUIDO,
+  FORCA,
+  distancia,
+  motivo,
+  movimentos,
+  outro,
+  skillsDe,
+  vivos,
+  type Acao,
+  type Combatente,
+  type Estado,
+} from './regras'
 
-function sortearPeso<T extends string>(pesos: [T, number][], r: number): T {
-  const total = pesos.reduce((s, [, p]) => s + p, 0)
-  let x = r * total
-  for (const [v, p] of pesos) {
-    x -= p
-    if (x <= 0) return v
-  }
-  return pesos[pesos.length - 1][0]
+/** Dano esperado (bem grosseiro) de um golpe. */
+function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number, armamento: boolean) {
+  const def = Math.min(60, alvo.at.def)
+  let d = c.at.atk * FORCA * mult * golpes * (1 - def / 100)
+  if (armamento) d *= c.haki.armamento?.avancado ? 1.4 : 1.25
+  if (alvo.logia && alvo.logia.cargas > 0 && !armamento) d *= 0.1
+  // prefere terminar quem está quase caindo
+  if (d >= alvo.hp) d = alvo.hp + 25
+  return d
 }
 
-/** Casas possíveis no fim do movimento (inclui ficar parado), com o caminho. */
-function opcoes(e: Estado, c: Combatente, bloqueadas: Casa[]) {
-  const a = casasDeMovimento(e, c, bloqueadas)
-  const livres = a.casas.filter((x) => !bloqueadas.some((b) => mesmaCasa(b, x)))
-  return [{ casa: c.casa, caminho: [] as Casa[] }, ...livres.map((x) => ({ casa: x, caminho: a.caminho(x) ?? [] }))]
+type Opcao = { valor: number; acao: Acao; andar?: Casa[] }
+
+function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
+  let melhor: Opcao | null = null
+  const inimigos = vivos(e, outro(c.lado))
+  const aliados = vivos(e, c.lado)
+  for (const s of skillsDe(c)) {
+    if (c.energia < s.energia) continue
+    // casas candidatas: inimigos (e aliados, para curar) e, para área, a própria casa
+    const alvos: Casa[] = s.area === 'volta' ? [de] : s.cura ? aliados.map((a) => a.casa) : inimigos.map((i) => i.casa)
+    for (const alvo of alvos) {
+      if (!alvoValido(s, de, alvo)) continue
+      if (s.cura) {
+        const a = aliados.find((x) => x.casa.l === alvo.l && x.casa.c === alvo.c)!
+        const falta = a.hpMax - a.hp
+        if (a.hp / a.hpMax > 0.65) continue
+        const v = Math.min(s.cura, falta) * 1.2
+        if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo } }
+        continue
+      }
+      const casas = casasDaArea(s, de, alvo)
+      let v = 0
+      let logia = false
+      for (const x of casas) {
+        const o = [...inimigos, ...aliados].find((p) => p.casa.l === x.l && p.casa.c === x.c)
+        if (!o || o === c) continue
+        if (o.lado === c.lado) {
+          if (s.area !== 'alvo') v -= 30 // não acerta aliado
+          continue
+        }
+        if (o.logia && o.logia.cargas > 0) logia = true
+        v += esperado(c, o, s.mult, s.golpes ?? 1, false)
+      }
+      if (v <= 0) continue
+      // armamento: contra Logia com cargas, ou em golpe forte se sobra uso
+      const usos = c.haki.armamento?.usos ?? 0
+      const armamento = usos > 0 && (logia || (usos > 2 && s.energia > 0))
+      if (armamento) {
+        v = 0
+        for (const x of casas) {
+          const o = inimigos.find((p) => p.casa.l === x.l && p.casa.c === x.c)
+          if (o) v += esperado(c, o, s.mult, s.golpes ?? 1, true)
+        }
+      }
+      const rei = armamento && c.haki.rei && !!c.haki.armamento?.avancado && c.espirito >= REI_IMBUIDO.espirito
+      v -= s.energia * 0.3 // guarda energia
+      if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo, armamento, rei } }
+    }
+  }
+  return melhor
 }
 
-export function planejarIA(e: Estado, lado: Lado, rnd: () => number): Record<string, Plano> {
-  const planos: Record<string, Plano> = {}
-  const destinos: Casa[] = []
-  const inimigos = vivos(e, inimigo(lado))
-  const aliados = vivos(e, lado)
-  let vontade = e.vontade[lado]
-  // quem cura planeja por último (vê onde os outros vão ficar)
-  const fila = [...aliados].sort((a, b) => Number(!!a.cura) - Number(!!b.cura))
-  for (const c of fila) {
-    const ops = opcoes(e, c, destinos)
-    const perigo = (x: Casa) => Math.min(...inimigos.map((i) => distancia(x, i.casa)))
-    let escolha = ops[0]
-    let acao: Plano['acao'] = null
+export function proximaAcao(e: Estado): Acao {
+  const lado = e.vez
+  const meus = vivos(e, lado).filter((c) => !c.atordoado)
+  const inimigos = vivos(e, outro(lado))
+  const perto = (c: Combatente, r: number) => inimigos.some((i) => distancia(i.casa, c.casa) <= r)
 
-    const ferido = c.cura ? [...aliados].filter((a) => a.hp / a.hpMax < 0.65).sort((a, b) => a.hp / a.hpMax - b.hp / b.hpMax)[0] : undefined
-    if (c.cura && ferido) {
-      const alcancaveis = ops.filter((o) => distancia(o.casa, ferido.casa) <= c.cura!.alcance)
-      if (alcancaveis.length) {
-        escolha = alcancaveis.sort((a, b) => perigo(b.casa) - perigo(a.casa))[0]
-        acao = { tipo: 'curar', alvo: ferido.id }
-      }
-    }
-    if (!acao && inimigos.length) {
-      // alvo: perto e ferido
-      const alvo = [...inimigos].sort((a, b) => distancia(c.casa, a.casa) + (a.hp / a.hpMax) * 4 - (distancia(c.casa, b.casa) + (b.hp / b.hpMax) * 4))[0]
-      const noAlcance = ops.filter((o) => distancia(o.casa, alvo.casa) <= c.alcance)
-      if (noAlcance.length) {
-        // de perto: o caminho mais curto; de longe: a casa mais segura
-        escolha = c.distancia
-          ? noAlcance.sort((a, b) => perigo(b.casa) - perigo(a.casa) || a.caminho.length - b.caminho.length)[0]
-          : noAlcance.sort((a, b) => a.caminho.length - b.caminho.length)[0]
-      } else {
-        escolha = [...ops].sort((a, b) => distancia(a.casa, alvo.casa) - distancia(b.casa, alvo.casa))[0]
-      }
-      const golpe = sortearPeso<Golpe>([['comum', 5], ['pesado', 3], ['finta', 2]], rnd())
-      acao = { tipo: 'atacar', alvo: alvo.id, golpe }
-    }
-    destinos.push(escolha.casa)
-
-    // postura: gasta a vontade do lado aos poucos
-    const pesos: [Postura, number][] = [
-      ['bloquear', 5],
-      ['esquivar', c.at.agl >= 14 ? 5 : 3],
-      ['aparar', vontade >= CUSTO.aparar ? 2 : 0],
-      ['contra', vontade >= CUSTO.contra && !c.distancia ? 1.5 : 0],
-    ]
-    const postura = sortearPeso(pesos.filter(([, p]) => p > 0), rnd())
-    vontade -= CUSTO[postura]
-    planos[c.id] = { caminho: escolha.caminho, acao, postura }
+  // observação: liga em quem está perto do inimigo (não gasta ação)
+  for (const c of vivos(e, lado)) {
+    if (!c.observando && (c.haki.observacao?.usos ?? 0) > 0 && perto(c, 4)) return { t: 'observar', id: c.id, ligado: true }
   }
-  return planos
+  if (e.acoes > 0) {
+    // Haki do Rei em área, se pega pelo menos dois mais fracos
+    for (const c of meus) {
+      if (!c.haki.rei || c.espirito < HAOSHOKU.espirito) continue
+      const pega = inimigos.filter((i) => distancia(i.casa, c.casa) <= HAOSHOKU.raio && i.haki.overall < c.haki.overall && !i.atordoado)
+      if (pega.length >= 2) return { t: 'haoshoku', id: c.id }
+    }
+    let melhor: Opcao | null = null
+    for (const c of meus) {
+      const aqui = melhorGolpe(e, c, c.casa)
+      if (aqui && (!melhor || aqui.valor > melhor.valor)) melhor = aqui
+      if (e.movimento <= 0) continue
+      const m = movimentos(e, c)
+      for (const casa of m.casas) {
+        const op = melhorGolpe(e, c, casa)
+        if (!op) continue
+        const cam = m.caminho(casa)!
+        const v = op.valor - cam.length * 2
+        if (!melhor || v > melhor.valor) melhor = { valor: v, acao: op.acao, andar: cam }
+      }
+    }
+    if (melhor && melhor.valor > 0) {
+      if (melhor.andar) {
+        const id = (melhor.acao as { id: string }).id
+        return { t: 'mover', id, caminho: melhor.andar }
+      }
+      if (!motivo(e, melhor.acao)) return melhor.acao
+    }
+  }
+  // ninguém alcança: aproxima o mais perto do inimigo mais próximo
+  if (e.movimento > 0 && inimigos.length) {
+    let melhor: { d: number; acao: Acao } | null = null
+    for (const c of meus) {
+      const m = movimentos(e, c)
+      for (const casa of m.casas) {
+        const d = Math.min(...inimigos.map((i) => distancia(i.casa, casa)))
+        const atual = Math.min(...inimigos.map((i) => distancia(i.casa, c.casa)))
+        if (d >= atual || d < 1) continue
+        if (!melhor || d < melhor.d) melhor = { d, acao: { t: 'mover', id: c.id, caminho: m.caminho(casa)! } }
+      }
+    }
+    if (melhor) return melhor.acao
+  }
+  return { t: 'passar' }
 }

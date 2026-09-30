@@ -1,38 +1,48 @@
 /**
- * Regras da batalha de tripulação (protótipo): 5 contra 5 no tabuleiro 10×20.
+ * Regras da batalha de tripulação — protótipo de TESTE (DESIGN.md: nada aqui
+ * está fechado; o que ficar bom entra no jogo).
  *
- * Turno simultâneo (DESIGN.md): os dois lados planejam ao mesmo tempo — para
- * onde cada um anda, quem ataca e com que golpe — e cada personagem escolhe
- * em segredo a postura com que vai receber os golpes da rodada. Depois tudo
- * se resolve junto, na ordem da iniciativa (AGL): cada um anda e age na sua
- * vez; quem se mexeu antes pode sair do alcance de quem vem depois.
+ * Vez da tripulação: o lado mais ágil começa. Na sua vez, a tripulação tem
+ * um número de AÇÕES (usar uma skill = 1 ação, com qualquer tripulante,
+ * quantas vezes quiser, se tiver energia) e um ORÇAMENTO DE MOVIMENTO em
+ * casas, dividido entre todos. Depois passa a vez (ou o tempo acaba).
  *
- * Golpe × postura (pedra-papel-tesoura):
- *   - comum  : bloquear segura (35%), aparar anula, esquivar às vezes;
- *   - pesado : quebra o bloqueio e o aparar, mas é fácil de esquivar;
- *   - finta  : engana quem apara ou contra-ataca, não dá para esquivar.
- * Aparar e contra-atacar custam vontade (do lado), que sobe a cada rodada.
+ * Recursos de cada personagem:
+ *   - energia  : paga as skills da arma; volta um pouco a cada vez;
+ *   - espírito : sobe aos poucos e mais ao acertar/ser atingido; paga o
+ *                Haki do Rei;
+ *   - Haki     : usos por batalha (pela maestria) de armamento e observação;
+ *   - Logia    : cargas de intangibilidade (pela raridade da fruta).
  *
- * Módulo puro (sem desenho), determinístico pela semente do estado: o
- * servidor do multiplayer roda exatamente o mesmo código com os dois planos.
+ * Módulo puro e determinístico (semente no estado): cada ação vira uma
+ * função estado → estado + eventos, pronta para o servidor do multiplayer.
  */
 
-import { alcance, mesmaCasa, COLUNAS, LINHAS, METADE, type Casa } from '../tabuleiro'
+import { mesmaCasa, vizinhos8, COLUNAS, LINHAS, type Casa } from '../tabuleiro'
+import { FRUTAS, PRIMEIROS_SOCORROS, SKILLS_ARMA, VENCE, alvoValido, casasDaArea, distancia, type Skill, type TipoArma } from './armas'
 
 export type Lado = 'piratas' | 'marinha'
-export type Golpe = 'comum' | 'pesado' | 'finta'
-export type Postura = 'bloquear' | 'esquivar' | 'aparar' | 'contra'
 
 export type Atributos = {
-  /** força do golpe */
   atk: number
-  /** reduz o dano recebido (0–60) */
   def: number
-  /** iniciativa e esquiva */
+  /** esquiva e quem começa */
   agl: number
-  /** chance de crítico (contra a CON do alvo) */
+  /** bloqueio (contra a CON do atacante) */
+  res: number
+  /** acerto (contra a AGL do alvo) */
+  pre: number
+  /** crítico (contra a CON do alvo) */
   dex: number
   con: number
+}
+
+export type Haki = {
+  /** média de todos os Haki (duelos e disputas) */
+  overall: number
+  armamento: { usos: number; max: number; avancado: boolean } | null
+  observacao: { usos: number; max: number; avancado: boolean } | null
+  rei: boolean
 }
 
 export type Combatente = {
@@ -43,91 +53,83 @@ export type Combatente = {
   casa: Casa
   hp: number
   hpMax: number
+  energia: number
+  espirito: number
   at: Atributos
-  /** casas que anda por turno */
-  movimento: number
-  /** distância (em casas, contando diagonais) do ataque */
-  alcance: number
-  /** ataque à distância (arma de fogo): não é contra-atacado de perto */
-  distancia: boolean
-  /** cura em vez de só atacar */
-  cura?: { valor: number; alcance: number }
-}
-
-export type Acao = { tipo: 'atacar'; alvo: string; golpe: Golpe } | { tipo: 'curar'; alvo: string }
-
-/** O que um personagem fará no turno. */
-export type Plano = {
-  /** caminho (sem a casa de partida), até `movimento` casas */
-  caminho: Casa[]
-  acao: Acao | null
-  postura: Postura
+  arma: TipoArma
+  /** profissão com efeito em batalha */
+  profissao?: 'medico'
+  haki: Haki
+  /** Akuma no Mi (id em FRUTAS); Zoan: vezes restantes transformado */
+  akuma: { fruta: string; transformado: number } | null
+  /** Logia: cargas de intangibilidade */
+  logia: { cargas: number; max: number } | null
+  /** gasta Haki de observação quando atacado */
+  observando: boolean
+  /** Haki do Rei / congelado: perde a próxima vez */
+  atordoado: boolean
+  /** queimadura: dano no começo de cada vez */
+  queimadura: { dano: number; vezes: number } | null
 }
 
 export type Estado = {
-  rodada: number
   combatentes: Combatente[]
-  vontade: Record<Lado, number>
+  vez: Lado
+  /** quantas vezes já passou (1 = primeira vez do primeiro lado) */
+  turno: number
+  acoes: number
+  movimento: number
   semente: number
-  vencedor: Lado | 'empate' | null
+  vencedor: Lado | null
 }
+
+export type Efeito = 'acertou' | 'critico' | 'bloqueou' | 'esquivou' | 'observou' | 'atravessou' | 'desgastado'
 
 export type Evento =
-  | { t: 'ordem'; ids: string[] }
-  | { t: 'posturas'; posturas: Record<string, Postura> }
+  | { t: 'vez'; lado: Lado; turno: number }
   | { t: 'mover'; id: string; caminho: Casa[] }
-  | { t: 'atacar'; id: string; alvo: string; golpe: Golpe }
-  | {
-      t: 'golpe'
-      de: string
-      alvo: string
-      golpe: Golpe
-      postura: Postura
-      efeito: 'acertou' | 'bloqueou' | 'esquivou' | 'aparou' | 'quebrou' | 'enganou'
-      dano: number
-      critico: boolean
-    }
+  | { t: 'skill'; id: string; skill: string; nome: string; alvo: Casa; casas: Casa[]; armamento: boolean; rei: boolean }
+  | { t: 'golpe'; de: string; alvo: string; dano: number; efeito: Efeito }
   | { t: 'contra'; de: string; alvo: string; dano: number }
-  | { t: 'fora'; id: string; alvo: string }
-  | { t: 'curar'; de: string; alvo: string; valor: number }
+  | { t: 'cura'; de: string; alvo: string; valor: number }
+  | { t: 'haoshoku'; id: string }
+  | { t: 'transformou'; id: string; vezes: number }
+  | { t: 'congelou'; id: string }
+  | { t: 'queimou'; id: string; dano: number }
+  | { t: 'atordoou'; id: string }
+  | { t: 'resistiu'; id: string }
+  | { t: 'clash'; de: string; alvo: string; resultado: 'venceu' | 'perdeu' | 'empate'; dano: number }
   | { t: 'caiu'; id: string }
-  | { t: 'vontade'; lado: Lado; valor: number }
-  | { t: 'fim'; vencedor: Lado | 'empate' }
+  | { t: 'tempo'; lado: Lado }
+  | { t: 'fim'; vencedor: Lado }
 
-export const CUSTO: Record<Postura, number> = { bloquear: 0, esquivar: 0, aparar: 2, contra: 3 }
-export const VONTADE_POR_RODADA = 2
-export const VONTADE_MAX = 10
-/** escala geral do dano (ritmo da batalha: ~8–12 rodadas) */
-export const FORCA = 2.1
-export const MULT_GOLPE: Record<Golpe, number> = { comum: 1, pesado: 1.5, finta: 0.8 }
+// ------------------------------------------------------------ números (teste)
+export const ACOES_POR_VEZ = 5
+export const MOVIMENTO_POR_VEZ = 8
+export const TEMPO_POR_VEZ = 120 // s
+export const ENERGIA_MAX = 100
+export const ENERGIA_INICIAL = 60
+export const ENERGIA_POR_VEZ = 20
+export const ESPIRITO_MAX = 100
+export const ESPIRITO_POR_VEZ = 5
+export const ESPIRITO_AO_ACERTAR = 8
+export const ESPIRITO_AO_APANHAR = 12
+/** Haki do Rei em área: espírito, raio */
+export const HAOSHOKU = { espirito: 70, raio: 3 }
+/** Haki do Rei imbuído no golpe: espírito a mais (precisa de armamento avançado) */
+export const REI_IMBUIDO = { espirito: 40, mult: 1.6 }
+/** Choque de Haki do Rei: quem é atacado com o Rei imbuído e também tem o
+ * Rei (e espírito) responde; ganha o maior overall. Diferença até `empate`
+ * explode e anula; atacante que vence ganha `bonus` no golpe; que perde
+ * leva de volta o dano base puro. */
+export const CLASH = { espirito: 30, empate: 3, bonus: 1.3 }
+export const FORCA = 0.8
+const MULT_ARMAMENTO = 1.25
+const MULT_AVANCADO = 1.4
+const FURA_AVANCADO = 0.3
 
-/**
- * Quanto do dano passa, conforme golpe × postura, e o que aconteceu.
- * `esquiva`: chance base de esquivar (somada à diferença de AGL).
- */
-const TABELA: Record<Golpe, Record<Postura, { passa: number; efeito: Extract<Evento, { t: 'golpe' }>['efeito']; esquiva?: number; revide?: number }>> = {
-  comum: {
-    bloquear: { passa: 0.35, efeito: 'bloqueou' },
-    esquivar: { passa: 1, efeito: 'acertou', esquiva: 0.45 },
-    aparar: { passa: 0, efeito: 'aparou' },
-    contra: { passa: 1, efeito: 'acertou', revide: 0.8 },
-  },
-  pesado: {
-    bloquear: { passa: 1, efeito: 'quebrou' },
-    esquivar: { passa: 1, efeito: 'acertou', esquiva: 0.75 },
-    aparar: { passa: 1, efeito: 'quebrou' },
-    contra: { passa: 1, efeito: 'acertou', revide: 0.8 },
-  },
-  finta: {
-    bloquear: { passa: 0.6, efeito: 'bloqueou' },
-    esquivar: { passa: 1, efeito: 'acertou', esquiva: 0 },
-    aparar: { passa: 1.3, efeito: 'enganou' },
-    contra: { passa: 1.3, efeito: 'enganou' },
-  },
-}
-
-// ------------------------------------------------------------------ sorteio
-/** Gerador determinístico (mulberry32): mesma semente, mesma batalha. */
+// ------------------------------------------------------------ utilitários
+/** Gerador determinístico (mulberry32). */
 export function sorteador(semente: number) {
   let s = semente >>> 0
   return () => {
@@ -139,139 +141,320 @@ export function sorteador(semente: number) {
   }
 }
 
-// ------------------------------------------------------------------ geometria
-/** Distância em casas (diagonal conta 1). */
-export const distancia = (a: Casa, b: Casa) => Math.max(Math.abs(a.l - b.l), Math.abs(a.c - b.c))
-
+export { distancia }
 export const vivos = (e: Estado, lado?: Lado) => e.combatentes.filter((c) => c.hp > 0 && (!lado || c.lado === lado))
 export const porId = (e: Estado, id: string) => e.combatentes.find((c) => c.id === id)
-export const inimigo = (l: Lado): Lado => (l === 'piratas' ? 'marinha' : 'piratas')
-export const dentro = (c: Casa) => c.l >= 0 && c.l < LINHAS && c.c >= 0 && c.c < COLUNAS
-/** Metade do tabuleiro (navio) de cada lado: piratas em cima, Marinha embaixo. */
-export const noNavioDe = (c: Casa, lado: Lado) => (lado === 'piratas' ? c.l < METADE : c.l >= METADE)
+export const outro = (l: Lado): Lado => (l === 'piratas' ? 'marinha' : 'piratas')
+const dentro = (c: Casa) => c.l >= 0 && c.l < LINHAS && c.c >= 0 && c.c < COLUNAS
+const limitar = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
+const ocupante = (e: Estado, c: Casa) => vivos(e).find((o) => mesmaCasa(o.casa, c))
 
-/**
- * Casas para onde um personagem pode andar neste turno. `bloqueadas`:
- * casas que não pode ocupar (outros personagens, destinos já planejados).
- */
-export function casasDeMovimento(e: Estado, c: Combatente, bloqueadas: Casa[] = []) {
-  const ocupada = (x: Casa) => bloqueadas.some((b) => mesmaCasa(b, x)) || vivos(e).some((o) => o !== c && mesmaCasa(o.casa, x))
-  return alcance(c.casa, c.movimento, ocupada)
+/** Skills que o personagem tem (arma + profissão). */
+export function skillsDe(c: Combatente): Skill[] {
+  return [...SKILLS_ARMA[c.arma], ...(c.akuma ? FRUTAS[c.akuma.fruta].skills : []), ...(c.profissao === 'medico' ? [PRIMEIROS_SOCORROS] : [])]
 }
 
-// ------------------------------------------------------------------ batalha
-export function criarBatalha(combatentes: Combatente[], semente = Date.now() % 2147483647): Estado {
-  return { rodada: 1, combatentes: combatentes.map((c) => ({ ...c, casa: { ...c.casa } })), vontade: { piratas: 2, marinha: 2 }, semente, vencedor: null }
+/** Ataque e defesa com a transformação Zoan. */
+export const atkDe = (c: Combatente) => c.at.atk * (c.akuma?.transformado ? 1.3 : 1)
+export const defDe = (c: Combatente) => c.at.def + (c.akuma?.transformado ? 10 : 0)
+
+/** De onde vem o golpe (para a passiva de borracha). */
+const armaDaSkill = (c: Combatente, s: Skill): TipoArma | 'fruta' => (SKILLS_ARMA[c.arma].includes(s) ? c.arma : 'fruta')
+
+/** Casas alcançáveis andando até `max` casas (retas ou diagonais), com o caminho. */
+export function movimentos(e: Estado, c: Combatente, max = e.movimento) {
+  const chave = (x: Casa) => x.l * COLUNAS + x.c
+  const veio = new Map<number, Casa | null>([[chave(c.casa), null]])
+  const dist = new Map<number, number>([[chave(c.casa), 0]])
+  const fila: Casa[] = [c.casa]
+  while (fila.length) {
+    const a = fila.shift()!
+    const d = dist.get(chave(a))!
+    if (d >= max) continue
+    for (const v of vizinhos8(a)) {
+      if (dist.has(chave(v)) || ocupante(e, v)) continue
+      dist.set(chave(v), d + 1)
+      veio.set(chave(v), a)
+      fila.push(v)
+    }
+  }
+  const caminho = (ate: Casa): Casa[] | null => {
+    if (!veio.has(chave(ate)) || mesmaCasa(ate, c.casa)) return null
+    const r: Casa[] = []
+    let p: Casa | null = ate
+    while (p && !mesmaCasa(p, c.casa)) {
+      r.unshift(p)
+      p = veio.get(chave(p)) ?? null
+    }
+    return r
+  }
+  const casas = [...dist.keys()].filter((k) => k !== chave(c.casa)).map((k) => ({ l: Math.floor(k / COLUNAS), c: k % COLUNAS }))
+  return { casas, caminho }
 }
 
-export const planoParado = (): Plano => ({ caminho: [], acao: null, postura: 'bloquear' })
+// ------------------------------------------------------------ início
+export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 2147483646) + 1): Estado {
+  const cs = structuredClone(combatentes)
+  for (const c of cs) {
+    c.energia = ENERGIA_INICIAL
+    c.espirito = 0
+    c.observando = false
+    c.atordoado = false
+    c.queimadura = null
+  }
+  const media = (l: Lado) => {
+    const v = cs.filter((c) => c.lado === l)
+    return v.reduce((s, c) => s + c.at.agl, 0) / Math.max(1, v.length)
+  }
+  const rnd = sorteador(semente)
+  const dp = media('piratas')
+  const dm = media('marinha')
+  const vez: Lado = dp > dm ? 'piratas' : dm > dp ? 'marinha' : rnd() < 0.5 ? 'piratas' : 'marinha'
+  return { combatentes: cs, vez, turno: 1, acoes: ACOES_POR_VEZ, movimento: MOVIMENTO_POR_VEZ, semente: Math.floor(rnd() * 2147483646) + 1, vencedor: null }
+}
 
-/**
- * Resolve um turno com os planos dos dois lados. Não altera `anterior`:
- * devolve o estado novo e a lista de eventos (para animar na ordem).
- */
-export function resolverTurno(anterior: Estado, planos: Record<string, Plano>): { estado: Estado; eventos: Evento[] } {
+// ------------------------------------------------------------ ações
+export type Acao =
+  | { t: 'mover'; id: string; caminho: Casa[] }
+  | { t: 'skill'; id: string; skill: string; alvo: Casa; armamento?: boolean; rei?: boolean }
+  | { t: 'observar'; id: string; ligado: boolean }
+  | { t: 'haoshoku'; id: string }
+  | { t: 'passar' }
+  | { t: 'tempo' }
+
+export type Resultado = { estado: Estado; eventos: Evento[] } | { erro: string }
+
+/** Por que essa ação não pode (ou null se pode). */
+export function motivo(e: Estado, a: Acao): string | null {
+  if (e.vencedor) return 'A batalha acabou.'
+  if (a.t === 'passar' || a.t === 'tempo') return null
+  const c = porId(e, a.id)
+  if (!c || c.hp <= 0) return 'Personagem inválido.'
+  if (c.lado !== e.vez) return 'Não é a vez dele.'
+  if (a.t === 'observar') return a.ligado && !c.haki.observacao?.usos ? 'Sem usos de Haki de observação.' : null
+  if (c.atordoado) return `${c.nome} está atordoado.`
+  if (a.t === 'mover') {
+    if (!a.caminho.length) return 'Caminho vazio.'
+    if (a.caminho.length > e.movimento) return 'Movimento insuficiente.'
+    let de = c.casa
+    for (const p of a.caminho) {
+      if (!dentro(p) || distancia(de, p) !== 1 || ocupante(e, p)) return 'Caminho bloqueado.'
+      de = p
+    }
+    return null
+  }
+  if (e.acoes <= 0) return 'Sem ações nesta vez.'
+  if (a.t === 'haoshoku') {
+    if (!c.haki.rei) return `${c.nome} não tem Haki do Rei.`
+    return c.espirito < HAOSHOKU.espirito ? `Espírito insuficiente (${HAOSHOKU.espirito}).` : null
+  }
+  const s = skillsDe(c).find((x) => x.id === a.skill)
+  if (!s) return 'Skill inválida.'
+  if (c.energia < s.energia) return 'Energia insuficiente.'
+  if (!alvoValido(s, c.casa, a.alvo)) return 'Fora de alcance.'
+  if (a.armamento && !c.haki.armamento?.usos) return 'Sem usos de Haki de armamento.'
+  if (a.rei) {
+    if (!c.haki.rei || !c.haki.armamento?.avancado) return 'Precisa de Haki do Rei e armamento avançado.'
+    if (!a.armamento) return 'O Haki do Rei vai imbuído no armamento.'
+    if (c.espirito < REI_IMBUIDO.espirito) return `Espírito insuficiente (${REI_IMBUIDO.espirito}).`
+  }
+  if (s.cura) {
+    const o = ocupante(e, a.alvo)
+    if (!o || o.lado !== c.lado) return 'Escolha um aliado.'
+  }
+  return null
+}
+
+export function aplicar(anterior: Estado, a: Acao): Resultado {
+  const m = motivo(anterior, a)
+  if (m) return { erro: m }
   const e: Estado = structuredClone(anterior)
   const rnd = sorteador(e.semente)
   const ev: Evento[] = []
-  const plano = (id: string) => planos[id] ?? planoParado()
+  const espirito = (c: Combatente, v: number) => (c.espirito = Math.min(ESPIRITO_MAX, c.espirito + v))
 
-  // ordem: AGL maior primeiro (empate por sorteio)
-  const desempate = new Map(e.combatentes.map((c) => [c.id, rnd()]))
-  const ordem = vivos(e)
-    .slice()
-    .sort((a, b) => b.at.agl - a.at.agl || desempate.get(b.id)! - desempate.get(a.id)!)
-  ev.push({ t: 'ordem', ids: ordem.map((c) => c.id) })
-
-  // posturas: paga a vontade na ordem da iniciativa; sem vontade, bloqueia
-  const posturas: Record<string, Postura> = {}
-  for (const c of ordem) {
-    let p = plano(c.id).postura
-    if (e.vontade[c.lado] < CUSTO[p]) p = 'bloquear'
-    e.vontade[c.lado] -= CUSTO[p]
-    posturas[c.id] = p
-  }
-  ev.push({ t: 'posturas', posturas })
-
-  const derrubar = (alvo: Combatente) => {
-    if (alvo.hp <= 0) {
-      alvo.hp = 0
+  const ferir = (alvo: Combatente, dano: number) => {
+    alvo.hp = Math.max(0, alvo.hp - dano)
+    espirito(alvo, ESPIRITO_AO_APANHAR)
+    if (alvo.hp === 0) {
+      alvo.observando = false
       ev.push({ t: 'caiu', id: alvo.id })
     }
   }
 
-  for (const c of ordem) {
-    if (c.hp <= 0) continue
-    const p = plano(c.id)
-    // anda até onde der (para antes de uma casa que ficou ocupada)
-    const feito: Casa[] = []
-    for (const passo of p.caminho.slice(0, c.movimento)) {
-      if (!dentro(passo) || vivos(e).some((o) => o !== c && mesmaCasa(o.casa, passo))) break
-      feito.push(passo)
-      c.casa = { ...passo }
-    }
-    if (feito.length) ev.push({ t: 'mover', id: c.id, caminho: feito })
+  /** resultado do choque de Haki do Rei por alvo, nesta ação */
+  const clashes = new Map<string, 'venceu' | 'perdeu' | 'empate'>()
 
-    const a = p.acao
-    if (!a) continue
-    const alvo = porId(e, a.alvo)
-    if (!alvo || alvo.hp <= 0) continue
-    if (a.tipo === 'curar') {
-      if (!c.cura || alvo.lado !== c.lado || distancia(c.casa, alvo.casa) > c.cura.alcance) {
-        ev.push({ t: 'fora', id: c.id, alvo: alvo.id })
-        continue
-      }
-      const valor = Math.min(c.cura.valor, alvo.hpMax - alvo.hp)
-      alvo.hp += valor
-      ev.push({ t: 'curar', de: c.id, alvo: alvo.id, valor })
-      continue
+  /** Um golpe de `c` em `alvo`. */
+  const golpear = (c: Combatente, alvo: Combatente, s: Skill, armamento: boolean, rei: boolean, mult = s.mult): void => {
+    // Choque de Haki do Rei (uma vez por alvo na ação)
+    if (rei && alvo.haki.rei && !clashes.has(alvo.id) && alvo.espirito >= CLASH.espirito) {
+      alvo.espirito -= CLASH.espirito
+      const dif = c.haki.overall - alvo.haki.overall
+      const resultado = Math.abs(dif) <= CLASH.empate ? 'empate' : dif > 0 ? 'venceu' : 'perdeu'
+      clashes.set(alvo.id, resultado)
+      const volta = resultado === 'perdeu' ? Math.max(1, Math.round(atkDe(c) * FORCA * mult)) : 0
+      ev.push({ t: 'clash', de: c.id, alvo: alvo.id, resultado, dano: volta })
+      if (resultado === 'perdeu') ferir(c, volta)
     }
-    if (alvo.lado === c.lado) continue
-    ev.push({ t: 'atacar', id: c.id, alvo: alvo.id, golpe: a.golpe })
-    if (distancia(c.casa, alvo.casa) > c.alcance) {
-      ev.push({ t: 'fora', id: c.id, alvo: alvo.id })
-      continue
-    }
-    const postura = posturas[alvo.id] ?? 'bloquear'
-    const regra = TABELA[a.golpe][postura]
-    // aparar só funciona de perto: contra um tiro vira bloqueio
-    const r = postura === 'aparar' && c.distancia ? TABELA[a.golpe].bloquear : regra
-    let efeito = r.efeito
-    let passa = r.passa
-    if (r.esquiva !== undefined) {
-      const chance = Math.min(0.9, Math.max(0.05, r.esquiva + (alvo.at.agl - c.at.agl) * 0.02))
-      if (r.esquiva > 0 && rnd() < chance) {
-        efeito = 'esquivou'
-        passa = 0
+    const choque = clashes.get(alvo.id)
+    if (choque === 'perdeu' || choque === 'empate') return
+    if (choque === 'venceu') mult *= CLASH.bonus
+    // Logia: sem Haki nem Kairoseki, atravessa (gasta carga) — a menos que o
+    // elemento do golpe vença o da fruta (fogo derrete gelo)
+    const elemAlvo = alvo.akuma ? FRUTAS[alvo.akuma.fruta].elemento : undefined
+    const venceElemento = !!(s.elemento && elemAlvo && VENCE[s.elemento]?.includes(elemAlvo))
+    if (alvo.logia && !armamento && !venceElemento) {
+      if (alvo.logia.cargas > 0) {
+        alvo.logia.cargas--
+        ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'atravessou' })
+        return
       }
     }
-    const chanceCritico = Math.min(0.5, Math.max(0.03, 0.08 + (c.at.dex - alvo.at.con) * 0.02))
-    const critico = passa > 0 && rnd() < chanceCritico
-    const bruto = c.at.atk * FORCA * MULT_GOLPE[a.golpe] * (1 - Math.min(60, alvo.at.def) / 100) * (0.9 + rnd() * 0.2) * (critico ? 1.5 : 1)
-    const dano = passa > 0 ? Math.max(1, Math.round(bruto * passa)) : 0
-    alvo.hp -= dano
-    ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, golpe: a.golpe, postura, efeito, dano, critico })
-    derrubar(alvo)
-    // contra-ataque: quem esperava o golpe revida, se alcança o atacante
-    if (r.revide && alvo.hp > 0 && distancia(alvo.casa, c.casa) <= alvo.alcance) {
-      const d = Math.max(1, Math.round(alvo.at.atk * FORCA * r.revide * (1 - Math.min(60, c.at.def) / 100) * (0.9 + rnd() * 0.2)))
-      c.hp -= d
-      ev.push({ t: 'contra', de: alvo.id, alvo: c.id, dano: d })
-      derrubar(c)
+    // Haki de observação: gasta um uso e tenta esquivar
+    const obs = alvo.haki.observacao
+    if (alvo.observando && obs && obs.usos > 0) {
+      obs.usos--
+      if (!obs.usos) alvo.observando = false
+      const base = limitar((alvo.at.agl - c.at.pre) * 2 + 5, 0, 45)
+      const chance = alvo.haki.overall > c.haki.overall ? 1 : limitar((base + 40 - (c.haki.overall - alvo.haki.overall)) / 100, 0.05, 0.9)
+      if (rnd() < chance) {
+        ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'observou' })
+        // observação avançada: prevê e revida na hora (de perto)
+        if (obs.avancado && distancia(alvo.casa, c.casa) <= 1) {
+          const d = Math.max(1, Math.round(atkDe(alvo) * FORCA * 0.8 * (1 - Math.min(60, defDe(c)) / 100) * (0.9 + rnd() * 0.2)))
+          ev.push({ t: 'contra', de: alvo.id, alvo: c.id, dano: d })
+          ferir(c, d)
+        }
+        return
+      }
+    }
+    // esquiva normal
+    const esquiva = limitar((alvo.at.agl - c.at.pre) * 2 + 5 - (s.precisao ?? 0), 0, 45) / 100 // luz: precisão 100 = não esquiva
+    if (rnd() < esquiva) {
+      ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'esquivou' })
+      return
+    }
+    const avancado = armamento && !!c.haki.armamento?.avancado
+    let def = Math.min(60, defDe(alvo)) * (1 - (s.ignoraDef ?? 0)) * (avancado ? 1 - FURA_AVANCADO : 1)
+    def = Math.max(0, def)
+    const critico = rnd() < limitar((c.at.dex - alvo.at.con) * 2 + 5 + (s.critico ?? 0), 0, 75) / 100
+    const bloqueio = !avancado && rnd() < limitar((alvo.at.res - c.at.con) * 2, 0, 40) / 100
+    let dano = atkDe(c) * FORCA * mult * (1 - def / 100) * (0.9 + rnd() * 0.2)
+    // Paramecia de borracha: contundente e tiro pela metade
+    const origem = armaDaSkill(c, s)
+    if (alvo.akuma?.fruta === 'borracha' && (origem === 'maca' || origem === 'espingarda') && !armamento) dano *= 0.5
+    if (armamento) dano *= avancado ? MULT_AVANCADO : MULT_ARMAMENTO
+    if (rei) dano *= REI_IMBUIDO.mult
+    if (critico) dano *= 1.5
+    if (bloqueio) dano *= 0.5
+    const final = Math.max(1, Math.round(dano))
+    const logiaSemCarga = !!alvo.logia && !armamento && !venceElemento
+    ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: final, efeito: logiaSemCarga ? 'desgastado' : bloqueio ? 'bloqueou' : critico ? 'critico' : 'acertou' })
+    espirito(c, ESPIRITO_AO_ACERTAR)
+    ferir(alvo, final)
+    if (alvo.hp > 0 && s.queima) alvo.queimadura = { ...s.queima }
+    if (alvo.hp > 0 && s.congela && !alvo.atordoado && rnd() < s.congela) {
+      alvo.atordoado = true
+      ev.push({ t: 'congelou', id: alvo.id })
+    }
+    // Haki do Rei imbuído: atordoa quem tem Haki mais fraco
+    if (rei && alvo.hp > 0) {
+      if (alvo.haki.overall < c.haki.overall) {
+        alvo.atordoado = true
+        ev.push({ t: 'atordoou', id: alvo.id })
+      } else ev.push({ t: 'resistiu', id: alvo.id })
     }
   }
 
-  // fim da rodada
-  const p = vivos(e, 'piratas').length
-  const m = vivos(e, 'marinha').length
-  if (!p || !m) {
-    e.vencedor = !p && !m ? 'empate' : p ? 'piratas' : 'marinha'
-    ev.push({ t: 'fim', vencedor: e.vencedor })
-  } else {
-    e.rodada++
-    for (const lado of ['piratas', 'marinha'] as Lado[]) {
-      e.vontade[lado] = Math.min(VONTADE_MAX, e.vontade[lado] + VONTADE_POR_RODADA)
-      ev.push({ t: 'vontade', lado, valor: e.vontade[lado] })
+  switch (a.t) {
+    case 'mover': {
+      const c = porId(e, a.id)!
+      c.casa = { ...a.caminho[a.caminho.length - 1] }
+      e.movimento -= a.caminho.length
+      ev.push({ t: 'mover', id: c.id, caminho: a.caminho })
+      break
+    }
+    case 'observar': {
+      porId(e, a.id)!.observando = a.ligado
+      break
+    }
+    case 'haoshoku': {
+      const c = porId(e, a.id)!
+      c.espirito -= HAOSHOKU.espirito
+      e.acoes--
+      ev.push({ t: 'haoshoku', id: c.id })
+      for (const o of vivos(e, outro(c.lado))) {
+        if (distancia(o.casa, c.casa) > HAOSHOKU.raio) continue
+        if (o.haki.overall < c.haki.overall) {
+          o.atordoado = true
+          ev.push({ t: 'atordoou', id: o.id })
+        } else ev.push({ t: 'resistiu', id: o.id })
+      }
+      break
+    }
+    case 'skill': {
+      const c = porId(e, a.id)!
+      const s = skillsDe(c).find((x) => x.id === a.skill)!
+      const armamento = !!a.armamento
+      const rei = !!a.rei
+      c.energia -= s.energia
+      e.acoes--
+      if (armamento) c.haki.armamento!.usos--
+      if (rei) c.espirito -= REI_IMBUIDO.espirito
+      const casas = casasDaArea(s, c.casa, a.alvo).filter(dentro)
+      ev.push({ t: 'skill', id: c.id, skill: s.id, nome: s.nome, alvo: a.alvo, casas, armamento, rei })
+      if (s.transforma && c.akuma) {
+        c.akuma.transformado = s.transforma
+        ev.push({ t: 'transformou', id: c.id, vezes: s.transforma })
+        break
+      }
+      if (s.cura) {
+        const o = ocupante(e, a.alvo)!
+        const valor = Math.min(s.cura, o.hpMax - o.hp)
+        o.hp += valor
+        ev.push({ t: 'cura', de: c.id, alvo: o.id, valor })
+        break
+      }
+      for (const casa of casas) {
+        const alvo = ocupante(e, casa)
+        // área acerta todo mundo; golpe único só inimigo
+        if (!alvo || alvo === c || (s.area === 'alvo' && alvo.lado === c.lado)) continue
+        for (let g = 0; g < (s.golpes ?? 1) && alvo.hp > 0 && c.hp > 0; g++) golpear(c, alvo, s, armamento, rei)
+      }
+      break
+    }
+    case 'passar':
+    case 'tempo': {
+      if (a.t === 'tempo') ev.push({ t: 'tempo', lado: e.vez })
+      // quem estava atordoado perdeu esta vez
+      for (const c of vivos(e, e.vez)) c.atordoado = false
+      e.vez = outro(e.vez)
+      e.turno++
+      e.acoes = ACOES_POR_VEZ
+      e.movimento = MOVIMENTO_POR_VEZ
+      for (const c of vivos(e, e.vez)) {
+        if (c.queimadura) {
+          const d = Math.min(c.hp - 1, c.queimadura.dano) // queimadura não derruba
+          if (d > 0) {
+            c.hp -= d
+            ev.push({ t: 'queimou', id: c.id, dano: d })
+          }
+          if (--c.queimadura.vezes <= 0) c.queimadura = null
+        }
+        if (c.akuma?.transformado) c.akuma.transformado--
+        c.energia = Math.min(ENERGIA_MAX, c.energia + ENERGIA_POR_VEZ)
+        espirito(c, ESPIRITO_POR_VEZ)
+      }
+      ev.push({ t: 'vez', lado: e.vez, turno: e.turno })
+      break
+    }
+  }
+
+  for (const lado of ['piratas', 'marinha'] as Lado[]) {
+    if (!e.vencedor && !vivos(e, lado).length) {
+      e.vencedor = outro(lado)
+      ev.push({ t: 'fim', vencedor: e.vencedor })
     }
   }
   e.semente = Math.floor(rnd() * 2147483646) + 1

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { Direcao, EstadoVisual, InfoAnim, NomeAnim, Visual } from './personagem'
+import type { Direcao, EstadoVisual, Haki, InfoAnim, NomeAnim, Visual } from './personagem'
 import { atualizarLuz, materialIluminado } from './luzSprite'
 import { posicionarPixel } from './pixel'
 import { texturaSombra } from './texturas'
@@ -125,16 +125,17 @@ export class VisualFolhas implements Visual {
   private variacao: Folha | null = null
 
   /** Tira de quadros de uma animação numa direção (ou a pose parada). */
-  private tira(anim: NomeAnim, dir: Direcao, ciclo: number, haki = false) {
+  private tira(anim: NomeAnim, dir: Direcao, ciclo: number, haki: Haki = false) {
     const base = this.man.anims[anim]?.[dir] ?? this.man.anims.parado?.[dir] ?? this.man.anims.parado?.S
     // parado em laço: a cada volta sorteia se toca a normal ou uma variação
     if (ciclo !== this.ciclo) {
       this.ciclo = ciclo
-      const vs = anim === 'parado' ? Object.entries(base?.variantes ?? {}).filter(([k]) => k !== 'haki').map(([, v]) => v) : []
+      const vs = anim === 'parado' ? Object.entries(base?.variantes ?? {}).filter(([k]) => k !== 'haki' && k !== 'rei').map(([, v]) => v) : []
       this.variacao = vs.length && this.variacao === null && Math.random() < VisualFolhas.CHANCE_VARIACAO ? vs[Math.floor(Math.random() * vs.length)] : null
     }
-    // Haki de armamento: o ataque troca pela versão com a lâmina negra
-    const a = (haki && base?.variantes?.haki) || (anim === 'parado' && this.variacao) || base
+    // Haki: o ataque troca pela versão com a lâmina negra (ou a do Rei, com raios)
+    const comHaki = haki === 'rei' ? (base?.variantes?.rei ?? base?.variantes?.haki) : haki ? base?.variantes?.haki : undefined
+    const a = comHaki || (anim === 'parado' && this.variacao) || base
     if (!a) return null
     let t = this.texturas.get(a.arquivo)
     if (!t) {
@@ -183,6 +184,8 @@ export class VisualFolhas implements Visual {
     this.sprite.center.set(espelha ? 1 - cx : cx, 1 - tira.pe[1] / A)
     const k = e.clarao > 0 ? 3.2 : 1
     mat.color.setRGB(k, k, k)
+    if (e.tinta) mat.color.multiply(e.tinta)
+    this.sprite.visible = !e.oculto
     const desvio = tira.propria ? ([0, 0] as [number, number]) : this.movimentoProvisorio(e, fase)
     const peY = 1 - tira.pe[1] / A
     atualizarLuz(mat, tira.t, espelha, peY, peY + (this.man.altura ?? 104) / A, e.luz)

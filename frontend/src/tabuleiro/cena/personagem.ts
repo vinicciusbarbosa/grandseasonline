@@ -16,7 +16,10 @@ export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 /** Tempo e marcas de uma animação. */
 export type InfoAnim = { quadros: number; fps: number; laco: boolean; impacto?: number; poeira: ('E' | 'D' | undefined)[] }
 
-export type EstadoVisual = { anim: NomeAnim; tAnim: number; dir: Direcao; clarao: number; pos: THREE.Vector3; dt: number; luz: LuzPersonagem; haki?: boolean }
+export type EstadoVisual = { anim: NomeAnim; tAnim: number; dir: Direcao; clarao: number; pos: THREE.Vector3; dt: number; luz: LuzPersonagem; haki?: Haki; tinta?: THREE.Color | null; oculto?: boolean }
+
+/** Haki na arma: armamento (negro e roxo) ou o do Rei imbuído (negro e vermelho). */
+export type Haki = false | 'armamento' | 'rei'
 
 export interface Visual {
   readonly info: Record<NomeAnim, InfoAnim>
@@ -71,8 +74,14 @@ export class Personagem {
   private golpeDado = false
   private clarao = 0
   private dtUltimo = 0
-  /** Haki de armamento ligado: ataca com a lâmina negra */
-  haki = false
+  /** Haki ligado: ataca com a lâmina negra (armamento) ou com raios vermelhos (Rei) */
+  haki: Haki = false
+  /** deslocamento visual (esquiva), sem mudar a casa */
+  readonly deslize = new THREE.Vector3()
+  /** cor que multiplica o sprite (Logia virando elemento) */
+  tinta: THREE.Color | null = null
+  /** some neste quadro (pisca) */
+  oculto = false
 
   constructor(id: string, nome: string, casa: Casa, vida: number, visual: Visual, dir: Direcao) {
     this.id = id
@@ -218,7 +227,7 @@ export class Personagem {
   }
 
   posicionar(camera: THREE.PerspectiveCamera, telaL: number, telaA: number, luz: LuzPersonagem = LUZ_NEUTRA) {
-    this.visual.mostrar({ anim: this.anim, tAnim: this.tAnim, dir: this.dir, clarao: this.clarao, pos: this.pos, dt: this.dtUltimo, luz, haki: this.haki }, camera, telaL, telaA)
+    this.visual.mostrar({ anim: this.anim, tAnim: this.tAnim, dir: this.dir, clarao: this.clarao, pos: this.deslize.lengthSq() ? this.pos.clone().add(this.deslize) : this.pos, dt: this.dtUltimo, luz, haki: this.haki, tinta: this.tinta, oculto: this.oculto }, camera, telaL, telaA)
   }
 
   /** Ponto no mundo logo acima da cabeça (barra de vida, números). */

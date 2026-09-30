@@ -29,6 +29,8 @@ Licença: a arte LPC é CC-BY-SA / GPL — os créditos (credits.csv) vão junto
 para a pasta do personagem e precisam aparecer nos créditos do jogo.
 """
 import json
+import math
+import random
 import os
 import shutil
 import sys
@@ -225,6 +227,45 @@ def tira(qs, haki, arco, semente):
     return np.concatenate(fs, axis=1)
 
 
+def rei_de(normal, haki, largura, semente):
+    """Haki do Rei imbuído: a versão com Haki vira negra e VERMELHA (o roxo
+    do armamento troca de cor) e ganha raios negros de borda vermelha
+    estalando em volta da arma."""
+    rnd = random.Random(semente * 7 + 3)
+    out = haki.copy()
+    mudou = np.any(haki != normal, axis=-1) & (haki[..., 3] > 0)
+    r, g, b = (out[..., i].astype(np.float32) for i in range(3))
+    roxo = mudou & (b > g + 25) & (r > g)
+    out[..., 0] = np.where(roxo, np.clip(b * 1.0, 0, 255), r).astype(np.uint8)
+    out[..., 1] = np.where(roxo, g * 0.35, g).astype(np.uint8)
+    out[..., 2] = np.where(roxo, r * 0.3, b).astype(np.uint8)
+    H = out.shape[0]
+    for x0 in range(0, out.shape[1], largura):
+        m = mudou[:, x0:x0 + largura]
+        ys, xs = np.nonzero(m)
+        if not len(ys):
+            continue
+        q = np.ascontiguousarray(out[:, x0:x0 + largura])
+        raio = np.zeros_like(q)
+        for _ in range(rnd.randint(2, 3)):
+            i = rnd.randrange(len(ys))
+            p = np.array([xs[i], ys[i]], np.float32)
+            ang = rnd.uniform(0, 2 * math.pi)
+            pts = [p.copy()]
+            for _ in range(4):
+                ang += rnd.uniform(-0.9, 0.9)
+                p = p + np.array([math.cos(ang), math.sin(ang)]) * rnd.uniform(4, 8)
+                pts.append(p.copy())
+            pl = np.array(pts, np.int32).reshape(-1, 1, 2)
+            cv2.polylines(raio, [pl], False, (215, 16, 36, 255), 3, lineType=cv2.LINE_8)
+            cv2.polylines(raio, [pl], False, (14, 0, 6, 255), 1, lineType=cv2.LINE_8)
+        # só no vazio e na própria arma (não risca o corpo)
+        onde = (raio[..., 3] > 0) & ((q[..., 3] == 0) | m)
+        q[onde] = raio[onde]
+        out[:, x0:x0 + largura] = q
+    return out
+
+
 def importar(origem, nome, arma_extra=None):
     tmp = None
     if origem.endswith('.zip'):
@@ -268,11 +309,17 @@ def importar(origem, nome, arma_extra=None):
         qg = quadros(golpe, linha, ataque[1])
         partes = {'parado': (qa[:1], 64), 'andar': (qa[1:], 64), 'atacar': (qg, ataque[1])}
         for anim, (qs, tam) in partes.items():
+            tiras = {}
             for haki in (False, True):
                 arq = f'{anim}{"-haki" if haki else ""}_{d}.png'
-                Image.fromarray(tira(qs, haki, arco, semente)).save(os.path.join(pasta, arq), optimize=True)
+                tiras[haki] = tira(qs, haki, arco, semente)
+                Image.fromarray(tiras[haki]).save(os.path.join(pasta, arq), optimize=True)
             e = {'arquivo': f'{anim}_{d}.png', 'quadros': len(qs),
                  'variantes': {'haki': {'arquivo': f'{anim}-haki_{d}.png', 'quadros': len(qs)}}}
+            if anim == 'atacar':
+                rei = rei_de(tiras[False], tiras[True], tam * ESCALA, semente + linha)
+                Image.fromarray(rei).save(os.path.join(pasta, f'atacar-rei_{d}.png'), optimize=True)
+                e['variantes']['rei'] = {'arquivo': f'atacar-rei_{d}.png', 'quadros': len(qs)}
             if tam != 64:
                 off = (tam - 64) // 2
                 e['quadro'] = [tam * ESCALA, tam * ESCALA]
