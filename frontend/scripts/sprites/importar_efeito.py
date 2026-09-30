@@ -15,6 +15,7 @@ import json
 import os
 import sys
 
+import cv2
 import numpy as np
 from PIL import Image
 
@@ -99,8 +100,28 @@ def importar(folha, nome, linhas, colunas, direcoes, fps):
             perfil[max(0, x - sup):x + sup] = -1
         return sorted(cs)
 
-    candidatos = [picos((alfa * masc_l[li]).sum(0)) for li in range(linhas)]
-    centros = max(candidatos, key=lambda cs: min(np.diff(cs)))
+    def por_blocos(li):
+        """Os `colunas` maiores blocos de desenho da linha (partes próximas
+        juntas). Nota: menor = melhor (sem sobreposição entre os blocos e o
+        próximo bloco bem menor, só faísca)."""
+        y0, y1 = int(li * ch + ch * 0.1), int((li + 1) * ch - ch * 0.1)
+        faixa = cv2.dilate((alfa[y0:y1] > 0.25).astype(np.uint8), np.ones((9, 9), np.uint8))
+        n, _, st, cen = cv2.connectedComponentsWithStats(faixa)
+        blocos = sorted(((st[k, 4], cen[k][0], st[k, 0], st[k, 0] + st[k, 2]) for k in range(1, n)), reverse=True)
+        if len(blocos) < colunas:
+            return None
+        top = sorted(blocos[:colunas], key=lambda b: b[1])
+        sobra = sum(max(0, top[i][3] - top[i + 1][2]) for i in range(colunas - 1))
+        proximo = blocos[colunas][0] / blocos[colunas - 1][0] if len(blocos) > colunas else 0
+        return sobra * 10 + proximo, [float(b[1]) for b in top]
+
+    candidatos = [c for c in (por_blocos(li) for li in range(linhas)) if c]
+    if candidatos and min(candidatos)[0] < 5:
+        centros = min(candidatos)[1]
+    else:
+        # sem linha com os quadros separados: picos do perfil
+        perfis = [(alfa * masc_l[li]).sum(0) for li in range(linhas)]
+        centros = min((np.var(np.diff(np.diff(cs))), cs) for cs in (picos(pf.copy()) for pf in perfis))[1]
     divisas = [(centros[k - 1] + centros[k]) / 2 for k in range(1, colunas)]
     quadros, meia_l, meia_a = [], 1, 1
     for li in range(linhas):
