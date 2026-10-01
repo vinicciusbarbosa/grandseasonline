@@ -114,10 +114,10 @@ class Boneco {
 const EIXO = new THREE.Vector3(0, 0, -1)
 const FILEIRA = new THREE.Vector3(1, 0, 0)
 const CENTRO_NOSSOS = new THREE.Vector3(0, 0, 2.4)
-const CENTRO_DELES = new THREE.Vector3(0.4, 0, -3.4)
+const CENTRO_DELES = new THREE.Vector3(0.5, 0, -6)
 /** câmera atrás da tripulação, deslocada para a esquerda: a cena fica em diagonal */
 const CAM_POS = new THREE.Vector3(-3.4, 4.4, 10.2)
-const CAM_OLHA = new THREE.Vector3(0.9, 0.35, -2.4)
+const CAM_OLHA = new THREE.Vector3(0.9, 0.3, -3.6)
 
 type Tween = { t: number; dur: number; fn: (k: number) => void; fim: () => void }
 const suave = (k: number) => k * k * (3 - 2 * k)
@@ -283,7 +283,7 @@ export class CenaTurnos {
         // cada formação é uma fileira na diagonal; os dois lados se encaram ao longo do eixo da batalha
         const i = nosso ? nossos.indexOf(u) : eles.indexOf(u)
         const n = nosso ? nossos.length : eles.length
-        const casa = (nosso ? CENTRO_NOSSOS : CENTRO_DELES).clone().addScaledVector(FILEIRA, (i - (n - 1) / 2) * (nosso ? 1.5 : 1.85))
+        const casa = (nosso ? CENTRO_NOSSOS : CENTRO_DELES).clone().addScaledVector(FILEIRA, (i - (n - 1) / 2) * (nosso ? 1.5 : 2.1))
         if (u.chefe) casa.addScaledVector(EIXO, 0.6)
         const b = new Boneco(base, man, u.lado, casa, u.chefe ? 1.3 : 1)
         this.bonecos.set(u.id, b)
