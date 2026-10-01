@@ -17,6 +17,7 @@ const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
 const TelaTabuleiro = lazy(() => import('./tabuleiro/TelaTabuleiro'))
 const TelaBoneco = lazy(() => import('./tabuleiro/TelaBoneco'))
 const TelaEditor = lazy(() => import('./editor/TelaEditor'))
+const TelaCenario = lazy(() => import('./cenario/TelaCenario'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +66,16 @@ export function App() {
               element={
                 <Suspense fallback={<Carregando texto="Preparando o convés…" />}>
                   <TelaTabuleiro />
+                </Suspense>
+              }
+            />
+
+            {/* Teste do cenário estilo Wakfu (convés isométrico), sem login. */}
+            <Route
+              path="/teste-cenario"
+              element={
+                <Suspense fallback={<Carregando texto="Montando o convés…" />}>
+                  <TelaCenario />
                 </Suspense>
               }
             />
