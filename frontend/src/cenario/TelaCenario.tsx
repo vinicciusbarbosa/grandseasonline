@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
  * Teste do cenário estilo Wakfu (/teste-cenario): convés de navio em grade
  * isométrica 2:1 (losangos), câmera fixa sem perspectiva, desenhado em 2D.
  *
- * - chão: textura quadrada vista de cima (public/cenario/chao-*.webp),
- *   deformada para o losango; enquanto não existe, tábuas provisórias;
+ * - chão: um piso isométrico gerado por casa (piso-*), deformado pelos cantos
+ *   da face de cima para o losango exato (a IA não acerta o 2:1), com
+ *   variação sorteada, grades e alçapão em casas fixas;
  * - amurada nas duas bordas do fundo, casco nas duas da frente;
  * - objetos (public/cenario/*.webp, recortados por scripts/sprites/cenario.py)
  *   em casas, ordenados pela profundidade.
@@ -21,28 +22,45 @@ const LINS = 9
 /** altura do casco abaixo do convés (px) */
 const CASCO = 70
 
-type InfoObj = { l: number; a: number; pe: [number, number] }
+type InfoObj = { l: number; a: number; pe: [number, number]; cantos?: [number, number][] }
 type Manifesto = { objetos: Record<string, InfoObj>; texturas: Record<string, { l: number; a: number }> }
 /** objeto numa casa; `largura` em casas (quanto do losango ele ocupa na largura) */
 type Colocado = { obj: string; c: number; l: number; largura: number; espelho?: boolean }
 
 const MAPA: Colocado[] = [
-  { obj: 'mastro', c: 7, l: 4, largura: 1.3 },
+  { obj: 'base-mastro-corda', c: 6, l: 4, largura: 1 },
   { obj: 'timao', c: 1, l: 4, largura: 1.1 },
-  { obj: 'canhao-esq', c: 3, l: 0, largura: 1.7 },
-  { obj: 'canhao-esq', c: 9, l: 0, largura: 1.7 },
-  { obj: 'canhao-dir', c: 4, l: 8, largura: 1.7 },
-  { obj: 'canhao-dir', c: 10, l: 8, largura: 1.7 },
-  { obj: 'balas', c: 5, l: 1, largura: 0.8 },
-  { obj: 'barril-polvora', c: 11, l: 1, largura: 0.7 },
-  { obj: 'escada', c: 12, l: 4, largura: 1.3 },
+  { obj: 'canhao-esq', c: 3, l: 0, largura: 1.6 },
+  { obj: 'canhao-esq', c: 9, l: 0, largura: 1.6 },
+  { obj: 'canhao-dir', c: 4, l: 8, largura: 1.6 },
+  { obj: 'canhao-azul', c: 10, l: 8, largura: 1.5 },
+  { obj: 'balas', c: 5, l: 1, largura: 0.7 },
+  { obj: 'barril', c: 12, l: 0, largura: 0.6 },
+  { obj: 'barril-azul', c: 13, l: 1, largura: 0.6 },
+  { obj: 'barril-polvora', c: 12, l: 1, largura: 0.6 },
+  { obj: 'caixote', c: 13, l: 3, largura: 0.85 },
+  { obj: 'caixote-argola', c: 13, l: 4, largura: 0.85 },
+  { obj: 'rolo-corda', c: 8, l: 2, largura: 0.8 },
+  { obj: 'cabeco-corrente', c: 0, l: 1, largura: 0.9 },
+  { obj: 'cabeco-corda', c: 0, l: 7, largura: 0.6 },
+  { obj: 'escada-1', c: 11, l: 6, largura: 1.3 },
   { obj: 'lanterna', c: 0, l: 0, largura: 0.9 },
-  { obj: 'lanterna', c: 13, l: 8, largura: 0.9, espelho: true },
-  { obj: 'bau', c: 10, l: 5, largura: 1 },
-  { obj: 'moedas', c: 11, l: 6, largura: 0.6 },
+  { obj: 'bau', c: 9, l: 5, largura: 0.9 },
+  { obj: 'moedas', c: 10, l: 4, largura: 0.6 },
   { obj: 'ancora', c: 2, l: 7, largura: 1.2 },
-  { obj: 'mapa', c: 6, l: 6, largura: 0.6 },
+  { obj: 'mapa', c: 6, l: 6, largura: 0.55 },
 ]
+
+/** casas com piso especial */
+const PISO_FIXO: Record<string, string> = { '4,3': 'piso-grade', '4,5': 'piso-grade', '8,6': 'piso-alcapao', '11,2': 'piso-quebrado-1' }
+/** piso sorteado (sempre o mesmo por casa): mais dos comuns, pouco dos marcados */
+const PISOS = ['piso-1', 'piso-4', 'piso-5', 'piso-6', 'piso-8', 'piso-1', 'piso-4', 'piso-6', 'piso-2', 'piso-3', 'piso-7']
+function pisoDe(c: number, l: number) {
+  const fixo = PISO_FIXO[`${c},${l}`]
+  if (fixo) return fixo
+  const h = Math.abs(Math.sin(c * 12.9898 + l * 78.233) * 43758.5453) % 1
+  return PISOS[Math.floor(h * PISOS.length)]
+}
 
 function carregar(url: string) {
   return new Promise<HTMLImageElement | null>((ok) => {
@@ -51,26 +69,6 @@ function carregar(url: string) {
     i.onerror = () => ok(null)
     i.src = url
   })
-}
-
-/** Tábuas provisórias (vistas de cima), até chegar a textura gerada. */
-function tabuasProvisorias() {
-  const c = document.createElement('canvas')
-  c.width = c.height = 256
-  const g = c.getContext('2d')!
-  const cores = ['#b07a45', '#a8713f', '#b98350', '#a06a3a']
-  for (let i = 0; i < 8; i++) {
-    g.fillStyle = cores[i % cores.length]
-    g.fillRect(0, i * 32, 256, 32)
-    g.fillStyle = '#5a3a1e'
-    g.fillRect(0, i * 32 + 30, 256, 2)
-    const corte = ((i * 97) % 200) + 20
-    g.fillRect(corte, i * 32, 2, 32)
-    g.fillStyle = '#3d2914'
-    g.fillRect(corte - 6, i * 32 + 6, 3, 3)
-    g.fillRect(corte - 6, i * 32 + 22, 3, 3)
-  }
-  return c
 }
 
 export default function TelaCenario() {
@@ -83,7 +81,6 @@ export default function TelaCenario() {
     const g = cv.getContext('2d')!
     let man: Manifesto | null = null
     const imgs = new Map<string, HTMLImageElement>()
-    let chao: CanvasImageSource = tabuasProvisorias()
     let fundo: HTMLImageElement | null = null
     let amurada: HTMLImageElement | null = null
     let hover: [number, number] | null = null
@@ -158,32 +155,39 @@ export default function TelaCenario() {
       face(lx, ly, bx, by, '#5b3416', '#3e220c')
       face(bx, by, rx, ry, '#6e4120', '#4a2a10')
 
-      // chão: textura quadrada deformada no losango do convés inteiro
-      g.save()
-      g.beginPath()
-      g.moveTo(tx, ty)
-      g.lineTo(rx, ry)
-      g.lineTo(bx, by)
-      g.lineTo(lx, ly)
-      g.closePath()
-      g.clip()
-      const S = (chao as HTMLCanvasElement).width
-      // uma textura a cada 2 casas
-      const r = 2
-      g.transform(TW / 2 / (S / r), TH / 2 / (S / r), -TW / 2 / (S / r), TH / 2 / (S / r), tx, ty)
-      g.fillStyle = g.createPattern(chao, 'repeat')!
-      g.fillRect(0, 0, (COLS * S) / r, (LINS * S) / r)
-      g.restore()
-      // contorno do convés
-      g.strokeStyle = '#2a1608'
-      g.lineWidth = 3
-      g.beginPath()
-      g.moveTo(tx, ty)
-      g.lineTo(rx, ry)
-      g.lineTo(bx, by)
-      g.lineTo(lx, ly)
-      g.closePath()
-      g.stroke()
+      // chão: um piso por casa, de trás para a frente (a espessura de cada
+      // piso fica por baixo do da frente; só a borda mostra a lateral)
+      for (let soma = 0; soma <= COLS + LINS - 2; soma++) {
+        for (let c = 0; c < COLS; c++) {
+          const l = soma - c
+          if (l < 0 || l >= LINS) continue
+          const nome = pisoDe(c, l)
+          const im = imgs.get(nome)
+          const cs = man?.objetos[nome]?.cantos
+          if (!im || !cs) continue
+          const [t0, e0, d0] = cs
+          const [tx2, ty2] = casaParaTela(c, l)
+          // afim: topo→topo da casa, esquerda→canto esquerdo, direita→canto direito
+          const ux = d0[0] - t0[0]
+          const uy = d0[1] - t0[1]
+          const vx = e0[0] - t0[0]
+          const vy = e0[1] - t0[1]
+          const det = ux * vy - uy * vx
+          const Ux = TW / 2
+          const Uy = TH / 2
+          const Vx = -TW / 2
+          const Vy = TH / 2
+          // M = [U V] · [u v]⁻¹
+          const a = (Ux * vy - Vx * uy) / det
+          const b = (Uy * vy - Vy * uy) / det
+          const cc = (Vx * ux - Ux * vx) / det
+          const d = (Vy * ux - Uy * vx) / det
+          g.save()
+          g.transform(a, b, cc, d, tx2 - (a * t0[0] + cc * t0[1]), ty2 - (b * t0[0] + d * t0[1]))
+          g.drawImage(im, 0, 0)
+          g.restore()
+        }
+      }
 
       // grade (bem leve) e casa sob o mouse
       g.strokeStyle = 'rgba(40,20,5,0.18)'
@@ -261,11 +265,6 @@ export default function TelaCenario() {
       man = (await (await fetch(`${BASE}manifesto.json`)).json()) as Manifesto
       fundo = await carregar(`${BASE}fundo.webp`)
       amurada = await carregar(`${BASE}amurada.webp`)
-      const tex = Object.keys(man.texturas).find((t) => t.startsWith('chao-'))
-      if (tex) {
-        const t = await carregar(`${BASE}${tex}.webp`)
-        if (t) chao = t
-      }
       await Promise.all(
         Object.keys(man.objetos).map(async (n) => {
           const i = await carregar(`${BASE}${n}.webp`)
