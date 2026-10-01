@@ -16,6 +16,7 @@ import { Carregando } from './componentes/ui/controles'
 const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
 const TelaTabuleiro = lazy(() => import('./tabuleiro/TelaTabuleiro'))
 const TelaBoneco = lazy(() => import('./tabuleiro/TelaBoneco'))
+const TelaTurnos = lazy(() => import('./turnos/TelaTurnos'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,15 @@ export function App() {
             />
 
             {/* Teste do combate em tabuleiro (pixel art), também sem login. */}
+            <Route
+              path="/teste-turnos"
+              element={
+                <Suspense fallback={<Carregando texto="Preparando a abordagem…" />}>
+                  <TelaTurnos />
+                </Suspense>
+              }
+            />
+
             <Route
               path="/teste-tabuleiro"
               element={
