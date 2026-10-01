@@ -66,7 +66,7 @@ export interface Palco {
   /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
   choqueRei(ponto: THREE.Vector3): void
   /** efeito desenhado à mão (spritesheet); resolve false se a folha não existe */
-  efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number }): Promise<boolean>
+  efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoQuadro?: [number, () => void] }): Promise<boolean>
   /** Entei em fases (cena longa); resolve no impacto, a explosão continua sozinha */
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
@@ -873,18 +873,23 @@ export class ControleBatalha {
         break
       }
       case 'hotarubi': {
-        // Hotarubi (arte desenhada, 56 quadros): os vaga-lumes se juntam, voam,
-        // explodem e a fogueira queima — só a arte (sem efeito a mais)
+        // vaga-lumes verdes saem de quem lança e voam até a área; lá giram
+        // devagar, a fumaça escurece, acende e explode (folha com tempo por
+        // quadro); o golpe acerta no quadro da explosão (6)
         const centro = casas.length ? casas.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / casas.length) : ate
-        let tem: boolean | null = null
-        void P.efeitoFolha('hotarubi', dirF, centro.clone().setY(0.02), { largura: 2.1, chao: true }).then((v) => (tem = v))
-        // o dano aparece no quadro da explosão (quadro 26, a 24 por segundo)
-        await esperar(1080)
-        if (tem !== false) break
-        // sem a folha: vaga-lumes por código
-        const voos = casas.flatMap((c) => [c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3, (Math.random() - 0.5) * 0.6))])
-        await Promise.all(voos.map((c, i) => new Promise<void>((r) => setTimeout(() => void P.efeito('vagalume', 'normal', origem.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.4 + Math.random() * 0.6, 0)), { para: chao(c), dur: 0.9 + Math.random() * 0.3, escala: 0.35 }).then(r), i * 30))))
-        for (const c of casas) void P.efeito('explosaoFogo', 'normal', chao(c), { dur: 0.7, escala: 1.1 })
+        const voos = Array.from({ length: 10 }, () => centro.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0.5 + Math.random() * 0.6, (Math.random() - 0.5) * 1.2)))
+        await Promise.all(voos.map((c, i) => new Promise<void>((r) => setTimeout(() => void P.efeito('vagalume', 'normal', origem.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.5, 0)), { para: c, dur: 0.75 + Math.random() * 0.25, escala: 0.3 }).then(r), i * 45))))
+        const golpe = new Promise<void>((r) => {
+          void P.efeitoFolha('hotarubi', dirF, centro.clone().setY(0.02), {
+            aoQuadro: [6, () => {
+              P.tremer(0.5)
+              r()
+            }],
+          }).then((tem) => {
+            if (!tem) r()
+          })
+        })
+        await golpe
         break
       }
       case 'enjomo': {

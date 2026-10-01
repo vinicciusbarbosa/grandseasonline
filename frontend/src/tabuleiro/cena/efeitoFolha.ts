@@ -19,7 +19,12 @@ export type DirEfeito = 'E' | 'SE' | 'NE' | 'S' | 'N' | 'W' | 'SW' | 'NW'
  * pilar, aura).
  */
 /** grade: [colunas, linhas] quando a animação é longa e vem em várias linhas (lida em ordem) */
-type Manifesto = { quadro: [number, number]; quadros: number; fps: number; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico'; grade?: [number, number]; centro?: [number, number]; voo?: [number, number]; largura?: number }
+/**
+ * tempos: duração de cada quadro (s), no lugar de fps — o timing da skill
+ * (devagar na carga, rápido no estouro, devagar no fim); mistura: funde um
+ * quadro no próximo (fica fluido mesmo com poucos desenhos)
+ */
+type Manifesto = { quadro: [number, number]; quadros: number; fps: number; tempos?: number[]; mistura?: boolean; direcoes: string[]; modo?: 'direcoes' | 'girar' | 'unico'; grade?: [number, number]; centro?: [number, number]; voo?: [number, number]; largura?: number }
 
 /** vetor na tela (x para a direita, y para cima) de cada direção do tabuleiro */
 const TELA: Record<DirEfeito, [number, number]> = {
@@ -84,12 +89,18 @@ export class EfeitoFolha {
   private readonly aoChegar?: () => void
   private readonly aoAcabar?: () => void
   private chegou = false
+  /** chama uma vez quando chega no quadro (o golpe da skill) */
+  private aoQuadro: [number, () => void] | null
+  /** próximo quadro, por cima, para a mistura */
+  private readonly prox: THREE.Sprite | null = null
+  /** início de cada quadro (s), pelos tempos do manifesto */
+  private readonly inicios: number[] | null = null
 
   /**
    * @param largura largura no mundo (casas)
    * @param voo quadros entre os quais o efeito voa de `de` até `para`
    */
-  constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoAcabar?: () => void } = {}) {
+  constructor(nome: string, man: Manifesto, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoAcabar?: () => void; aoQuadro?: [number, () => void] } = {}) {
     this.man = man
     const modo = man.modo ?? 'direcoes'
     let [d, espelha] = modo === 'direcoes' ? escolher(man.direcoes, dir) : [man.direcoes[0] as DirEfeito, false]
@@ -126,31 +137,71 @@ export class EfeitoFolha {
     this.voo = op.voo ?? man.voo ?? [0, man.quadros - 1]
     this.aoChegar = op.aoChegar
     this.aoAcabar = op.aoAcabar
+    this.aoQuadro = op.aoQuadro ?? null
     this.sprite.position.copy(de)
     // a folha vem ancorada no chão (base do desenho no pé do quadro)
     if (man.centro) this.sprite.center.set(man.centro[0], man.centro[1])
     else if (op.chao) this.sprite.center.set(0.5, 6 / man.quadro[1])
+    if (man.tempos) {
+      let acc = 0
+      this.inicios = man.tempos.map((d) => ((acc += d), acc - d))
+    }
+    if (man.mistura) {
+      const t2 = t.clone()
+      t2.needsUpdate = true
+      this.prox = new THREE.Sprite(new THREE.SpriteMaterial({ map: t2, transparent: true, depthTest: false, depthWrite: false, opacity: 0 }))
+      this.prox.renderOrder = 7
+      this.prox.center.copy(this.sprite.center)
+      this.prox.material.rotation = this.sprite.material.rotation
+      this.sprite.add(this.prox)
+    }
     this.mostrar(0)
   }
 
-  private mostrar(q: number) {
-    const m = this.sprite.material.map!
+  private mostrar(q: number, mistura = 0) {
     const [gc, gl] = this.man.grade ?? [this.man.quadros, 1]
-    m.offset.set(((q % gc) + (this.espelha ? 1 : 0)) / gc, 1 - (Math.floor(q / gc) + 1) / gl)
+    const pos = (m: THREE.Texture, i: number) => m.offset.set(((i % gc) + (this.espelha ? 1 : 0)) / gc, 1 - (Math.floor(i / gc) + 1) / gl)
+    pos(this.sprite.material.map!, q)
+    if (this.prox) {
+      const prox = Math.min(this.man.quadros - 1, q + 1)
+      pos(this.prox.material.map!, prox)
+      this.prox.material.opacity = prox === q ? 0 : mistura
+      this.sprite.material.opacity = 1 - mistura * 0.5
+    }
+  }
+
+  /** quadro (fracionário) no instante t */
+  private quadroEm(t: number) {
+    if (!this.inicios) return t * this.man.fps
+    const ts = this.man.tempos!
+    let i = 0
+    while (i < ts.length - 1 && t >= this.inicios[i + 1]) i++
+    return i + Math.min(1, (t - this.inicios[i]) / ts[i])
   }
 
   /** duração total (s) */
   get duracao() {
-    return this.man.quadros / this.man.fps
+    return this.man.tempos ? this.man.tempos.reduce((a, b) => a + b, 0) : this.man.quadros / this.man.fps
+  }
+
+  /** instante (s) em que começa o quadro q */
+  inicioDo(q: number) {
+    return this.inicios ? this.inicios[q] : q / this.man.fps
   }
 
   atualizar(dt: number) {
     this.t += dt
-    const q = Math.min(this.man.quadros - 1, Math.floor(this.t * this.man.fps))
-    this.mostrar(q)
+    const qf = this.quadroEm(this.t)
+    const q = Math.min(this.man.quadros - 1, Math.floor(qf))
+    this.mostrar(q, qf - q)
+    if (this.aoQuadro && q >= this.aoQuadro[0]) {
+      const f = this.aoQuadro[1]
+      this.aoQuadro = null
+      f()
+    }
     if (this.para) {
       const [a, b] = this.voo
-      const f = Math.max(0, Math.min(1, (this.t * this.man.fps - a) / Math.max(1, b - a)))
+      const f = Math.max(0, Math.min(1, (qf - a) / Math.max(1, b - a)))
       this.sprite.position.lerpVectors(this.de, this.para, f)
       if (f >= 1 && !this.chegou) {
         this.chegou = true
@@ -159,6 +210,11 @@ export class EfeitoFolha {
     }
     if (this.t >= this.duracao) {
       this.vivo = false
+      if (this.aoQuadro) {
+        const f = this.aoQuadro[1]
+        this.aoQuadro = null
+        f()
+      }
       if (!this.chegou) {
         this.chegou = true
         this.aoChegar?.()
@@ -168,6 +224,8 @@ export class EfeitoFolha {
   }
 
   descartar() {
+    this.prox?.material.map?.dispose()
+    this.prox?.material.dispose()
     this.sprite.material.map?.dispose()
     this.sprite.material.dispose()
   }

@@ -297,7 +297,7 @@ export class CenaTabuleiro {
       this.lampejoAtual = { tipo, t: 0, dur }
     },
     /** efeito desenhado (spritesheet); false se a folha não existe */
-    efeitoFolha: async (nome: string, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number } = {}) => {
+    efeitoFolha: async (nome: string, dir: DirEfeito, de: THREE.Vector3, op: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoQuadro?: [number, () => void] } = {}) => {
       const man = await manifestoEfeito(nome)
       if (!man) return false
       await new Promise<void>((r) => {
