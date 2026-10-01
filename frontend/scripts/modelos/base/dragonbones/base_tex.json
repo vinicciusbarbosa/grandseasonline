@@ -1,0 +1,162 @@
+{
+ "name": "base",
+ "imagePath": "base_tex.png",
+ "width": 1024,
+ "height": 256,
+ "SubTexture": [
+  {
+   "name": "frente/canela_perto",
+   "x": 0,
+   "y": 0,
+   "width": 58,
+   "height": 150
+  },
+  {
+   "name": "costas/canela_perto",
+   "x": 60,
+   "y": 0,
+   "width": 65,
+   "height": 146
+  },
+  {
+   "name": "frente/tronco",
+   "x": 127,
+   "y": 0,
+   "width": 79,
+   "height": 139
+  },
+  {
+   "name": "frente/coxa_longe",
+   "x": 208,
+   "y": 0,
+   "width": 55,
+   "height": 139
+  },
+  {
+   "name": "costas/tronco",
+   "x": 265,
+   "y": 0,
+   "width": 75,
+   "height": 139
+  },
+  {
+   "name": "costas/canela_longe",
+   "x": 342,
+   "y": 0,
+   "width": 54,
+   "height": 130
+  },
+  {
+   "name": "frente/canela_longe",
+   "x": 398,
+   "y": 0,
+   "width": 67,
+   "height": 126
+  },
+  {
+   "name": "costas/coxa_perto",
+   "x": 467,
+   "y": 0,
+   "width": 44,
+   "height": 115
+  },
+  {
+   "name": "frente/cabeca",
+   "x": 513,
+   "y": 0,
+   "width": 111,
+   "height": 114
+  },
+  {
+   "name": "costas/coxa_longe",
+   "x": 626,
+   "y": 0,
+   "width": 60,
+   "height": 113
+  },
+  {
+   "name": "costas/antebraco_longe",
+   "x": 688,
+   "y": 0,
+   "width": 48,
+   "height": 112
+  },
+  {
+   "name": "costas/cabeca",
+   "x": 738,
+   "y": 0,
+   "width": 108,
+   "height": 112
+  },
+  {
+   "name": "frente/coxa_perto",
+   "x": 848,
+   "y": 0,
+   "width": 51,
+   "height": 111
+  },
+  {
+   "name": "frente/antebraco_perto",
+   "x": 901,
+   "y": 0,
+   "width": 31,
+   "height": 106
+  },
+  {
+   "name": "frente/antebraco_longe",
+   "x": 934,
+   "y": 0,
+   "width": 44,
+   "height": 100
+  },
+  {
+   "name": "costas/antebraco_perto",
+   "x": 980,
+   "y": 0,
+   "width": 30,
+   "height": 95
+  },
+  {
+   "name": "costas/braco_longe",
+   "x": 0,
+   "y": 152,
+   "width": 48,
+   "height": 92
+  },
+  {
+   "name": "costas/braco_perto",
+   "x": 50,
+   "y": 152,
+   "width": 33,
+   "height": 91
+  },
+  {
+   "name": "frente/braco_perto",
+   "x": 85,
+   "y": 152,
+   "width": 48,
+   "height": 89
+  },
+  {
+   "name": "frente/braco_longe",
+   "x": 135,
+   "y": 152,
+   "width": 33,
+   "height": 86
+  },
+  {
+   "name": "frente/quadril",
+   "x": 170,
+   "y": 152,
+   "width": 88,
+   "height": 81
+  },
+  {
+   "name": "costas/quadril",
+   "x": 260,
+   "y": 152,
+   "width": 81,
+   "height": 74
+  }
+ ]
+}

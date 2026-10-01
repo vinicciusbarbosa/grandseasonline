@@ -1,0 +1,630 @@
+{
+ "frameRate": 24,
+ "name": "base",
+ "version": "5.5",
+ "compatibleVersion": "5.5",
+ "armature": [
+  {
+   "type": "Armature",
+   "frameRate": 24,
+   "name": "base_frente",
+   "aabb": {
+    "x": -90.0,
+    "y": -479.0,
+    "width": 170,
+    "height": 490
+   },
+   "bone": [
+    {
+     "name": "root"
+    },
+    {
+     "name": "quadril",
+     "parent": "root",
+     "length": 40,
+     "transform": {
+      "x": -2.0,
+      "y": -231.0
+     }
+    },
+    {
+     "name": "tronco",
+     "parent": "quadril",
+     "length": 40,
+     "transform": {
+      "x": 0,
+      "y": -18
+     }
+    },
+    {
+     "name": "braco_longe",
+     "parent": "tronco",
+     "length": 40,
+     "transform": {
+      "x": -30,
+      "y": -98
+     }
+    },
+    {
+     "name": "antebraco_longe",
+     "parent": "braco_longe",
+     "length": 40,
+     "transform": {
+      "x": -16,
+      "y": 68
+     }
+    },
+    {
+     "name": "braco_perto",
+     "parent": "tronco",
+     "length": 40,
+     "transform": {
+      "x": 34,
+      "y": -96
+     }
+    },
+    {
+     "name": "antebraco_perto",
+     "parent": "braco_perto",
+     "length": 40,
+     "transform": {
+      "x": 20,
+      "y": 66
+     }
+    },
+    {
+     "name": "coxa_longe",
+     "parent": "quadril",
+     "length": 40,
+     "transform": {
+      "x": -20,
+      "y": 14
+     }
+    },
+    {
+     "name": "canela_longe",
+     "parent": "coxa_longe",
+     "length": 40,
+     "transform": {
+      "x": -3,
+      "y": 86
+     }
+    },
+    {
+     "name": "coxa_perto",
+     "parent": "quadril",
+     "length": 40,
+     "transform": {
+      "x": 20,
+      "y": 14
+     }
+    },
+    {
+     "name": "canela_perto",
+     "parent": "coxa_perto",
+     "length": 40,
+     "transform": {
+      "x": 4,
+      "y": 83
+     }
+    },
+    {
+     "name": "cabeca",
+     "parent": "tronco",
+     "length": 40,
+     "transform": {
+      "x": -3,
+      "y": -114
+     }
+    }
+   ],
+   "slot": [
+    {
+     "name": "braco_longe",
+     "parent": "braco_longe"
+    },
+    {
+     "name": "antebraco_longe",
+     "parent": "antebraco_longe"
+    },
+    {
+     "name": "coxa_longe",
+     "parent": "coxa_longe"
+    },
+    {
+     "name": "canela_longe",
+     "parent": "canela_longe"
+    },
+    {
+     "name": "quadril",
+     "parent": "quadril"
+    },
+    {
+     "name": "coxa_perto",
+     "parent": "coxa_perto"
+    },
+    {
+     "name": "canela_perto",
+     "parent": "canela_perto"
+    },
+    {
+     "name": "tronco",
+     "parent": "tronco"
+    },
+    {
+     "name": "cabeca",
+     "parent": "cabeca"
+    },
+    {
+     "name": "braco_perto",
+     "parent": "braco_perto"
+    },
+    {
+     "name": "antebraco_perto",
+     "parent": "antebraco_perto"
+    }
+   ],
+   "skin": [
+    {
+     "slot": [
+      {
+       "name": "braco_longe",
+       "display": [
+        {
+         "name": "frente/braco_longe",
+         "transform": {
+          "x": -9.5,
+          "y": 36.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "antebraco_longe",
+       "display": [
+        {
+         "name": "frente/antebraco_longe",
+         "transform": {
+          "x": -10.0,
+          "y": 40.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "coxa_longe",
+       "display": [
+        {
+         "name": "frente/coxa_longe",
+         "transform": {
+          "x": -0.5,
+          "y": 54.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "canela_longe",
+       "display": [
+        {
+         "name": "frente/canela_longe",
+         "transform": {
+          "x": -15.5,
+          "y": 51.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "quadril",
+       "display": [
+        {
+         "name": "frente/quadril",
+         "transform": {
+          "x": -5.0,
+          "y": 9.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "coxa_perto",
+       "display": [
+        {
+         "name": "frente/coxa_perto",
+         "transform": {
+          "x": 6.5,
+          "y": 40.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "canela_perto",
+       "display": [
+        {
+         "name": "frente/canela_perto",
+         "transform": {
+          "x": 15.0,
+          "y": 60.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "tronco",
+       "display": [
+        {
+         "name": "frente/tronco",
+         "transform": {
+          "x": -2.5,
+          "y": -55.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "cabeca",
+       "display": [
+        {
+         "name": "frente/cabeca",
+         "transform": {
+          "x": 1.5,
+          "y": -45.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "braco_perto",
+       "display": [
+        {
+         "name": "frente/braco_perto",
+         "transform": {
+          "x": 13.0,
+          "y": 33.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "antebraco_perto",
+       "display": [
+        {
+         "name": "frente/antebraco_perto",
+         "transform": {
+          "x": 4.5,
+          "y": 42.0
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "animation": [
+    {
+     "duration": 0,
+     "playTimes": 0,
+     "name": "parado"
+    }
+   ],
+   "defaultActions": [
+    {
+     "gotoAndPlay": "parado"
+    }
+   ]
+  },
+  {
+   "type": "Armature",
+   "frameRate": 24,
+   "name": "base_costas",
+   "aabb": {
+    "x": -70.0,
+    "y": -478.0,
+    "width": 160,
+    "height": 490
+   },
+   "bone": [
+    {
+     "name": "root"
+    },
+    {
+     "name": "quadril",
+     "parent": "root",
+     "length": 40,
+     "transform": {
+      "x": 10.0,
+      "y": -230.0
+     }
+    },
+    {
+     "name": "tronco",
+     "parent": "quadril",
+     "length": 40,
+     "transform": {
+      "x": 0,
+      "y": -18
+     }
+    },
+    {
+     "name": "braco_longe",
+     "parent": "tronco",
+     "length": 40,
+     "transform": {
+      "x": 35,
+      "y": -90
+     }
+    },
+    {
+     "name": "antebraco_longe",
+     "parent": "braco_longe",
+     "length": 40,
+     "transform": {
+      "x": 7,
+      "y": 65
+     }
+    },
+    {
+     "name": "braco_perto",
+     "parent": "tronco",
+     "length": 40,
+     "transform": {
+      "x": -35,
+      "y": -90
+     }
+    },
+    {
+     "name": "antebraco_perto",
+     "parent": "braco_perto",
+     "length": 40,
+     "transform": {
+      "x": -17,
+      "y": 65
+     }
+    },
+    {
+     "name": "coxa_longe",
+     "parent": "quadril",
+     "length": 40,
+     "transform": {
+      "x": -22,
+      "y": 14
+     }
+    },
+    {
+     "name": "canela_longe",
+     "parent": "coxa_longe",
+     "length": 40,
+     "transform": {
+      "x": -6,
+      "y": 83
+     }
+    },
+    {
+     "name": "coxa_perto",
+     "parent": "quadril",
+     "length": 40,
+     "transform": {
+      "x": 20,
+      "y": 14
+     }
+    },
+    {
+     "name": "canela_perto",
+     "parent": "coxa_perto",
+     "length": 40,
+     "transform": {
+      "x": -8,
+      "y": 83
+     }
+    },
+    {
+     "name": "cabeca",
+     "parent": "tronco",
+     "length": 40,
+     "transform": {
+      "x": 10,
+      "y": -114
+     }
+    }
+   ],
+   "slot": [
+    {
+     "name": "braco_longe",
+     "parent": "braco_longe"
+    },
+    {
+     "name": "antebraco_longe",
+     "parent": "antebraco_longe"
+    },
+    {
+     "name": "coxa_longe",
+     "parent": "coxa_longe"
+    },
+    {
+     "name": "canela_longe",
+     "parent": "canela_longe"
+    },
+    {
+     "name": "quadril",
+     "parent": "quadril"
+    },
+    {
+     "name": "coxa_perto",
+     "parent": "coxa_perto"
+    },
+    {
+     "name": "canela_perto",
+     "parent": "canela_perto"
+    },
+    {
+     "name": "tronco",
+     "parent": "tronco"
+    },
+    {
+     "name": "cabeca",
+     "parent": "cabeca"
+    },
+    {
+     "name": "braco_perto",
+     "parent": "braco_perto"
+    },
+    {
+     "name": "antebraco_perto",
+     "parent": "antebraco_perto"
+    }
+   ],
+   "skin": [
+    {
+     "slot": [
+      {
+       "name": "braco_longe",
+       "display": [
+        {
+         "name": "costas/braco_longe",
+         "transform": {
+          "x": -10.0,
+          "y": 30.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "antebraco_longe",
+       "display": [
+        {
+         "name": "costas/antebraco_longe",
+         "transform": {
+          "x": 2.0,
+          "y": 46.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "coxa_longe",
+       "display": [
+        {
+         "name": "costas/coxa_longe",
+         "transform": {
+          "x": -5.0,
+          "y": 41.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "canela_longe",
+       "display": [
+        {
+         "name": "costas/canela_longe",
+         "transform": {
+          "x": -14.0,
+          "y": 53.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "quadril",
+       "display": [
+        {
+         "name": "costas/quadril",
+         "transform": {
+          "x": -0.5,
+          "y": 6.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "coxa_perto",
+       "display": [
+        {
+         "name": "costas/coxa_perto",
+         "transform": {
+          "x": -5.0,
+          "y": 42.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "canela_perto",
+       "display": [
+        {
+         "name": "costas/canela_perto",
+         "transform": {
+          "x": 9.5,
+          "y": 61.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "tronco",
+       "display": [
+        {
+         "name": "costas/tronco",
+         "transform": {
+          "x": -7.5,
+          "y": -55.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "cabeca",
+       "display": [
+        {
+         "name": "costas/cabeca",
+         "transform": {
+          "x": -14.0,
+          "y": -45.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "braco_perto",
+       "display": [
+        {
+         "name": "costas/braco_perto",
+         "transform": {
+          "x": -16.5,
+          "y": 31.5
+         }
+        }
+       ]
+      },
+      {
+       "name": "antebraco_perto",
+       "display": [
+        {
+         "name": "costas/antebraco_perto",
+         "transform": {
+          "x": -2.0,
+          "y": 36.5
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "animation": [
+    {
+     "duration": 0,
+     "playTimes": 0,
+     "name": "parado"
+    }
+   ],
+   "defaultActions": [
+    {
+     "gotoAndPlay": "parado"
+    }
+   ]
+  }
+ ]
+}
