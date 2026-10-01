@@ -54,7 +54,9 @@ const ZOOM_TUDO = 64 / PX_CASA
 /** zoom máximo: cada pixel da arte vira um bloco de 4×4 (como a arte original) */
 const ZOOM_MAX = 4
 /** níveis onde o zoom para: inteiros deixam todo pixel da arte do mesmo tamanho */
-const NIVEIS = [ZOOM_TUDO, 1, 2, 3, 4]
+/** mais afastado: os dois navios inteiros, de proa a popa */
+const ZOOM_MIN = 0.36
+const NIVEIS = [ZOOM_MIN, ZOOM_TUDO, 1, 2, 3, 4]
 const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
 
@@ -699,7 +701,7 @@ export class CenaTabuleiro {
     cam.fov = FOV
     cam.updateProjectionMatrix()
     // quanto mais perto, mais rente: a inclinação desce suavemente com o zoom
-    const t = (this.zoom - ZOOM_TUDO) / (ZOOM_MAX - ZOOM_TUDO)
+    const t = Math.max(0, (this.zoom - ZOOM_TUDO) / (ZOOM_MAX - ZOOM_TUDO))
     const inc = THREE.MathUtils.lerp(INCLINACAO, INCLINACAO_PERTO, Math.sqrt(t))
     const dir = new THREE.Vector3(Math.sin(GIRO) * Math.cos(inc), Math.sin(inc), Math.cos(GIRO) * Math.cos(inc))
     const dist = this.altura / (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * PX_CASA * this.zoom)
@@ -713,7 +715,7 @@ export class CenaTabuleiro {
 
   /** Aproxima/afasta mantendo parado o ponto do convés sob (px, py) em pixels CSS. */
   private aplicarZoom(novo: number, px?: number, py?: number) {
-    novo = THREE.MathUtils.clamp(novo, ZOOM_TUDO, ZOOM_MAX)
+    novo = THREE.MathUtils.clamp(novo, ZOOM_MIN, ZOOM_MAX)
     if (Math.abs(novo - this.zoom) < 1e-4) return
     const antes = px !== undefined && py !== undefined ? this.noConves(px, py) : null
     this.zoom = novo
@@ -737,7 +739,7 @@ export class CenaTabuleiro {
   private irParaNivel(passo: number, px?: number, py?: number) {
     let i = NIVEIS.findIndex((n) => n >= this.zoomAlvo - 1e-3)
     if (i < 0) i = NIVEIS.length - 1
-    i = passo === -99 ? 0 : THREE.MathUtils.clamp(i + passo, 0, NIVEIS.length - 1)
+    i = passo === -99 ? 1 : THREE.MathUtils.clamp(i + passo, 0, NIVEIS.length - 1)
     this.zoomAlvo = NIVEIS[i]
     this.zoomAncora = px !== undefined && py !== undefined ? [px, py] : undefined
   }

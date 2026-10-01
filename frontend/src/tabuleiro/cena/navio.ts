@@ -38,6 +38,54 @@ function caixa(w: number, h: number, d: number, mat: THREE.Material | THREE.Mate
   return m
 }
 
+/** Vela lisa (sem caveira): dobras verticais, costuras e uma faixa colorida. */
+function texturaVelaLisa(cor: [number, number, number], faixa: [number, number, number]) {
+  const w = 96
+  const h = 112
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const g = c.getContext('2d')!
+  for (let x = 0; x < w; x++) {
+    const k = 0.84 + Math.sin((x / w) * Math.PI * 3.2) * 0.1 - Math.pow(Math.abs(x / w - 0.5) * 2, 3) * 0.2
+    const q = Math.round(k * 6) / 6
+    g.fillStyle = `rgb(${cor[0] * q},${cor[1] * q},${cor[2] * q})`
+    g.fillRect(x, 0, 1, h)
+  }
+  g.fillStyle = `rgba(0,0,0,0.12)`
+  for (let y = 18; y < h; y += 22) g.fillRect(0, y, w, 1)
+  g.fillStyle = `rgb(${faixa.join(',')})`
+  g.fillRect(0, h * 0.62, w, 9)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.magFilter = THREE.NearestFilter
+  return t
+}
+
+/** Bandeira da Marinha: branca, gaivota azul e a faixa azul embaixo. */
+function texturaBandeiraMarinha() {
+  const c = document.createElement('canvas')
+  c.width = 96
+  c.height = 72
+  const g = c.getContext('2d')!
+  g.fillStyle = '#eef0f4'
+  g.fillRect(0, 0, 96, 72)
+  g.fillStyle = '#2c4f9e'
+  g.fillRect(0, 56, 96, 10)
+  g.strokeStyle = '#2c4f9e'
+  g.lineWidth = 6
+  g.lineCap = 'round'
+  g.beginPath()
+  g.moveTo(22, 36)
+  g.quadraticCurveTo(36, 16, 48, 32)
+  g.quadraticCurveTo(60, 16, 74, 36)
+  g.stroke()
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.magFilter = THREE.NearestFilter
+  return t
+}
+
 const lambert = (map: THREE.Texture | null, cor = 0xffffff, extra: THREE.MeshLambertMaterialParameters = {}) =>
   new THREE.MeshLambertMaterial({ map, color: cor, ...extra })
 
@@ -189,50 +237,6 @@ function rolo(M: Materiais, x: number, z: number) {
   return g
 }
 
-function mastro(M: Materiais, x: number, z: number, alt: number, vela: THREE.Texture | null) {
-  const g = new THREE.Group()
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, alt, 12), M.mastro)
-  m.position.y = alt / 2
-  m.castShadow = true
-  g.add(m)
-  // amarras de corda e cintas de ferro
-  for (const y of [0.9, 1.05, 1.2, 3.2, 3.35]) {
-    const t = new THREE.Mesh(new THREE.TorusGeometry(0.39, 0.06, 6, 14), M.corda)
-    t.rotation.x = Math.PI / 2
-    t.position.y = y
-    g.add(t)
-  }
-  for (const y of [0.25, 2.2]) {
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.14, 12), M.ferro)
-    b.position.y = y
-    g.add(b)
-  }
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.7, 0.3, 12), M.ferro)
-  base.position.y = 0.15
-  g.add(base)
-  if (vela) {
-    // pano um pouco inflado pelo vento
-    const geo = new THREE.PlaneGeometry(4.2, 4.6, 12, 12)
-    const p = geo.getAttribute('position') as THREE.BufferAttribute
-    for (let i = 0; i < p.count; i++) {
-      const u = p.getX(i) / 2.1
-      const v = p.getY(i) / 2.3
-      p.setZ(i, (1 - u * u) * 0.5 * (0.6 + 0.4 * (1 - v)))
-    }
-    geo.computeVertexNormals()
-    const pano = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: vela, alphaTest: 0.5, side: THREE.DoubleSide }))
-    pano.position.set(0, alt - 2.6, 0.45)
-    pano.castShadow = true
-    g.add(pano)
-    const verga = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 8), M.mastro)
-    verga.rotation.z = Math.PI / 2
-    verga.position.set(0, alt - 0.25, 0.4)
-    g.add(verga)
-  }
-  g.position.set(x, 0, z)
-  return g
-}
-
 /** Corda esticada entre dois pontos (enxárcia). */
 function cabo(M: Materiais, a: THREE.Vector3, b: THREE.Vector3, r = 0.035) {
   const d = new THREE.Vector3().subVectors(b, a)
@@ -270,6 +274,7 @@ function bandeira(M: Materiais, x: number, z: number, tex: THREE.Texture) {
   return { g, pano }
 }
 
+
 export type Navios = {
   grupo: THREE.Group
   luzes: THREE.PointLight[]
@@ -278,118 +283,561 @@ export type Navios = {
   cascos: THREE.Vector4[]
 }
 
+// ===================================================================== navio
+
+/**
+ * Navio de verdade em volta de cada metade do tabuleiro (5×20): casco curvo
+ * (seções ao longo do comprimento, proa em ponta, popa com espelho), bordas
+ * subindo nas pontas, castelo de proa e tombadilho elevados fora do
+ * tabuleiro, portinholas com canhões, cintas, gurupés, dois mastros com
+ * vergas, velas e cordame. O convés onde ficam as casas continua plano em y = 0.
+ *
+ * Coordenadas locais do navio: proa para +X, tabuleiro em x ∈ [-10, 10],
+ * z ∈ [-2.5, 2.5]. O da Marinha é girado 180° (proa para o outro lado).
+ */
+
+type Estilo = {
+  casco: THREE.Material
+  espelho: THREE.Material
+  faixa: THREE.Material
+  faixa2: THREE.Material
+  vela: THREE.Texture
+  velasAbertas: boolean
+  bandeira: THREE.Texture
+}
+
+const POPA = -13.6
+const PROA = 17.2
+const MEIA = 3.2 // meia boca no convés
+const FIM_TAB = 10.6 // onde termina o convés principal (o tabuleiro vai até 10)
+const ALT_PROA = 0.75 // piso do castelo de proa
+const ALT_POPA = 1.35 // piso do tombadilho
+const QUILHA = -2.8
+
+const liso = (k: number) => {
+  const t = Math.min(1, Math.max(0, k))
+  return t * t * (3 - 2 * t)
+}
+/** meia boca no plano, ao longo do comprimento */
+function boca(x: number) {
+  if (x > 9) {
+    const t = (x - 9) / (PROA - 9)
+    return MEIA * Math.max(0, 1 - Math.pow(t, 2.1))
+  }
+  return MEIA * (0.8 + 0.2 * liso((x - POPA) / 4))
+}
+/** borda de cima do casco (sobe na proa e na popa) */
+function borda(x: number) {
+  return 0.55 + 0.85 * liso((x - FIM_TAB) / (PROA - FIM_TAB)) + 1.45 * liso((-FIM_TAB - x) / (-FIM_TAB - POPA))
+}
+/** fundo: a roda de proa sobe até a ponta */
+function fundo(x: number) {
+  return QUILHA + 2.2 * liso((x - 12) / (PROA - 12))
+}
+/** forma da seção: 1 na borda, 0 na quilha (barriga leve) */
+function secao(s: number) {
+  return Math.sqrt(Math.max(0, 1 - Math.pow(s, 2.5))) * (1 + 0.04 * Math.sin(Math.PI * s))
+}
+
+function cascoGeo() {
+  const NX = 96
+  const MS = 14
+  const pos: number[] = []
+  const uv: number[] = []
+  const idx: number[] = []
+  const linha = MS * 2 + 1
+  for (let i = 0; i <= NX; i++) {
+    const x = POPA + ((PROA - POPA) * i) / NX
+    const b = boca(x)
+    const t = borda(x)
+    const f = fundo(x)
+    let v = 0
+    let ant: [number, number] | null = null
+    for (let j = 0; j < linha; j++) {
+      const lado = j < MS ? -1 : 1
+      const s = j <= MS ? j / MS : (2 * MS - j) / MS
+      const y = t + (f - t) * s
+      const z = lado * b * secao(s) * (j === MS ? 0 : 1)
+      if (ant) v += Math.hypot(y - ant[0], z - ant[1])
+      ant = [y, z]
+      pos.push(x, y, z)
+      uv.push((x * TEXELS) / 64, (v * TEXELS) / 64)
+    }
+  }
+  for (let i = 0; i < NX; i++)
+    for (let j = 0; j < linha - 1; j++) {
+      const a = i * linha + j
+      const b = a + linha
+      idx.push(a, b, a + 1, b, b + 1, a + 1)
+    }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  geo.setIndex(idx)
+  geo.computeVertexNormals()
+  return geo
+}
+
+/** espelho de popa: tampa a primeira seção */
+function espelhoGeo() {
+  const MS = 14
+  const x = POPA
+  const b = boca(x)
+  const t = borda(x)
+  const f = fundo(x)
+  const pts: THREE.Vector2[] = []
+  for (let j = 0; j <= MS; j++) pts.push(new THREE.Vector2(-b * secao(j / MS), t + (f - t) * (j / MS)))
+  for (let j = MS - 1; j >= 0; j--) pts.push(new THREE.Vector2(b * secao(j / MS), t + (f - t) * (j / MS)))
+  const geo = new THREE.ShapeGeometry(new THREE.Shape(pts))
+  // (z, y) → mundo, voltado para -X
+  const p = geo.getAttribute('position') as THREE.BufferAttribute
+  const uv = geo.getAttribute('uv') as THREE.BufferAttribute
+  for (let i = 0; i < p.count; i++) {
+    const zz = p.getX(i)
+    const yy = p.getY(i)
+    p.setXYZ(i, x, yy, zz)
+    uv.setXY(i, (zz * TEXELS) / 64, (yy * TEXELS) / 64)
+  }
+  geo.computeVertexNormals()
+  return geo
+}
+
+/** faixa (cinta) colada no casco na altura y, nas duas bordas */
+function faixaGeo(y: number, alt: number, xMin = POPA, xMax = PROA - 0.3) {
+  const pos: number[] = []
+  const idx: number[] = []
+  const N = 90
+  for (const lado of [-1, 1]) {
+    const ini = pos.length / 3
+    let n = 0
+    for (let i = 0; i <= N; i++) {
+      const x = xMin + ((xMax - xMin) * i) / N
+      const t = borda(x)
+      const f = fundo(x)
+      const zDe = (yy: number) => {
+        const s = Math.min(1, Math.max(0, (t - yy) / (t - f)))
+        return lado * (boca(x) * secao(s) + 0.025)
+      }
+      if (y + alt / 2 > t) continue
+      pos.push(x, y - alt / 2, zDe(y - alt / 2), x, y + alt / 2, zDe(y + alt / 2))
+      n++
+    }
+    for (let i = 0; i < n - 1; i++) {
+      const a = ini + i * 2
+      if (lado > 0) idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
+      else idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+    }
+  }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  geo.setIndex(idx)
+  geo.computeVertexNormals()
+  return geo
+}
+
+/** piso plano seguindo a planta do casco, de x0 a x1, na altura y */
+function pisoGeo(x0: number, x1: number, y: number, recuo = 0.12) {
+  const pts: THREE.Vector2[] = []
+  const N = 30
+  for (let i = 0; i <= N; i++) {
+    const x = x0 + ((x1 - x0) * i) / N
+    pts.push(new THREE.Vector2(x, -Math.max(0.05, boca(x) - recuo)))
+  }
+  for (let i = N; i >= 0; i--) {
+    const x = x0 + ((x1 - x0) * i) / N
+    pts.push(new THREE.Vector2(x, Math.max(0.05, boca(x) - recuo)))
+  }
+  const geo = new THREE.ShapeGeometry(new THREE.Shape(pts))
+  const p = geo.getAttribute('position') as THREE.BufferAttribute
+  const uv = geo.getAttribute('uv') as THREE.BufferAttribute
+  for (let i = 0; i < p.count; i++) {
+    const xx = p.getX(i)
+    const zz = p.getY(i)
+    // z invertido: a face fica virada para cima
+    p.setXYZ(i, xx, y, -zz)
+    uv.setXY(i, (xx * TEXELS) / 64, (zz * TEXELS) / 64)
+  }
+  geo.computeVertexNormals()
+  return geo
+}
+
+/** corrimão em cima da borda do casco, dos dois lados */
+function corrimao(M: Materiais, g: THREE.Group) {
+  const N = 60
+  for (const lado of [-1, 1])
+    for (let i = 0; i < N; i++) {
+      const xa = POPA + 0.05 + ((PROA - 0.6 - POPA) * i) / N
+      const xb = POPA + 0.05 + ((PROA - 0.6 - POPA) * (i + 1)) / N
+      const a = new THREE.Vector3(xa, borda(xa) + 0.05, lado * (boca(xa) - 0.02))
+      const b = new THREE.Vector3(xb, borda(xb) + 0.05, lado * (boca(xb) - 0.02))
+      const d = b.clone().sub(a)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(d.length() + 0.02, 0.1, 0.2), M.amurada)
+      m.position.copy(a).addScaledVector(d, 0.5)
+      m.lookAt(b)
+      m.rotateY(Math.PI / 2)
+      m.castShadow = true
+      g.add(m)
+    }
+}
+
+/** portinholas com canhões saindo (bateria de cima) e fechadas (de baixo) */
+function portinholas(M: Materiais, g: THREE.Group, est: Estilo) {
+  const escuro = new THREE.MeshLambertMaterial({ color: 0x140c08 })
+  for (const lado of [-1, 1]) {
+    for (let x = -9; x <= 9; x += 2.25) {
+      const y = 0.18
+      const s = (borda(x) - y) / (borda(x) - fundo(x))
+      const z = lado * (boca(x) * secao(s) + 0.03)
+      const furo = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.04), escuro)
+      furo.position.set(x, y, z)
+      g.add(furo)
+      const moldura = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.06, 0.06), est.faixa)
+      moldura.position.set(x, y + 0.19, z)
+      g.add(moldura)
+      const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.55, 10), M.ferro)
+      cano.rotation.x = Math.PI / 2
+      cano.position.set(x, y, z + lado * 0.22)
+      cano.castShadow = true
+      g.add(cano)
+      // fechada, na bateria de baixo
+      const yb = -0.42
+      const sb = (borda(x + 1.1) - yb) / (borda(x + 1.1) - fundo(x + 1.1))
+      const tampa = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.28, 0.05), est.faixa2)
+      tampa.position.set(x + 1.1, yb, lado * (boca(x + 1.1) * secao(sb) + 0.03))
+      g.add(tampa)
+    }
+  }
+}
+
+/** vela quadrada inflada entre duas vergas (no plano YZ, enfunada para +X) */
+function velaQuadrada(tex: THREE.Texture, larg: number, alt: number) {
+  const geo = new THREE.PlaneGeometry(larg, alt, 10, 8)
+  const p = geo.getAttribute('position') as THREE.BufferAttribute
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) / (larg / 2)
+    const v = p.getY(i) / (alt / 2)
+    p.setZ(i, (1 - u * u) * (1 - v * v * 0.5) * alt * 0.16)
+  }
+  geo.computeVertexNormals()
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }))
+  // plano XY → plano ZY, inflado para +X
+  m.rotation.y = Math.PI / 2
+  m.castShadow = true
+  return m
+}
+
+/** vela triangular/latina no plano XY (de frente para a câmera) */
+function velaPlana(tex: THREE.Texture, pts: [number, number][]) {
+  const geo = new THREE.ShapeGeometry(new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y))))
+  const p = geo.getAttribute('position') as THREE.BufferAttribute
+  const uv = geo.getAttribute('uv') as THREE.BufferAttribute
+  const xs = pts.map((q) => q[0])
+  const ys = pts.map((q) => q[1])
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+  for (let i = 0; i < p.count; i++) {
+    uv.setXY(i, (p.getX(i) - x0) / (x1 - x0), (p.getY(i) - y0) / (y1 - y0))
+    p.setZ(i, Math.sin(((p.getX(i) - x0) / (x1 - x0)) * Math.PI) * 0.25)
+  }
+  geo.computeVertexNormals()
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }))
+  m.castShadow = true
+  return m
+}
+
+/** mastro com cesto, vergas e velas (abertas ou recolhidas); devolve o topo */
+function mastroNavio(M: Materiais, g: THREE.Group, x: number, base: number, alt: number, est: Estilo, giro: number) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, alt, 12), M.mastro)
+  m.position.set(x, base + alt / 2, 0)
+  m.castShadow = true
+  g.add(m)
+  for (const y of [0.4, 0.55, alt * 0.5]) {
+    const a = new THREE.Mesh(new THREE.TorusGeometry(0.31 - y * 0.012, 0.05, 6, 14), M.corda)
+    a.rotation.x = Math.PI / 2
+    a.position.set(x, base + y, 0)
+    g.add(a)
+  }
+  // cesto da gávea
+  const cesto = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.55, 0.22, 14), M.casco)
+  cesto.position.set(x, base + alt * 0.62, 0)
+  cesto.castShadow = true
+  g.add(cesto)
+  // vergas e velas (giradas um pouco, como braceadas ao vento)
+  const vergas = new THREE.Group()
+  vergas.position.set(x, base, 0)
+  vergas.rotation.y = giro
+  const niveis: [number, number, number][] = [
+    [alt * 0.55, 5.6, 2.5],
+    [alt * 0.82, 4.4, 1.9],
+    [alt * 0.98, 3.0, 1.3],
+  ]
+  for (const [y, larg, altVela] of niveis) {
+    const v = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, larg, 8), M.mastro)
+    v.rotation.x = Math.PI / 2
+    v.position.y = y
+    v.castShadow = true
+    vergas.add(v)
+    if (est.velasAbertas) {
+      const vela = velaQuadrada(est.vela, larg * 0.94, altVela)
+      vela.position.set(0.12, y - altVela / 2 - 0.05, 0)
+      vergas.add(vela)
+    } else {
+      // vela recolhida: rolo de pano em cima da verga
+      const rolo = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, larg * 0.9, 8), new THREE.MeshLambertMaterial({ color: 0xe8e2d2 }))
+      rolo.rotation.x = Math.PI / 2
+      rolo.position.set(0.1, y - 0.12, 0)
+      vergas.add(rolo)
+    }
+  }
+  g.add(vergas)
+  return new THREE.Vector3(x, base + alt, 0)
+}
+
+function montarNavio(cima: boolean, M: Materiais, luzes: THREE.PointLight[], panos: THREE.Mesh[]) {
+  const g = new THREE.Group()
+  const est: Estilo = cima
+    ? {
+        casco: lambert(texturaMadeira(64, 64, 5, 64 / 6, 12), 0xffffff, { side: THREE.DoubleSide }),
+        espelho: lambert(texturaMadeira(64, 64, 6, 64 / 6, 21)),
+        faixa: lambert(null, 0x1e140e),
+        faixa2: lambert(null, 0x6b1d1a),
+        vela: texturaVela([168, 36, 40], [238, 226, 206], 31),
+        velasAbertas: true,
+        bandeira: texturaVela([30, 26, 26], [236, 232, 220], 51),
+      }
+    : {
+        casco: lambert(texturaMadeira(64, 64, 3, 64 / 6, 13), 0xffffff, { side: THREE.DoubleSide }),
+        espelho: lambert(texturaMadeira(64, 64, 3, 64 / 6, 22)),
+        faixa: lambert(null, 0x2c4f9e),
+        faixa2: lambert(null, 0xe8e4d8),
+        vela: texturaVelaLisa([238, 234, 224], [44, 72, 160]),
+        velasAbertas: true,
+        bandeira: texturaBandeiraMarinha(),
+      }
+  const sombra = (m: THREE.Mesh) => {
+    m.castShadow = true
+    m.receiveShadow = true
+    return m
+  }
+
+  // casco, espelho de popa, cintas
+  g.add(sombra(new THREE.Mesh(cascoGeo(), est.casco)))
+  g.add(sombra(new THREE.Mesh(espelhoGeo(), est.espelho)))
+  g.add(new THREE.Mesh(faixaGeo(-0.12, 0.12), est.faixa))
+  g.add(new THREE.Mesh(faixaGeo(-0.62, 0.1), est.faixa))
+  g.add(new THREE.Mesh(faixaGeo(0.46, 0.08, POPA, 10.5), est.faixa2))
+  corrimao(M, g)
+  portinholas(M, g, est)
+
+  // convés principal (em volta do tabuleiro) e os dois elevados
+  const piso = new THREE.Mesh(pisoGeo(POPA + 0.1, PROA - 1.2, -0.003), M.convesMargem)
+  piso.receiveShadow = true
+  g.add(piso)
+  const proa = sombra(new THREE.Mesh(pisoGeo(FIM_TAB, PROA - 1.6, ALT_PROA), M.convesMargem))
+  const popa = sombra(new THREE.Mesh(pisoGeo(POPA + 0.1, -FIM_TAB, ALT_POPA), M.convesMargem))
+  g.add(proa, popa)
+  // paredes de frente para o tabuleiro
+  const paredeProa = caixa(0.14, ALT_PROA, boca(FIM_TAB) * 2 - 0.2, est.espelho)
+  paredeProa.position.set(FIM_TAB, ALT_PROA / 2, 0)
+  const paredePopa = caixa(0.14, ALT_POPA, boca(-FIM_TAB) * 2 - 0.2, est.espelho)
+  paredePopa.position.set(-FIM_TAB, ALT_POPA / 2, 0)
+  g.add(paredeProa, paredePopa)
+  // porta e janelas da câmara do capitão (parede do tombadilho)
+  const brilho = new THREE.MeshBasicMaterial({ color: 0xffcf6a })
+  const escuro = new THREE.MeshLambertMaterial({ color: 0x24160c })
+  const porta = caixa(0.06, 0.95, 0.7, escuro)
+  porta.position.set(-FIM_TAB + 0.09, 0.48, 0)
+  g.add(porta)
+  for (const z of [-1.6, -0.9, 0.9, 1.6]) {
+    const j = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.32, 0.36), brilho)
+    j.position.set(-FIM_TAB + 0.09, 0.78, z)
+    g.add(j)
+  }
+  // balaustradas na frente dos elevados
+  g.add(amurada(M, FIM_TAB + 0.1, -boca(FIM_TAB) + 0.25, FIM_TAB + 0.1, boca(FIM_TAB) - 0.25, 0.55).translateY(ALT_PROA))
+  g.add(amurada(M, -FIM_TAB - 0.1, -boca(-FIM_TAB) + 0.25, -FIM_TAB - 0.1, boca(-FIM_TAB) - 0.25, 0.6).translateY(ALT_POPA))
+  // escadas encostadas nas paredes, nas laterais (fora do tabuleiro)
+  for (const z of [-2.85, 2.85]) {
+    for (let i = 0; i < 4; i++) {
+      const d = caixa(0.22, 0.08, 0.5, M.amurada)
+      d.position.set(FIM_TAB - 0.62 + i * 0.18, (ALT_PROA * (i + 1)) / 4 - 0.04, z)
+      g.add(d)
+    }
+    for (let i = 0; i < 6; i++) {
+      const d = caixa(0.2, 0.08, 0.5, M.amurada)
+      d.position.set(-FIM_TAB + 0.62 - i * 0.12, (ALT_POPA * (i + 1)) / 6 - 0.04, z)
+      g.add(d)
+    }
+  }
+
+  // popa: janelas da galeria no espelho, lanternas grandes
+  for (const z of [-1.7, -0.85, 0, 0.85, 1.7]) {
+    const j = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.4, 0.5), brilho)
+    j.position.set(POPA - 0.02, 1.0, z)
+    g.add(j)
+    const mold = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.6), est.faixa)
+    mold.position.set(POPA - 0.005, 1.0, z)
+    g.add(mold)
+  }
+  const galeria = caixa(0.3, 0.1, boca(POPA) * 2 + 0.2, M.amurada)
+  galeria.position.set(POPA - 0.12, 0.62, 0)
+  g.add(galeria)
+  g.add(lanterna(M, POPA + 0.4, -boca(POPA) + 0.35, ALT_POPA + 0.9, luzes), lanterna(M, POPA + 0.4, boca(POPA) - 0.35, ALT_POPA + 0.9, luzes))
+  g.add(lanterna(M, PROA - 2.6, 0, ALT_PROA + 0.7, luzes))
+
+  // tombadilho: leme, baús; castelo de proa: cabrestante, barris, âncoras
+  const timao = new THREE.Group()
+  const roda = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 6, 18), M.poste)
+  timao.add(roda)
+  for (let i = 0; i < 8; i++) {
+    const r = caixa(0.05, 1.05, 0.05, M.poste, 32)
+    r.rotation.z = (i * Math.PI) / 8
+    timao.add(r)
+  }
+  const pe = caixa(0.18, 0.7, 0.18, M.poste, 32)
+  pe.position.y = -0.55
+  timao.add(pe)
+  timao.rotation.y = Math.PI / 2
+  timao.position.set(-11.6, ALT_POPA + 0.92, 0)
+  g.add(timao)
+  g.add(caixote(M, -12.8, -1.6, 0.55, ALT_POPA), caixote(M, -12.8, 1.5, 0.5, ALT_POPA, 0.3), barril(M, -12.1, 1.9, ALT_POPA))
+  const cabrestante = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.6, 10), M.poste)
+  cabrestante.position.set(12.0, ALT_PROA + 0.3, 0)
+  cabrestante.castShadow = true
+  g.add(cabrestante)
+  for (let i = 0; i < 4; i++) {
+    const barra = caixa(1.2, 0.06, 0.06, M.amurada)
+    barra.rotation.y = (i * Math.PI) / 4
+    barra.position.set(12.0, ALT_PROA + 0.55, 0)
+    g.add(barra)
+  }
+  g.add(barril(M, 11.3, -1.8, ALT_PROA), barril(M, 11.3, 1.8, ALT_PROA), rolo(M, 13.2, -1.0))
+  ;(g.children[g.children.length - 1] as THREE.Object3D).position.y = ALT_PROA
+  // canhões de caça na proa e na popa
+  for (const z of [-1.3, 1.3]) {
+    const cp = canhao(M, 14.6, z * 0.7, -Math.PI / 2)
+    cp.position.y = ALT_PROA
+    const cr = canhao(M, -13.0, z, Math.PI / 2)
+    cr.position.y = ALT_POPA
+    g.add(cp, cr)
+  }
+  // no convés principal: só nas beiradas, fora das casas
+  g.add(rolo(M, -10.25, -2.85), rolo(M, 10.25, 2.85))
+
+  // âncoras penduradas na proa
+  for (const lado of [-1, 1]) {
+    const x = 14.2
+    const ancora = new THREE.Group()
+    const haste = caixa(0.1, 1.3, 0.1, M.ferro)
+    ancora.add(haste)
+    const braco = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.06, 6, 12, Math.PI), M.ferro)
+    braco.rotation.z = Math.PI
+    braco.position.y = -0.45
+    ancora.add(braco)
+    const cepo = caixa(0.7, 0.1, 0.12, M.poste, 32)
+    cepo.position.y = 0.6
+    ancora.add(cepo)
+    ancora.position.set(x, 0.1, lado * (boca(x) + 0.12))
+    ancora.rotation.x = lado * 0.15
+    g.add(ancora)
+  }
+
+  // gurupés e figura de proa
+  const gurupes = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.16, 6.5, 10), M.mastro)
+  const incl = THREE.MathUtils.degToRad(70)
+  gurupes.rotation.z = -incl
+  const pontaBase = new THREE.Vector3(PROA - 0.9, borda(PROA - 0.9) - 0.1, 0)
+  const dirG = new THREE.Vector3(Math.sin(incl), Math.cos(incl), 0)
+  gurupes.position.copy(pontaBase).addScaledVector(dirG, 3.0)
+  gurupes.castShadow = true
+  g.add(gurupes)
+  const pontaG = pontaBase.clone().addScaledVector(dirG, 6.0)
+  const figura = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.9, 10), lambert(null, cima ? 0xc9a24a : 0xe8e4d8))
+  figura.rotation.z = -Math.PI / 2 - 0.4
+  figura.position.set(PROA - 0.2, borda(PROA) - 0.75, 0)
+  g.add(figura)
+
+  // mastros (no castelo de proa e no tombadilho, fora das casas)
+  const topoProa = mastroNavio(M, g, 13.0, ALT_PROA, 10.5, est, cima ? 0.55 : 0.3)
+  const topoPopa = mastroNavio(M, g, -12.6, ALT_POPA, 9.0, est, cima ? 0.5 : 0.3)
+  // giba (do gurupés ao mastro) e vela latina (atrás do mastro de ré): de frente para a câmera
+  const altGiba = ALT_PROA + 10.5 * 0.7
+  g.add(cabo(M, pontaG, new THREE.Vector3(13.0, altGiba, 0), 0.03))
+  if (est.velasAbertas) {
+    const giba = velaPlana(est.vela, [
+      [13.25, ALT_PROA + 1.4],
+      [pontaG.x - 0.3, pontaG.y - 0.25],
+      [13.25, altGiba - 0.2],
+    ])
+    g.add(giba)
+    const latina = velaPlana(est.vela, [
+      [-12.85, ALT_POPA + 1.0],
+      [-16.6, ALT_POPA + 1.4],
+      [-15.6, ALT_POPA + 5.4],
+      [-12.85, ALT_POPA + 6.6],
+    ])
+    g.add(latina)
+  }
+  // retranca da latina
+  const retranca = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 4.2, 8), M.mastro)
+  retranca.rotation.z = Math.PI / 2 - 0.08
+  retranca.position.set(-14.8, ALT_POPA + 1.15, 0)
+  g.add(retranca)
+
+  // cordame: enxárcias dos mastros até as bordas, estais entre mastros e o gurupés
+  for (const [xm, topo, base] of [[13.0, topoProa, ALT_PROA], [-12.6, topoPopa, ALT_POPA]] as const) {
+    void base
+    for (const lado of [-1, 1]) {
+      const alto = new THREE.Vector3(xm, topo.y * 0.62 + 0.1, lado * 0.35)
+      const xa = xm - 1.1
+      const xb = xm + 0.2
+      g.add(enxarcia(M, new THREE.Vector3(xa, borda(xa) + 0.08, lado * (boca(xa) - 0.05)), new THREE.Vector3(xb, borda(xb) + 0.08, lado * (boca(xb) - 0.05)), alto))
+      g.add(cabo(M, new THREE.Vector3(xm - 0.6, borda(xm - 0.6) + 0.1, lado * (boca(xm - 0.6) - 0.05)), topo.clone().setZ(lado * 0.1), 0.022))
+    }
+  }
+  g.add(cabo(M, topoProa.clone().setY(topoProa.y - 0.3), pontaG, 0.03))
+
+  // bandeiras no topo dos mastros
+  for (const [xm, topo] of [[13.0, topoProa], [-12.6, topoPopa]] as const) {
+    const b = bandeira(M, xm, 0, est.bandeira)
+    b.g.position.set(xm + 1.0, topo.y - 2.4, 0)
+    b.g.scale.setScalar(0.75)
+    g.add(b.g)
+    panos.push(b.pano)
+  }
+  return g
+}
+
 export function montarNavios(): Navios {
   const M = new Materiais()
   const grupo = new THREE.Group()
   const luzes: THREE.PointLight[] = []
   const panos: THREE.Mesh[] = []
   const cascos: THREE.Vector4[] = []
-  const meiaLarg = COLUNAS / 2
-  const lados = 1.5 // beirada além do tabuleiro nas pontas
-
   for (const cima of [true, false]) {
-    const zTab0 = cima ? -VAO / 2 - METADE : VAO / 2
-    const zTab1 = zTab0 + METADE
-    const zLonge = cima ? zTab0 - 1.5 : zTab0 - 0.25
-    const zPerto = cima ? zTab1 + 0.25 : zTab1 + 1.2
-    const x0 = -meiaLarg - lados
-    const x1 = meiaLarg + lados
-    const larg = x1 - x0
-    const prof = zPerto - zLonge
-    const navio = new THREE.Group()
-
-    // convés (beirada) e casco
-    const conves = caixa(larg, 0.3, prof, M.convesMargem)
-    conves.position.set(0, -0.15 - 0.002, (zLonge + zPerto) / 2)
-    navio.add(conves)
-    const casco = caixa(larg + 0.3, 1.8, prof + 0.3, [M.casco, M.casco, M.casco, M.casco, M.casco, M.casco])
-    casco.position.set(0, -1.2, (zLonge + zPerto) / 2)
-    navio.add(casco)
-    // friso claro e faixa (azul no navio de baixo)
-    const friso = caixa(larg + 0.36, 0.14, prof + 0.36, cima ? M.cascoClaro : M.azul)
-    friso.position.set(0, -0.36, (zLonge + zPerto) / 2)
-    navio.add(friso)
-    cascos.push(new THREE.Vector4(x0 - 0.15, zLonge - 0.15, x1 + 0.15, zPerto + 0.15))
-
-    // tabuleiro
+    const zc = cima ? -VAO / 2 - METADE / 2 : VAO / 2 + METADE / 2
+    const navio = montarNavio(cima, M, luzes, panos)
+    navio.position.set(0, 0, zc)
+    // piratas com a proa para a direita; a Marinha, para a esquerda
+    if (!cima) navio.rotation.y = Math.PI
+    grupo.add(navio)
+    // tabuleiro (fixo no mundo, por cima do convés)
     const tex = texturaTabuleiro(COLUNAS, METADE, tiposMetade(cima), TEXELS, cima ? 101 : 202)
     const tab = new THREE.Mesh(new THREE.PlaneGeometry(COLUNAS, METADE), new THREE.MeshLambertMaterial({ map: tex }))
     tab.rotation.x = -Math.PI / 2
-    tab.position.set(0, 0.001, (zTab0 + zTab1) / 2)
+    tab.position.set(0, 0.001, zc)
     tab.receiveShadow = true
-    navio.add(tab)
-
-    // amuradas: pontas sempre; o lado de fora de cada navio
-    navio.add(amurada(M, x0 + 0.15, zLonge + 0.15, x0 + 0.15, zPerto - 0.15))
-    navio.add(amurada(M, x1 - 0.15, zLonge + 0.15, x1 - 0.15, zPerto - 0.15))
-    if (cima) navio.add(amurada(M, x0 + 0.15, zLonge + 0.15, x1 - 0.15, zLonge + 0.15, 0.85))
-    else navio.add(amurada(M, x0 + 0.15, zPerto - 0.15, x1 - 0.15, zPerto - 0.15, 0.72))
-    // borda baixa do lado do vão
-    const zBorda = cima ? zPerto - 0.1 : zLonge + 0.1
-    const borda = caixa(larg, 0.16, 0.2, cima ? M.amurada : M.azul)
-    borda.position.set(0, 0.08, zBorda)
-    navio.add(borda)
-    for (let x = x0 + 0.8; x < x1; x += 2.2) {
-      const cunho = caixa(0.2, 0.26, 0.24, M.poste, 32)
-      cunho.position.set(x, 0.13, zBorda)
-      navio.add(cunho)
-    }
-
-    if (cima) {
-      // castelo de popa ao fundo, à esquerda, com escada e carga
-      const plat = caixa(7, 1.5, 3, M.casco)
-      plat.position.set(-7.6, 0.75 - 0.02, zLonge - 1.5)
-      navio.add(plat)
-      const piso = caixa(7, 0.1, 3, M.convesMargem)
-      piso.position.set(-7.6, 1.5, zLonge - 1.5)
-      navio.add(piso)
-      for (let i = 0; i < 6; i++) {
-        const d = caixa(1.6, 0.12, 0.3, M.amurada)
-        d.position.set(-4.0, 0.25 * (i + 1) - 0.06, zLonge - 0.1 - i * 0.28)
-        navio.add(d)
-      }
-      navio.add(amurada(M, -11.1, zLonge - 2.9, -4.2, zLonge - 2.9, 0.7).translateY(1.5))
-      for (const [bx, bz] of [[-9.6, -2.3], [-9.0, -2.3], [-8.4, -2.4], [-9.3, -1.7], [-8.7, -1.7]])
-        navio.add(barril(M, bx, zLonge + bz, 1.55))
-      navio.add(caixote(M, -6.6, zLonge - 2.1, 0.66, 1.55, 0.1))
-      navio.add(caixote(M, -5.9, zLonge - 2.2, 0.5, 1.55, -0.2))
-      navio.add(caixote(M, -6.4, zLonge - 2.1, 0.46, 2.21, 0.3))
-      // no convés: barris, caixotes e cordas encostados na amurada do fundo
-      navio.add(barril(M, 1.8, zLonge + 0.55), barril(M, 2.4, zLonge + 0.5), barril(M, 2.1, zLonge + 0.95, 0, true))
-      navio.add(caixote(M, -1.9, zLonge + 0.6, 0.66, 0, 0.15), caixote(M, 9.2, zLonge + 0.6, 0.6))
-      navio.add(rolo(M, 4.0, zLonge + 0.6), rolo(M, -2.9, zLonge + 0.7))
-      // mastro com a vela vermelha
-      navio.add(mastro(M, 7.0, zLonge - 0.3, 6.5, texturaVela([168, 36, 40], [238, 226, 206], 31)))
-      navio.add(mastro(M, -1.0, zLonge - 3.4, 7.2, texturaVela([160, 34, 38], [238, 226, 206], 32)))
-      // canhões nas pontas
-      navio.add(canhao(M, x0 + 0.75, zTab0 + 1.2, Math.PI / 2), canhao(M, x1 - 0.75, zTab0 + 1.2, -Math.PI / 2))
-      navio.add(canhao(M, x1 - 0.75, zTab0 + 3.6, -Math.PI / 2))
-      navio.add(lanterna(M, x0 + 0.15, zLonge + 0.15, 0.95, luzes), lanterna(M, x1 - 0.15, zLonge + 0.15, 0.95, luzes))
-      // enxárcias subindo da amurada do fundo
-      navio.add(enxarcia(M, new THREE.Vector3(-10.5, 0.85, zLonge + 0.15), new THREE.Vector3(-9.1, 0.85, zLonge + 0.15), new THREE.Vector3(-8.2, 8.5, zLonge - 3)))
-      navio.add(enxarcia(M, new THREE.Vector3(10.2, 0.85, zLonge + 0.15), new THREE.Vector3(11.4, 0.85, zLonge + 0.15), new THREE.Vector3(9.5, 8.5, zLonge - 3)))
-    } else {
-      // amurada da frente com lanternas, canhão e escada descendo
-      navio.add(lanterna(M, x0 + 0.15, zPerto - 0.15, 0.84, luzes), lanterna(M, 0.2, zPerto - 0.15, 0.84, luzes), lanterna(M, x1 - 0.15, zPerto - 0.15, 0.84, luzes))
-      navio.add(canhao(M, 6.5, zPerto - 0.6, Math.PI), canhao(M, x0 + 0.75, zTab0 + 2.5, Math.PI / 2), canhao(M, x1 - 0.75, zTab0 + 2.5, -Math.PI / 2))
-      navio.add(barril(M, x1 - 0.75, zTab0 + 0.5), caixote(M, x1 - 0.8, zTab0 + 4.4, 0.55))
-      navio.add(barril(M, x0 + 0.7, zTab0 + 4.4), rolo(M, x0 + 0.75, zTab0 + 1.1))
-      navio.add(caixote(M, -3.0, zPerto - 0.6, 0.55), rolo(M, 2.5, zPerto - 0.6))
-      const band = bandeira(M, x1 + 0.35, zPerto - 0.3, texturaVela([44, 72, 160], [236, 236, 240], 41))
-      navio.add(band.g)
-      panos.push(band.pano)
-      // cabos grossos no primeiro plano, subindo para fora da tela
-      navio.add(enxarcia(M, new THREE.Vector3(-11.2, 0.8, zPerto - 0.15), new THREE.Vector3(-9.8, 0.8, zPerto - 0.15), new THREE.Vector3(-13, 8, zPerto + 3)))
-      navio.add(enxarcia(M, new THREE.Vector3(9.8, 0.8, zPerto - 0.15), new THREE.Vector3(11.2, 0.8, zPerto - 0.15), new THREE.Vector3(13, 8, zPerto + 3)))
-    }
-    grupo.add(navio)
+    grupo.add(tab)
+    // a espuma acompanha o casco (a ponta da proa é mais fina que a curva)
+    const x0 = cima ? POPA : -PROA + 1.8
+    const x1 = cima ? PROA - 1.8 : -POPA
+    cascos.push(new THREE.Vector4(x0, zc - MEIA, x1, zc + MEIA))
   }
-
   // pranchas de abordagem sobre o vão
   const r = rng(5)
   for (const c of [3.5, 14.5]) {
-    const p = caixa(0.8, 0.08, VAO + 0.12, M.amurada)
-    p.position.set(c - COLUNAS / 2, 0.05 + r() * 0.01, 0)
+    const p = caixa(0.8, 0.08, VAO + 0.2, M.amurada)
+    p.position.set(c - COLUNAS / 2, 0.6 + r() * 0.01, 0)
+    p.rotation.z = (r() - 0.5) * 0.05
     grupo.add(p)
   }
   return { grupo, luzes, panos, cascos }

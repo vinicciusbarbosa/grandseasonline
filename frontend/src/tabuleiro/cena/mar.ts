@@ -34,6 +34,11 @@ export function criarMar(cascos: THREE.Vector4[]) {
         vec2 d = abs(p - c) - e;
         return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
       }
+      // casco: retângulo de pontas arredondadas (proa e popa curvas)
+      float casco(vec2 p, vec4 r) {
+        float R = (r.w - r.y) * 0.47;
+        return caixa(p, vec4(r.x + R, r.y + R, r.z - R, r.w - R)) - R;
+      }
       void main() {
         // grade de pixels no mundo: 14 por unidade (uma casa)
         vec2 p = floor(vMundo * 16.0) / 16.0;
@@ -42,7 +47,7 @@ export function criarMar(cascos: THREE.Vector4[]) {
                    + sin(p.x * 0.8 - p.y * 1.9 - t * 1.0) * 0.5;
         float n = ruido(p * 2.2 + vec2(t * 0.3, -t * 0.12)) * 0.55 + ruido(p * 5.5 - vec2(t * 0.6, t * 0.25)) * 0.45;
         float v = onda * 0.22 + n;
-        float d = min(caixa(p, cascos[0]), caixa(p, cascos[1]));
+        float d = min(casco(p, cascos[0]), casco(p, cascos[1]));
         float bate = 0.5 + 0.5 * sin(t * 2.2 - d * 7.0 + ruido(p * 2.0) * 4.0);
         float espuma = step(d, 0.06 + 0.16 * bate * n) + step(0.93, v + (d < 1.0 ? 0.1 : 0.0));
         vec3 cor = v < 0.42 ? vec3(0.05, 0.22, 0.55) : v < 0.62 ? vec3(0.09, 0.33, 0.72) : v < 0.8 ? vec3(0.19, 0.49, 0.85) : vec3(0.52, 0.76, 0.98);
