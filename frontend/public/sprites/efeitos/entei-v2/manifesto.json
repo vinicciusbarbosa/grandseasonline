@@ -1,0 +1,16 @@
+{
+ "quadro": [
+  281,
+  281
+ ],
+ "quadros": 12,
+ "grade": [
+  4,
+  3
+ ],
+ "fps": 12,
+ "direcoes": [
+  "S"
+ ],
+ "modo": "unico"
+}
