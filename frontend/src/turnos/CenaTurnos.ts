@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { EfeitoFolha, manifestoEfeito, type DirEfeito } from '../tabuleiro/cena/efeitoFolha'
-import type { Lado } from './regras'
+/** os nossos (de costas) ou os deles (de frente) */
+type Lado = 'nossos' | 'deles'
 
 /**
  * Cena do combate por turnos (estilo Honkai, em "2D com profundidade"):
@@ -14,6 +15,8 @@ import type { Lado } from './regras'
 type Folha = { arquivo: string; quadros: number; quadro?: [number, number]; pe?: [number, number] }
 type Manifesto = { quadro: [number, number]; pe: [number, number]; anims: Record<string, Record<string, Folha>> }
 type Anim = 'parado' | 'andar' | 'atacar'
+export type Estilo = 'corte' | 'impacto' | 'tiro' | 'haki' | 'fogo' | 'gelo' | 'luz' | 'fumaca' | 'cura' | 'buff'
+const COR_ESTILO: Partial<Record<Estilo, number>> = { fogo: 0xff8a3a, gelo: 0x9be8ff, fumaca: 0xb8b8b8, impacto: 0xffffff }
 
 /** px do sprite → mundo (o personagem LPC fica com ~1,8 de altura) */
 const K = 2.3 / 128
@@ -67,7 +70,7 @@ class Boneco {
 
   /** costas para a câmera (N) nos nossos; de frente (S) na Marinha */
   private get dir() {
-    return this.lado === 'tripulacao' ? 'N' : 'S'
+    return this.lado === 'nossos' ? 'N' : 'S'
   }
 
   atualizar(dt: number) {
@@ -257,15 +260,15 @@ export class CenaTurnos {
   }
 
   async carregar(lista: { id: string; sprite: string; lado: Lado; chefe?: boolean }[]) {
-    const nossos = lista.filter((u) => u.lado === 'tripulacao')
-    const eles = lista.filter((u) => u.lado === 'inimigos')
+    const nossos = lista.filter((u) => u.lado === 'nossos')
+    const eles = lista.filter((u) => u.lado === 'deles')
     const lugar = (i: number, n: number, z: number, passo: number) => new THREE.Vector3((i - (n - 1) / 2) * passo, 0, z)
     await Promise.all(
       lista.map(async (u) => {
         const base = `${import.meta.env.BASE_URL}sprites/${u.sprite}/`
         const man = (await (await fetch(`${base}manifesto.json`)).json()) as Manifesto
-        const nosso = u.lado === 'tripulacao'
-        const casa = nosso ? lugar(nossos.indexOf(u), nossos.length, 2.6, 2.1) : lugar(eles.indexOf(u), eles.length, -3.2, 2.1)
+        const nosso = u.lado === 'nossos'
+        const casa = nosso ? lugar(nossos.indexOf(u), nossos.length, 2.6, nossos.length > 4 ? 1.75 : 2.1) : lugar(eles.indexOf(u), eles.length, -3.2, eles.length > 4 ? 1.9 : 2.1)
         if (u.chefe) casa.z -= 0.6
         const b = new Boneco(base, man, u.lado, casa, u.chefe ? 1.3 : 1)
         this.bonecos.set(u.id, b)
@@ -337,7 +340,7 @@ export class CenaTurnos {
     if (!b) return
     b.clarao = 1
     b.tremor = forte ? 1.4 : 1
-    const recuo = b.lado === 'tripulacao' ? 0.25 : -0.25
+    const recuo = b.lado === 'nossos' ? 0.25 : -0.25
     void this.animar(0.28, (k) => (b.pos.z = b.casa.z + Math.sin(k * Math.PI) * recuo))
   }
 
@@ -380,11 +383,11 @@ export class CenaTurnos {
   }
 
   /** Rastro de bala do atirador até o alvo. */
-  private tiro(de: THREE.Vector3, ate: THREE.Vector3) {
+  private tiro(de: THREE.Vector3, ate: THREE.Vector3, cor = 0xfff1b0) {
     const a = de.clone().setY(1.2)
     const b = ate.clone().setY(1.1)
     const g = new THREE.BufferGeometry().setFromPoints([a, b])
-    const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xfff1b0, transparent: true }))
+    const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: cor, transparent: true }))
     this.cena.add(l)
     void this.animar(0.18, (k) => ((l.material as THREE.LineBasicMaterial).opacity = 1 - k)).then(() => this.cena.remove(l))
   }
@@ -401,28 +404,70 @@ export class CenaTurnos {
     return true
   }
 
+  /** Esquiva: um passo para o lado e volta (o golpe não pegou). */
+  esquivar(id: string) {
+    const b = this.bonecos.get(id)
+    if (!b) return
+    const lado = Math.random() < 0.5 ? -1 : 1
+    void this.animar(0.35, (k) => (b.pos.x = b.casa.x + Math.sin(k * Math.PI) * 0.7 * lado))
+  }
+
+  /** Haki do Rei em área: onda roxa saindo de quem solta. */
+  async haoshoku(id: string) {
+    const a = this.bonecos.get(id)
+    if (!a) return
+    a.clarao = 1
+    this.focar(null)
+    for (let i = 0; i < 3; i++) {
+      this.anelImpacto(a.casa, i % 2 ? 0x8a2bff : 0xd04cff, 3 + i)
+      await this.esperar(120 / this.velocidade)
+    }
+    this.tremer(0.9)
+    await this.esperar(350 / this.velocidade)
+  }
+
+  /** Brilho de quem ligou o Haki / transformou. */
+  brilho(id: string, cor: number) {
+    const b = this.bonecos.get(id)
+    if (!b) return
+    b.clarao = 0.8
+    this.anelImpacto(b.casa, cor, 0.9)
+  }
+
   /**
    * Um golpe completo: o ator avança (corpo a corpo) ou fica no lugar
-   * (tiro, área), toca o ataque, e no impacto chama `aoImpacto` (que mostra
-   * os números). `estilo` escolhe o efeito.
+   * (tiro, área, fruta), toca o ataque e, no impacto, chama `aoImpacto` (que
+   * mostra os números). Quem está em `apanham` leva o golpe; os outros
+   * alvos esquivam. `estilo` escolhe o efeito; `efeito` usa uma folha.
    */
-  async golpe(atorId: string, alvos: string[], estilo: 'corte' | 'impacto' | 'tiro' | 'haki' | 'fogo', modo: 'basico' | 'habilidade' | 'ultimate' | 'inimigo', efeito: string | undefined, aoImpacto: () => void) {
+  async golpe(
+    atorId: string,
+    alvos: string[],
+    op: { estilo: Estilo; efeito?: string; corpo: boolean; grande: boolean; apanham: Set<string> },
+    aoImpacto: () => void,
+  ) {
     const a = this.bonecos.get(atorId)!
     const bs = alvos.map((id) => this.bonecos.get(id)!).filter(Boolean)
     const principal = bs[0]
     const centro = bs.reduce((s, b) => s.add(b.casa), new THREE.Vector3()).divideScalar(Math.max(1, bs.length))
-    const corpo = estilo !== 'tiro' && modo !== 'ultimate' && bs.length > 0 && efeito !== 'hiken-perto' && !(modo === 'habilidade' && bs.length > 2)
-    this.focar(modo === 'inimigo' ? null : centro, modo === 'ultimate' ? 0.55 : 0.3)
+    const reagir = () => {
+      for (const id of alvos) {
+        if (op.apanham.has(id)) this.apanhar(id, op.grande)
+        else if (this.bonecos.get(id)?.lado !== a.lado) this.esquivar(id)
+      }
+    }
+    const nosso = a.lado === 'nossos'
+    this.focar(nosso ? centro : null, op.grande ? 0.5 : 0.3)
 
-    if (modo === 'ultimate' && efeito === 'entei') {
-      // Entei: carga sobre o lutador, a bola voa até o meio dos inimigos e explode
-      this.focar(a.casa, 0.5)
+    if (op.efeito === 'entei') {
+      // Entei: carga sobre quem lança, a bola voa até o meio dos alvos e explode
+      this.focar(nosso ? a.casa : null, 0.5)
       await this.folha('entei-carga', 'S', a.casa.clone().setY(0.02), { escala: 1.4 })
-      this.focar(centro, 0.45)
+      this.focar(nosso ? centro : null, 0.45)
       await this.folha('entei-bola', 'S', a.casa.clone().setY(0.02), { para: centro.clone().setY(0.02), escala: 1.4 })
       const exp = this.folha('entei-explosao', 'S', centro.clone().setY(0.02), { escala: 2.2 })
       await this.esperar(160 / this.velocidade)
-      for (const b of bs) this.apanhar(alvos[bs.indexOf(b)], true)
+      reagir()
       this.tremer(1)
       aoImpacto()
       await exp
@@ -430,37 +475,38 @@ export class CenaTurnos {
       return
     }
 
-    if (efeito === 'hotarubi') {
+    if (op.efeito === 'hotarubi') {
       a.anim = 'atacar'
       a.t = 0
-      this.focar(centro, 0.35)
       let fim = false
-      const ef = this.folha('hotarubi', 'S', centro.clone().setY(0.02), { largura: 6.5, chao: true }).then(() => (fim = true))
+      const ef = this.folha('hotarubi', 'S', centro.clone().setY(0.02), { largura: 4.5, chao: true }).then(() => (fim = true))
       await this.esperar(1050 / this.velocidade)
       a.anim = 'parado'
-      for (const id of alvos) this.apanhar(id)
+      reagir()
       this.tremer(0.5)
       aoImpacto()
       if (!fim) await ef
       this.focar(null)
       return
     }
-    if (!bs.length) {
-      // golpe no próprio time (ordem do capitão): brilho dourado em todos
+
+    if (bs.every((b) => b.lado === a.lado)) {
+      // em si / num aliado (transformação, buff, cura): brilho, sem avançar
       a.anim = 'atacar'
       a.t = 0
       await this.esperar((IMPACTO * 1000) / this.velocidade)
-      for (const b of this.bonecos.values()) if (b.lado === a.lado && b.opacidade > 0) this.anelImpacto(b.casa, 0xf0c76a, 0.8)
+      for (const b of bs) this.anelImpacto(b.casa, op.estilo === 'cura' ? 0x6dff9a : 0xf0c76a, 0.9)
+      for (const b of bs) b.clarao = 0.7
       aoImpacto()
       await this.esperar(500 / this.velocidade)
       a.anim = 'parado'
+      this.focar(null)
       return
     }
 
     let ida = a.casa.clone()
-    if (corpo) {
-      // corpo a corpo: corre até a frente do alvo
-      const dz = a.lado === 'tripulacao' ? 1.25 : -1.25
+    if (op.corpo && principal) {
+      const dz = nosso ? 1.25 : -1.25
       ida = principal.casa.clone().add(new THREE.Vector3(0, 0, dz))
       a.anim = 'andar'
       a.t = 0
@@ -470,24 +516,27 @@ export class CenaTurnos {
     a.anim = 'atacar'
     a.t = 0
     await this.esperar((IMPACTO * 1000) / this.velocidade)
-    // efeito por estilo
-    if (efeito === 'hiken-perto') {
-      for (const b of bs) void this.folha('hiken-perto', 'N', b.casa.clone().setY(0.9), { largura: 2.4 })
+    if (op.efeito === 'hiken-perto') {
+      for (const b of bs) void this.folha('hiken-perto', nosso ? 'N' : 'S', b.casa.clone().setY(0.9), { largura: 2.4 })
       await this.esperar(120 / this.velocidade)
     }
     for (const b of bs) {
-      if (estilo === 'tiro') this.tiro(a.pos, b.casa)
-      else if (estilo === 'corte') this.risco(b.casa)
-      else if (estilo === 'haki') {
+      const e = op.estilo
+      if (e === 'tiro') this.tiro(a.pos, b.casa)
+      else if (e === 'luz') {
+        this.tiro(a.pos, b.casa, 0xfff3a0)
+        this.anelImpacto(b.casa, 0xfff3a0)
+      } else if (e === 'corte') this.risco(b.casa)
+      else if (e === 'haki') {
         this.risco(b.casa, 0xd04cff)
         this.anelImpacto(b.casa, 0x8a2bff, 1.2)
-      } else if (efeito !== 'hiken-perto') this.anelImpacto(b.casa, estilo === 'fogo' ? 0xff8a3a : 0xffffff)
+      } else if (op.efeito !== 'hiken-perto') this.anelImpacto(b.casa, COR_ESTILO[e] ?? 0xffffff, e === 'fumaca' ? 1.6 : 1)
     }
-    for (const id of alvos) this.apanhar(id, modo === 'ultimate')
-    this.tremer(modo === 'ultimate' ? 0.8 : modo === 'habilidade' ? 0.45 : 0.25)
+    reagir()
+    this.tremer(op.grande ? 0.8 : 0.3)
     aoImpacto()
     await this.esperar(380 / this.velocidade)
-    if (corpo) {
+    if (op.corpo && principal) {
       a.anim = 'andar'
       a.t = 0
       const de = a.pos.clone()

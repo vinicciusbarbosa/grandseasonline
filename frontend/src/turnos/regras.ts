@@ -1,236 +1,301 @@
 /**
- * Combate por turnos estilo Honkai: Star Rail (protótipo).
+ * Combate por turnos SEM tabuleiro (tela estilo Honkai).
  *
- * - Fila por velocidade: cada unidade tem um "valor de ação" (VA) que começa
- *   em 10000/vel; age quem tem o menor VA, o tempo anda para todos, e quem
- *   agiu volta para 10000/vel.
- * - Pontos de habilidade (PH) do time: o ataque básico dá 1, cada habilidade
- *   gasta 1 ou 2 (máx. 5). Cada tripulante tem várias habilidades.
- * - Energia: básico +20, habilidade +30, apanhar +10, derrubar +10. Cheia,
- *   o ultimate pode ser usado A QUALQUER MOMENTO, furando a fila.
- * - Escudo e fraquezas: o escudo do inimigo só cai com golpes do tipo a que
- *   ele é fraco. Quebrado, leva dano extra, perde 25% de avanço na fila e
- *   recebe mais dano até a vez dele.
+ * As regras são as do tabuleiro (tabuleiro/batalha/regras.ts): mesmos
+ * atributos, energia, espírito, skills de arma e de fruta com recarga, Haki de
+ * armamento / observação / Rei, Logia, crítico, bloqueio, esquiva,
+ * queimadura, congelar... O golpe é literalmente o mesmo código
+ * (`golpeador`). O que muda sem as casas:
  *
- * Módulo puro: nada de cena nem de React.
+ * - a vez é INDIVIDUAL, numa fila pela agilidade (quem é mais ágil age mais
+ *   vezes): valor de ação = 10000 / velocidade; age o menor, o tempo anda;
+ * - sem movimento e sem alcance: a área da skill vira o número de alvos —
+ *   alvo → um; linha, leque, volta e explosão 3×3 → o alvo e os vizinhos
+ *   na formação; explosão 5×5 e mapa → todos; si → o próprio;
+ * - Haki do Rei em área pega todos os inimigos;
+ * - a observação avançada revida golpes corpo a corpo (alcance 1).
+ *
+ * Os recursos andam na vez de cada um (energia, espírito, recargas,
+ * queimadura, transformação), como andavam na vez da tripulação.
  */
 
-export type Tipo = 'corte' | 'impacto' | 'fogo' | 'tiro' | 'haki'
-export type Lado = 'tripulacao' | 'inimigos'
-export type Alcance = 'um' | 'leque' | 'todos' | 'time'
-/** custo: pontos de habilidade (habilidades; padrão 1). energiaTime: energia que dá a cada aliado. */
-export type Golpe = { nome: string; mult: number; alcance: Alcance; escudo: number; efeito?: string; atraso?: number; tipo?: Tipo; custo?: number; energiaTime?: number; icone?: Icone; descricao: string }
-/** desenho do botão da habilidade (ver icones.tsx) */
-export type Icone = 'coroa' | 'imbuido' | 'ordem' | 'duplo' | 'giro' | 'saque' | 'punho' | 'vagalumes' | 'rajada' | 'perna'
-export type Escolha = 'basico' | 'ultimate' | number
+import { type Skill } from '../tabuleiro/batalha/armas'
+import {
+  chanceHaki,
+  ENERGIA_INICIAL,
+  ENERGIA_MAX,
+  ENERGIA_POR_VEZ,
+  ESPIRITO_MAX,
+  ESPIRITO_POR_VEZ,
+  golpeador,
+  HAOSHOKU,
+  RECUPERA_ARMAMENTO,
+  REI_IMBUIDO,
+  skillsDe,
+  sorteador,
+  type Combatente,
+  type Evento,
+  type Lado,
+} from '../tabuleiro/batalha/regras'
 
-export type Unidade = {
-  id: string
-  nome: string
-  /** pasta em public/sprites */
-  sprite: string
-  lado: Lado
-  hp: number
-  hpMax: number
-  atk: number
-  def: number
-  vel: number
-  tipo: Tipo
-  energia: number
-  energiaMax: number
-  escudo: number
-  escudoMax: number
-  fraquezas: Tipo[]
-  quebrado: boolean
-  va: number
-  chefe?: boolean
-  kit?: { basico: Golpe; habilidades: Golpe[]; ultimate: Golpe }
+export type { Combatente, Lado }
+export { skillsDe }
+
+export type Alcance = 'um' | 'leque' | 'todos' | 'si' | 'aliado'
+export const NOME_ALCANCE: Record<Alcance, string> = { um: 'Um alvo', leque: 'Alvo e vizinhos', todos: 'Todos', si: 'Em si', aliado: 'Um aliado' }
+
+/** A área do tabuleiro vira o número de alvos. */
+export function alcanceDe(s: Skill): Alcance {
+  if (s.cura) return 'aliado'
+  if (s.area === 'si') return 'si'
+  if (s.area === 'mapa' || (s.area === 'explosao' && (s.raio ?? 1) >= 2)) return 'todos'
+  if (s.area === 'alvo') return 'um'
+  return 'leque'
 }
 
-export type Estado = { unidades: Unidade[]; ph: number; phMax: number; rodada: number; vencedor: Lado | null }
+/** Golpe de perto (avança até o alvo; a observação avançada revida). */
+export const corpoACorpo = (s: Skill) => s.alcance <= 1 && s.area === 'alvo'
 
-export type Acerto = { alvo: string; dano: number; cura: number; quebrou: boolean; caiu: boolean; fraco: boolean }
-export type Resultado = { ator: string; golpe: Golpe; tipoGolpe: 'basico' | 'habilidade' | 'ultimate' | 'inimigo'; tipo: Tipo; acertos: Acerto[] }
+export const velocidade = (c: Combatente) => 80 + c.at.agl * 3
 
-export const NOMES_TIPO: Record<Tipo, string> = { corte: 'Corte', impacto: 'Impacto', fogo: 'Fogo', tiro: 'Tiro', haki: 'Haki' }
+export type Ev = Evento | { t: 'perdeu'; id: string }
 
-const g = (nome: string, mult: number, alcance: Alcance, escudo: number, descricao: string, extra: Partial<Golpe> = {}): Golpe => ({ nome, mult, alcance, escudo, descricao, ...extra })
-
-function aliado(id: string, nome: string, hp: number, atk: number, def: number, vel: number, tipo: Tipo, energiaMax: number, kit: Unidade['kit']): Unidade {
-  return { id, nome, sprite: id, lado: 'tripulacao', hp, hpMax: hp, atk, def, vel, tipo, energia: energiaMax * 0.5, energiaMax, escudo: 0, escudoMax: 0, fraquezas: [], quebrado: false, va: 0, kit }
-}
-function inimigo(id: string, nome: string, hp: number, atk: number, def: number, vel: number, tipo: Tipo, escudo: number, fraquezas: Tipo[], chefe = false): Unidade {
-  return { id, nome, sprite: id, lado: 'inimigos', hp, hpMax: hp, atk, def, vel, tipo, energia: 0, energiaMax: 0, escudo, escudoMax: escudo, fraquezas, quebrado: false, va: 0, chefe }
-}
-
-export function criarBatalha(): Estado {
-  const unidades = [
-    aliado('pirata-capitao', 'Capitão', 1150, 95, 60, 101, 'haki', 120, {
-      basico: g('Golpe de Espada', 1, 'um', 10, 'Um corte com Haki no alvo.'),
-      habilidades: [
-        g('Haki do Rei', 1.1, 'leque', 20, 'A pressão do Rei no alvo e nos vizinhos (metade do dano nos vizinhos).', { icone: 'coroa' }),
-        g('Corte Imbuído', 2.3, 'um', 20, 'Um corte pesado com a lâmina imbuída de Haki.', { icone: 'imbuido' }),
-        g('Ordem do Capitão', 0, 'time', 0, 'Grita a ordem de ataque: cada tripulante ganha 20 de energia.', { energiaTime: 20, icone: 'ordem' }),
-      ],
-      ultimate: g('Rei Imbuído', 1.9, 'todos', 30, 'Golpe imbuído com o Rei em todos os inimigos; atrasa a fila deles em 15%.', { atraso: 0.15 }),
-    }),
-    aliado('pirata-espadachim', 'Espadachim', 950, 120, 45, 110, 'corte', 110, {
-      basico: g('Corte Rápido', 1, 'um', 10, 'Um corte no alvo.'),
-      habilidades: [
-        g('Corte Duplo', 2.2, 'um', 20, 'Dois cortes fortes no alvo.', { icone: 'duplo' }),
-        g('Tornado', 1.2, 'leque', 15, 'Giro com as espadas no alvo e nos vizinhos (metade do dano nos vizinhos).', { icone: 'giro' }),
-        g('Iai', 1.6, 'um', 20, 'Saque rápido: atrasa a vez do alvo em 20%.', { atraso: 0.2, icone: 'saque' }),
-      ],
-      ultimate: g('Três Espadas', 4, 'um', 30, 'Ataque devastador num único alvo.'),
-    }),
-    aliado('pirata-lutador', 'Lutador', 1300, 105, 70, 96, 'fogo', 130, {
-      basico: g('Soco', 1, 'um', 10, 'Um soco no alvo.', { tipo: 'impacto' }),
-      habilidades: [
-        g('Hiken', 1.3, 'leque', 20, 'Punho de fogo no alvo e nos vizinhos (metade do dano nos vizinhos).', { efeito: 'hiken-perto', icone: 'punho' }),
-        g('Hotarubi', 0.8, 'todos', 15, 'Vaga-lumes de fogo que explodem em todos os inimigos. Custa 2 pontos.', { efeito: 'hotarubi', custo: 2, icone: 'vagalumes' }),
-      ],
-      ultimate: g('Entei', 2.1, 'todos', 30, 'O sol de fogo: cresce, é arremessado e explode em todos.', { efeito: 'entei' }),
-    }),
-    aliado('pirata-atiradora', 'Atiradora', 900, 100, 40, 105, 'tiro', 100, {
-      basico: g('Disparo', 1, 'um', 10, 'Um tiro no alvo.'),
-      habilidades: [
-        g('Rajada', 0.75, 'todos', 10, 'Tiros em todos os inimigos.', { icone: 'rajada' }),
-        g('Tiro na Perna', 1.3, 'um', 20, 'Acerta a perna: atrasa a vez do alvo em 25%.', { atraso: 0.25, icone: 'perna' }),
-      ],
-      ultimate: g('Tiro Certeiro', 3.2, 'um', 30, 'Um tiro perfurante num único alvo.'),
-    }),
-    inimigo('marinha-oficial', 'Oficial', 1500, 70, 50, 100, 'corte', 30, ['impacto', 'tiro']),
-    inimigo('marinha-soldado', 'Soldado', 1700, 65, 60, 88, 'impacto', 30, ['corte', 'fogo']),
-    inimigo('marinha-almirante', 'Comandante', 4200, 90, 70, 92, 'haki', 90, ['fogo', 'haki'], true),
-    inimigo('marinha-atirador', 'Atirador', 1300, 75, 40, 98, 'tiro', 30, ['corte', 'impacto']),
-    inimigo('marinha-enfermeira', 'Enfermeira', 1200, 55, 40, 94, 'impacto', 30, ['tiro', 'haki']),
-  ]
-  for (const u of unidades) u.va = 10000 / u.vel
-  return { unidades, ph: 3, phMax: 5, rodada: 1, vencedor: null }
+export type Estado = {
+  combatentes: Combatente[]
+  /** valor de ação de cada um (menor = age antes) */
+  va: Record<string, number>
+  /** quem está na vez (null entre uma vez e outra) */
+  atual: string | null
+  semente: number
+  vencedor: Lado | null
 }
 
-export const vivos = (e: Estado, lado: Lado) => e.unidades.filter((u) => u.lado === lado && u.hp > 0)
-export const porId = (e: Estado, id: string) => e.unidades.find((u) => u.id === id)!
+export type Acao =
+  | { t: 'skill'; id: string; skill: string; alvo: string }
+  | { t: 'observar'; id: string; ligado: boolean }
+  | { t: 'haki'; id: string; tipo: 'armamento' | 'rei'; ligado: boolean }
+  | { t: 'haoshoku'; id: string }
+  | { t: 'passar' }
 
-/** Quem age agora (sem andar o tempo). */
-export function atual(e: Estado) {
-  return e.unidades.filter((u) => u.hp > 0).reduce((a, b) => (b.va < a.va ? b : a))
-}
+export const vivos = (e: { combatentes: Combatente[] }, lado?: Lado) => e.combatentes.filter((c) => c.hp > 0 && (!lado || c.lado === lado))
+export const porId = (e: { combatentes: Combatente[] }, id: string) => e.combatentes.find((c) => c.id === id)!
+export const outro = (l: Lado): Lado => (l === 'piratas' ? 'marinha' : 'piratas')
 
-/** Anda o tempo até o próximo da fila e devolve quem age. */
-export function proximo(e: Estado) {
-  const u = atual(e)
-  const passo = u.va
-  for (const x of e.unidades) if (x.hp > 0) x.va -= passo
-  // inimigo quebrado se recupera no começo da vez dele
-  if (u.lado === 'inimigos' && u.quebrado) {
-    u.quebrado = false
-    u.escudo = u.escudoMax
+export function criar(combatentes: Combatente[], semente = (Date.now() % 2147483646) + 1): Estado {
+  const cs = structuredClone(combatentes)
+  for (const c of cs) {
+    c.energia = ENERGIA_INICIAL
+    c.espirito = 0
+    c.observando = false
+    c.armamentoLigado = false
+    c.reiLigado = false
+    c.atordoado = false
+    c.queimadura = null
+    c.recargas = {}
   }
-  return u
+  return { combatentes: cs, va: Object.fromEntries(cs.map((c) => [c.id, 10000 / velocidade(c)])), atual: null, semente, vencedor: null }
 }
 
-/** Prévia da fila: os próximos `n` a agir (simulado, sem mexer no estado). */
+/** Os próximos `n` a agir (prévia da fila). */
 export function fila(e: Estado, n: number) {
-  const va = new Map(e.unidades.filter((u) => u.hp > 0).map((u) => [u.id, u.va]))
+  const va = new Map(vivos(e).map((c) => [c.id, e.va[c.id]]))
   const out: string[] = []
   while (out.length < n && va.size) {
     let id = ''
     let min = Infinity
-    for (const [k, v] of va) if (v < min) (min = v), (id = k)
+    for (const [k, v] of va) {
+      if (v < min) {
+        min = v
+        id = k
+      }
+    }
     out.push(id)
     for (const [k, v] of va) va.set(k, v - min)
-    va.set(id, 10000 / porId(e, id).vel)
+    va.set(id, 10000 / velocidade(porId(e, id)))
   }
   return out
 }
 
-/** Os vizinhos (na linha dos vivos) do alvo, para o golpe em leque. */
-export function vizinhos(e: Estado, alvo: string) {
-  const linha = vivos(e, porId(e, alvo).lado)
-  const i = linha.findIndex((u) => u.id === alvo)
-  return [linha[i - 1], linha[i + 1]].filter(Boolean).map((u) => u!.id)
+/** Os vizinhos de um alvo na formação (para o "leque"). */
+export function vizinhos(e: Estado, id: string) {
+  const linha = vivos(e, porId(e, id).lado)
+  const i = linha.findIndex((c) => c.id === id)
+  return [linha[i - 1], linha[i + 1]].filter(Boolean).map((c) => c!.id)
 }
 
-function rolar() {
-  return 0.95 + Math.random() * 0.1
+/** Quem é atingido por uma skill mirando `alvo`. */
+export function alvosDe(e: Estado, c: Combatente, s: Skill, alvo: string): string[] {
+  const a = alcanceDe(s)
+  if (a === 'si') return [c.id]
+  if (a === 'aliado') return [alvo]
+  if (a === 'todos') return vivos(e, outro(c.lado)).map((x) => x.id)
+  if (a === 'leque') return [alvo, ...vizinhos(e, alvo)]
+  return [alvo]
 }
 
-function bater(ator: Unidade, alvo: Unidade, golpe: Golpe, fator: number): Acerto {
-  const fraco = alvo.fraquezas.includes(golpe.tipo ?? ator.tipo)
-  let quebrou = false
-  if (fraco && alvo.escudoMax > 0 && !alvo.quebrado) {
-    alvo.escudo = Math.max(0, alvo.escudo - golpe.escudo * fator)
-    if (alvo.escudo === 0) {
-      quebrou = true
-      alvo.quebrado = true
-      alvo.va += (10000 / alvo.vel) * 0.25
+/**
+ * Anda o tempo até o próximo da fila e começa a vez dele (recursos andam;
+ * atordoado perde a vez). Devolve o estado novo e os eventos.
+ */
+export function proximaVez(anterior: Estado): { estado: Estado; eventos: Ev[] } {
+  const e: Estado = structuredClone(anterior)
+  const ev: Ev[] = []
+  const vs = vivos(e)
+  const c = vs.reduce((a, b) => (e.va[b.id] < e.va[a.id] ? b : a))
+  const passo = e.va[c.id]
+  for (const x of vs) e.va[x.id] -= passo
+  if (c.queimadura) {
+    const d = Math.min(c.hp - 1, c.queimadura.dano) // queimadura não derruba
+    if (d > 0) {
+      c.hp -= d
+      ev.push({ t: 'queimou', id: c.id, dano: d })
+    }
+    if (--c.queimadura.vezes <= 0) c.queimadura = null
+  }
+  if (c.akuma?.transformado) c.akuma.transformado--
+  c.energia = Math.min(ENERGIA_MAX, c.energia + ENERGIA_POR_VEZ)
+  c.espirito = Math.min(ESPIRITO_MAX, c.espirito + ESPIRITO_POR_VEZ)
+  const arm = c.haki.armamento
+  const reserva = c.haki.rei ? REI_IMBUIDO.espirito : 0
+  if (arm && arm.usos < arm.max && c.espirito >= RECUPERA_ARMAMENTO.espirito + reserva) {
+    c.espirito -= RECUPERA_ARMAMENTO.espirito
+    arm.usos = Math.min(arm.max, arm.usos + RECUPERA_ARMAMENTO.usos)
+    ev.push({ t: 'recuperou', id: c.id, usos: arm.usos })
+  }
+  if (c.atordoado) {
+    // atordoado (Rei, gelo): perde esta vez
+    c.atordoado = false
+    ev.push({ t: 'perdeu', id: c.id })
+    fimDaVez(e, c)
+    return { estado: e, eventos: ev }
+  }
+  e.atual = c.id
+  return { estado: e, eventos: ev }
+}
+
+function fimDaVez(e: Estado, c: Combatente) {
+  for (const k of Object.keys(c.recargas)) if (--c.recargas[k] <= 0) delete c.recargas[k]
+  e.va[c.id] = 10000 / velocidade(c)
+  e.atual = null
+}
+
+/** Por que essa ação não pode (ou null se pode). */
+export function motivo(e: Estado, a: Acao): string | null {
+  if (e.vencedor) return 'A batalha acabou.'
+  if (a.t === 'passar') return null
+  const c = porId(e, a.id)
+  if (!c || c.hp <= 0) return 'Personagem inválido.'
+  if (e.atual !== c.id) return 'Não é a vez dele.'
+  if (a.t === 'observar') return a.ligado && !c.haki.observacao?.usos ? 'Sem usos de Haki de observação.' : null
+  if (a.t === 'haki') {
+    if (!a.ligado) return null
+    if (!c.haki.armamento) return `${c.nome} não tem Haki de armamento.`
+    if (!c.haki.armamento.usos) return 'Sem usos de Haki de armamento (recupera com espírito).'
+    if (a.tipo === 'rei') {
+      if (!c.haki.rei || !c.haki.armamento.avancado) return 'Precisa de Haki do Rei e armamento avançado.'
+      if (c.espirito < REI_IMBUIDO.espirito) return `Espírito insuficiente (${REI_IMBUIDO.espirito}).`
+    }
+    return null
+  }
+  if (a.t === 'haoshoku') {
+    if (!c.haki.rei) return `${c.nome} não tem Haki do Rei.`
+    return c.espirito < HAOSHOKU.espirito ? `Espírito insuficiente (${HAOSHOKU.espirito}).` : null
+  }
+  const s = skillsDe(c).find((x) => x.id === a.skill)
+  if (!s) return 'Skill inválida.'
+  if (c.recargas[s.id]) return `Em recarga (${c.recargas[s.id]}).`
+  if (c.energia < s.energia) return 'Energia insuficiente.'
+  const alc = alcanceDe(s)
+  const alvo = alc === 'si' || alc === 'todos' ? null : porId(e, a.alvo)
+  if (alc === 'aliado' && (!alvo || alvo.hp <= 0 || alvo.lado !== c.lado)) return 'Escolha um aliado.'
+  if ((alc === 'um' || alc === 'leque') && (!alvo || alvo.hp <= 0 || alvo.lado === c.lado)) return 'Escolha um inimigo.'
+  return null
+}
+
+export function aplicar(anterior: Estado, a: Acao): { estado: Estado; eventos: Ev[] } | { erro: string } {
+  const m = motivo(anterior, a)
+  if (m) return { erro: m }
+  const e: Estado = structuredClone(anterior)
+  const rnd = sorteador(e.semente)
+  const ev: Evento[] = []
+  let perto = false
+  const { golpear } = golpeador(rnd, ev, () => perto)
+  let acabou = false
+
+  switch (a.t) {
+    case 'passar':
+      acabou = true
+      break
+    case 'observar':
+      porId(e, a.id).observando = a.ligado
+      break
+    case 'haki': {
+      const c = porId(e, a.id)
+      if (a.tipo === 'armamento') {
+        c.armamentoLigado = a.ligado
+        if (!a.ligado) c.reiLigado = false
+      } else {
+        c.reiLigado = a.ligado
+        if (a.ligado) c.armamentoLigado = true
+      }
+      ev.push({ t: 'haki', id: c.id, tipo: a.tipo, ligado: a.ligado })
+      break
+    }
+    case 'haoshoku': {
+      // não gasta a vez (como no tabuleiro); sem casas, pega todos os inimigos
+      const c = porId(e, a.id)
+      c.espirito -= HAOSHOKU.espirito
+      ev.push({ t: 'haoshoku', id: c.id })
+      for (const o of vivos(e, outro(c.lado))) {
+        if (rnd() < chanceHaki(c.haki.overall - o.haki.overall)) {
+          o.atordoado = true
+          ev.push({ t: 'atordoou', id: o.id })
+        } else ev.push({ t: 'resistiu', id: o.id })
+      }
+      break
+    }
+    case 'skill': {
+      const c = porId(e, a.id)
+      const s = skillsDe(c).find((x) => x.id === a.skill)!
+      const armamento = c.armamentoLigado && (c.haki.armamento?.usos ?? 0) > 0
+      const rei = armamento && c.reiLigado && c.espirito >= REI_IMBUIDO.espirito
+      c.energia -= s.energia
+      if (s.recarga) c.recargas[s.id] = s.recarga + 1 // conta a partir do fim desta vez
+      if (armamento) c.haki.armamento!.usos--
+      if (rei) c.espirito -= REI_IMBUIDO.espirito
+      if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
+      if (c.espirito < REI_IMBUIDO.espirito) c.reiLigado = false
+      const alvos = alvosDe(e, c, s, a.alvo)
+      ev.push({ t: 'skill', id: c.id, skill: s.id, nome: s.nome, alvo: { l: 0, c: 0 }, casas: [], armamento, rei })
+      if (s.transforma && c.akuma) {
+        c.akuma.transformado = s.transforma
+        ev.push({ t: 'transformou', id: c.id, vezes: s.transforma })
+      } else if (s.cura) {
+        const o = porId(e, a.alvo)
+        const valor = Math.min(s.cura, o.hpMax - o.hp)
+        o.hp += valor
+        ev.push({ t: 'cura', de: c.id, alvo: o.id, valor })
+      } else {
+        perto = corpoACorpo(s)
+        for (const id of alvos) {
+          const alvo = porId(e, id)
+          for (let g = 0; g < (s.golpes ?? 1) && alvo.hp > 0 && c.hp > 0; g++) golpear(c, alvo, s, armamento, rei)
+        }
+      }
+      if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
+      // atacar encerra a vez; buff, transformação e profissão não
+      if (!s.livre) acabou = true
+      break
     }
   }
-  const reducao = 100 / (100 + alvo.def)
-  const bonus = alvo.quebrado ? 1.2 : 1
-  let dano = Math.round(ator.atk * golpe.mult * fator * 10 * reducao * bonus * rolar())
-  if (quebrou) dano += Math.round(ator.atk * 4 * reducao)
-  alvo.hp = Math.max(0, alvo.hp - dano)
-  if (alvo.lado === 'tripulacao') alvo.energia = Math.min(alvo.energiaMax, alvo.energia + 10)
-  const caiu = alvo.hp === 0
-  if (caiu && ator.lado === 'tripulacao') ator.energia = Math.min(ator.energiaMax, ator.energia + 10)
-  if (golpe.atraso && !caiu) alvo.va += (10000 / alvo.vel) * golpe.atraso
-  return { alvo: alvo.id, dano, cura: 0, quebrou, caiu, fraco }
-}
 
-/** O golpe de uma escolha do tripulante. */
-export function golpeDe(u: Unidade, escolha: Escolha) {
-  return escolha === 'basico' ? u.kit!.basico : escolha === 'ultimate' ? u.kit!.ultimate : u.kit!.habilidades[escolha]
-}
-export const custoDe = (g: Golpe) => g.custo ?? 1
-
-/** Ação de um tripulante. `alvo` é o inimigo na mira. */
-export function agir(e: Estado, atorId: string, escolha: Escolha, alvoId: string): Resultado {
-  const ator = porId(e, atorId)
-  const golpe = golpeDe(ator, escolha)
-  const acertos: Acerto[] = []
-  if (golpe.alcance === 'time') {
-    for (const u of vivos(e, 'tripulacao')) if (u.id !== atorId) u.energia = Math.min(u.energiaMax, u.energia + (golpe.energiaTime ?? 0))
-  } else {
-    const alvos: [string, number][] =
-      golpe.alcance === 'todos'
-        ? vivos(e, 'inimigos').map((u) => [u.id, 1])
-        : golpe.alcance === 'leque'
-          ? [[alvoId, 1], ...vizinhos(e, alvoId).map((v) => [v, 0.5] as [string, number])]
-          : [[alvoId, 1]]
-    for (const [id, f] of alvos) acertos.push(bater(ator, porId(e, id), golpe, f))
+  for (const lado of ['piratas', 'marinha'] as Lado[]) {
+    if (!e.vencedor && !vivos(e, lado).length) {
+      e.vencedor = outro(lado)
+      ev.push({ t: 'fim', vencedor: e.vencedor })
+    }
   }
-  if (escolha === 'basico') {
-    e.ph = Math.min(e.phMax, e.ph + 1)
-    ator.energia = Math.min(ator.energiaMax, ator.energia + 20)
-  } else if (escolha === 'ultimate') ator.energia = 5
-  else {
-    e.ph -= custoDe(golpe)
-    ator.energia = Math.min(ator.energiaMax, ator.energia + 30)
-  }
-  // ultimate não mexe na fila; básico e habilidade gastam a vez
-  if (escolha !== 'ultimate') ator.va = 10000 / ator.vel
-  conferir(e)
-  const tipoGolpe = escolha === 'basico' ? 'basico' : escolha === 'ultimate' ? 'ultimate' : 'habilidade'
-  return { ator: atorId, golpe, tipoGolpe, tipo: golpe.tipo ?? ator.tipo, acertos }
-}
-
-/** Vez de um inimigo: o chefe solta um golpe em todos a cada 3 rodadas. */
-export function agirInimigo(e: Estado, atorId: string): Resultado {
-  const ator = porId(e, atorId)
-  const alvosVivos = vivos(e, 'tripulacao')
-  const emArea = ator.chefe && e.rodada % 3 === 0
-  const golpe = emArea ? g('Punho de Fumaça', 0.7, 'todos', 0, '') : g('Ataque', 1, 'um', 0, '')
-  const alvos = emArea ? alvosVivos : [alvosVivos[Math.floor(Math.random() * alvosVivos.length)]]
-  const acertos = alvos.map((a) => bater(ator, a, golpe, 1))
-  ator.va = 10000 / ator.vel
-  if (ator.chefe) e.rodada++
-  conferir(e)
-  return { ator: atorId, golpe, tipoGolpe: 'inimigo', tipo: ator.tipo, acertos }
-}
-
-function conferir(e: Estado) {
-  if (!vivos(e, 'inimigos').length) e.vencedor = 'tripulacao'
-  else if (!vivos(e, 'tripulacao').length) e.vencedor = 'inimigos'
+  if (acabou && e.atual) fimDaVez(e, porId(e, e.atual))
+  e.semente = Math.floor(rnd() * 2147483646) + 1
+  return { estado: e, eventos: ev }
 }

@@ -1,101 +1,167 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CenaTurnos } from './CenaTurnos'
-import { Anel, COR_TIPO, IconeTipo, NOME_ALCANCE } from './icones'
-import { agir, agirInimigo, criarBatalha, custoDe, fila, golpeDe, NOMES_TIPO, porId, proximo, vivos, vizinhos, type Escolha, type Estado, type Golpe, type Resultado, type Unidade } from './regras'
+import { FRUTAS, type Skill } from '../tabuleiro/batalha/armas'
+import { aplicarConfig, combatentesIniciais, configPadrao } from '../tabuleiro/batalha/elenco'
+import { ESPIRITO_MAX, ENERGIA_MAX, HAOSHOKU, REI_IMBUIDO } from '../tabuleiro/batalha/regras'
+import { CenaTurnos, type Estilo } from './CenaTurnos'
+import { proximaAcao } from './ia'
+import { Anel, IconeHaki, IconeSkill, corDaSkill } from './icones'
+import { alcanceDe, alvosDe, aplicar, corpoACorpo, criar, fila, NOME_ALCANCE, outro, porId, proximaVez, skillsDe, vivos, vizinhos, type Acao, type Combatente, type Estado, type Ev } from './regras'
 
 /**
- * Tela de teste do combate estilo Honkai: /teste-turnos
- * A interface segue a do Honkai (fila à esquerda, tripulação embaixo à
- * esquerda, botões redondos à direita), com a cara do Grand Seas: azul-marinho,
- * dourado e pergaminho. O E abre o leque de habilidades (ícones redondos; a
- * descrição só no hover); o botão grande mostra o que está escolhido e o
- * Espaço (ou clicar nele) usa.
+ * Tela de teste do combate por turnos SEM tabuleiro: /teste-turnos
+ * Regras do tabuleiro (energia, espírito, recargas, Haki, Logia, frutas),
+ * vez individual pela agilidade. Interface no estilo do Honkai com a cara do
+ * Grand Seas: o E abre o leque de skills (ícones redondos; a descrição só no
+ * hover), o botão grande mostra a escolhida e o Espaço (ou clicar) usa.
  */
 
 const base = import.meta.env.BASE_URL
 const DOURADO = '#e8c26a'
 const PERGAMINHO = '#f6ead0'
 const MARINHO = 'rgba(12, 20, 34, 0.82)'
-const retrato = (u: Unidade, tam: number, alto = tam): React.CSSProperties => ({
+/** golpes grandes: entram com o cut-in */
+const GRANDES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca', 'martelada-titanica'])
+const retrato = (c: Combatente, tam: number, alto = tam): React.CSSProperties => ({
   width: tam,
   height: alto,
-  backgroundImage: `url(${base}sprites/${u.sprite}/parado_S.png)`,
+  backgroundImage: `url(${base}sprites/${c.id}/parado_S.png)`,
   backgroundSize: `${tam * 2.2}px ${tam * 2.2}px`,
   backgroundPosition: `center ${-tam * 0.42}px`,
   imageRendering: 'pixelated',
   backgroundRepeat: 'no-repeat',
 })
-const tipoDoGolpe = (u: Unidade, g: Golpe) => (g.alcance === 'time' ? 'time' : (g.tipo ?? u.tipo))
+const basicaDe = (c: Combatente) => skillsDe(c).find((s) => s.energia === 0 && !s.cura) ?? skillsDe(c)[0]
+
+function estiloDe(c: Combatente, s: Skill, rei: boolean): Estilo {
+  if (s.cura) return 'cura'
+  if (s.transforma) return 'buff'
+  if (rei) return 'haki'
+  if (s.elemento) return s.elemento
+  if (c.akuma && FRUTAS[c.akuma.fruta].skills.includes(s)) return 'impacto'
+  return c.arma === 'espingarda' ? 'tiro' : c.arma === 'maca' ? 'impacto' : 'corte'
+}
+const efeitoDe = (s: Skill) => (s.id === 'hiken' ? 'hiken-perto' : s.id === 'hotarubi' || s.id === 'entei' ? s.id : undefined)
+
+function novaBatalha() {
+  // teste: o Lutador com a Fruta do Fogo (Hiken, Hotarubi, Enjōmō, Entei)
+  const cfg = configPadrao()
+  cfg.find((k) => k.id === 'pirata-lutador')!.akuma = 'fogo'
+  // formação: o capitão e o comandante no meio da linha
+  const ordem = ['pirata-espadachim', 'pirata-lutador', 'pirata-capitao', 'pirata-atiradora', 'pirata-medico', 'marinha-oficial', 'marinha-soldado', 'marinha-almirante', 'marinha-atirador', 'marinha-enfermeira']
+  const cs = aplicarConfig(combatentesIniciais(), cfg).sort((a, b) => ordem.indexOf(a.id) - ordem.indexOf(b.id))
+  return criar(cs)
+}
 
 export default function TelaTurnos() {
   const tela = useRef<HTMLCanvasElement>(null)
   const camada = useRef<HTMLDivElement>(null)
   const cena = useRef<CenaTurnos | null>(null)
-  const [estado, setEstado] = useState<Estado>(() => criarBatalha())
-  const est = useRef(estado)
-  const [, setVersao] = useState(0)
-  const redesenhar = useCallback(() => setVersao((v) => v + 1), [])
-  const [atual, setAtual] = useState<string | null>(null)
-  const [alvo, setAlvo] = useState<string>('marinha-almirante')
+  const [e, setE] = useState<Estado>(novaBatalha)
+  const est = useRef(e)
+  const trocar = useCallback((n: Estado) => {
+    est.current = n
+    setE(n)
+  }, [])
+  const [alvo, setAlvo] = useState('marinha-almirante')
+  const [alvoAliado, setAlvoAliado] = useState('pirata-capitao')
   const [ocupado, setOcupado] = useState(true)
-  const [escolha, setEscolha] = useState<Escolha>('basico')
+  const [escolha, setEscolha] = useState<string>('')
   const [leque, setLeque] = useState(false)
-  const [dica, setDica] = useState<{ u: Unidade; g: Golpe; x: number; y: number } | null>(null)
-  const [cutin, setCutin] = useState<{ u: Unidade; nome: string } | null>(null)
+  const [dica, setDica] = useState<{ c: Combatente; s: Skill; x: number; y: number } | null>(null)
+  const [cutin, setCutin] = useState<{ c: Combatente; nome: string } | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [jogo, setJogo] = useState(0)
   const [rapido, setRapido] = useState(false)
   const [auto, setAuto] = useState(false)
-  const jogada = useRef<(() => void) | null>(null)
-  const ults = useRef<string[]>([])
+  const fimDaVez = useRef<(() => void) | null>(null)
   const alvoRef = useRef(alvo)
+  const autoRef = useRef(auto)
   const velRef = useRef(1)
   useEffect(() => {
     alvoRef.current = alvo
   }, [alvo])
   useEffect(() => {
+    autoRef.current = auto
+    // ligou o automático na vez de um dos nossos: a IA assume esta vez
+    if (auto) fimDaVez.current?.()
+  }, [auto])
+  useEffect(() => {
     velRef.current = rapido ? 2 : 1
     if (cena.current) cena.current.velocidade = velRef.current
   }, [rapido])
-  const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms / velRef.current))
 
-  /** Toca o resultado na cena; as barras caem no impacto. */
-  const animar = useCallback(
-    async (r: Resultado) => {
-      const c = cena.current!
-      const ator = porId(est.current, r.ator)
-      if (r.tipoGolpe === 'ultimate') {
-        setCutin({ u: ator, nome: r.golpe.nome })
-        await esperar(1150)
+  const avisar = useCallback((t: string) => {
+    setAviso(t)
+    setTimeout(() => setAviso((a) => (a === t ? null : a)), 1800)
+  }, [])
+
+  /** Mostra os eventos de uma ação na cena. */
+  const animar = useCallback(async (antes: Estado, a: Acao, ev: Ev[]) => {
+    const c = cena.current!
+    const espera = (ms: number) => new Promise((r) => setTimeout(r, ms / velRef.current))
+    const textos = () => {
+      for (const v of ev) {
+        if (v.t === 'golpe') {
+          if (v.dano > 0) c.numero(v.alvo, v.efeito === 'critico' ? `${v.dano}!` : String(v.dano), v.efeito === 'critico' ? '#ffd35a' : v.efeito === 'bloqueou' ? '#b8c4d4' : '#ffffff', v.efeito === 'critico')
+          else c.numero(v.alvo, v.efeito === 'observou' ? 'Previu!' : v.efeito === 'atravessou' ? 'Atravessou' : 'Esquivou', v.efeito === 'observou' ? '#7fe3ff' : '#cfd6e0')
+          if (v.efeito === 'bloqueou') c.numero(v.alvo, 'Bloqueio', '#b8c4d4')
+        }
+        if (v.t === 'contra') c.numero(v.alvo, `${v.dano} revide`, '#ff8a7a')
+        if (v.t === 'cura') c.numero(v.alvo, `+${v.valor}`, '#6dff9a', true)
+        if (v.t === 'clash') c.numero(v.alvo, v.resultado === 'empate' ? 'Choque de Rei!' : v.resultado === 'venceu' ? 'Rei venceu!' : 'Rei perdeu!', '#d07bff', true)
+        if (v.t === 'atordoou') c.numero(v.id, 'Atordoado!', '#d07bff')
+        if (v.t === 'resistiu') c.numero(v.id, 'Resistiu', '#cfd6e0')
+        if (v.t === 'congelou') c.numero(v.id, 'Congelado!', '#9be8ff')
+        if (v.t === 'transformou') c.numero(v.id, 'Transformado!', DOURADO)
+      }
+    }
+    if (a.t === 'haki') {
+      c.brilho(a.id, a.tipo === 'rei' ? 0xb04cff : 0x404048)
+      c.numero(a.id, a.ligado ? (a.tipo === 'rei' ? 'Rei imbuído!' : 'Armamento!') : 'Haki desligado', a.tipo === 'rei' ? '#d07bff' : '#cfd6e0')
+      await espera(350)
+    } else if (a.t === 'observar') {
+      c.brilho(a.id, 0x7fe3ff)
+      c.numero(a.id, a.ligado ? 'Observação' : 'Observação desligada', '#7fe3ff')
+      await espera(350)
+    } else if (a.t === 'haoshoku') {
+      c.numero(a.id, 'Haki do Rei!', '#d07bff', true)
+      await c.haoshoku(a.id)
+      textos()
+      await espera(400)
+    } else if (a.t === 'skill') {
+      const ator = porId(antes, a.id)
+      const s = skillsDe(ator).find((x) => x.id === a.skill)!
+      const sk = ev.find((v) => v.t === 'skill') as Extract<Ev, { t: 'skill' }> | undefined
+      if (GRANDES.has(s.id)) {
+        setCutin({ c: ator, nome: s.nome })
+        await espera(1150)
         setCutin(null)
       }
-      await c.golpe(r.ator, r.acertos.map((a) => a.alvo), r.tipo, r.tipoGolpe, r.golpe.efeito, () => {
-        for (const a of r.acertos) {
-          c.numero(a.alvo, String(a.dano), a.fraco ? '#ffd35a' : '#ffffff', r.tipoGolpe === 'ultimate')
-          if (a.quebrou) setTimeout(() => c.numero(a.alvo, 'QUEBRA!', '#ff5a5a', true), 180)
-        }
-        if (r.golpe.energiaTime) for (const u of vivos(est.current, 'tripulacao')) if (u.id !== r.ator) c.numero(u.id, `+${r.golpe.energiaTime} energia`, '#7cc4ff')
-        redesenhar()
-      })
-      await Promise.all(r.acertos.filter((a) => a.caiu).map((a) => c.cair(a.alvo)))
-      const vivosIni = vivos(est.current, 'inimigos')
-      if (vivosIni.length && !vivosIni.some((u) => u.id === alvoRef.current)) setAlvo(vivosIni[Math.floor(vivosIni.length / 2)].id)
-      redesenhar()
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [redesenhar],
-  )
-
-  const soltarUltimates = useCallback(async () => {
-    while (ults.current.length && !est.current.vencedor) {
-      const id = ults.current.shift()!
-      const u = porId(est.current, id)
-      if (u.hp <= 0 || u.energia < u.energiaMax) continue
-      const ini = vivos(est.current, 'inimigos')
-      const alvoU = ini.some((x) => x.id === alvoRef.current) ? alvoRef.current : ini[0].id
-      cena.current!.marcarAtual(id)
-      await animar(agir(est.current, id, 'ultimate', alvoU))
+      const alvos = alvosDe(antes, ator, s, a.alvo).filter((id) => porId(antes, id).hp > 0)
+      const apanham = new Set(ev.filter((v) => v.t === 'golpe' && v.dano > 0).map((v) => (v as { alvo: string }).alvo))
+      await c.golpe(a.id, alvos, { estilo: estiloDe(ator, s, !!sk?.rei), efeito: efeitoDe(s), corpo: corpoACorpo(s), grande: GRANDES.has(s.id), apanham }, textos)
     }
-  }, [animar])
+    await Promise.all(ev.filter((v) => v.t === 'caiu').map((v) => c.cair((v as { id: string }).id)))
+  }, [])
+
+  /** Faz uma ação (do jogador ou da IA) e anima. */
+  const executar = useCallback(
+    async (a: Acao) => {
+      const antes = est.current
+      const r = aplicar(antes, a)
+      if ('erro' in r) {
+        avisar(r.erro)
+        return false
+      }
+      trocar(r.estado)
+      await animar(antes, a, r.eventos)
+      // o alvo caiu: a mira passa para outro
+      const ini = vivos(r.estado, 'marinha')
+      if (ini.length && !ini.some((x) => x.id === alvoRef.current)) setAlvo(ini[Math.floor(ini.length / 2)].id)
+      return true
+    },
+    [animar, avisar, trocar],
+  )
 
   // laço da batalha
   useEffect(() => {
@@ -103,166 +169,136 @@ export default function TelaTurnos() {
     const c = new CenaTurnos(tela.current!, camada.current!)
     c.velocidade = velRef.current
     cena.current = c
-    const e = criarBatalha()
-    // teste: o Lutador já começa com o Entei carregado
-    const lutador = porId(e, 'pirata-lutador')
-    lutador.energia = lutador.energiaMax
-    est.current = e
-    setEstado(e)
-    ults.current = []
+    const inicio = novaBatalha()
+    trocar(inicio)
     void (async () => {
-      await c.carregar(e.unidades)
+      await c.carregar(inicio.combatentes.map((x) => ({ id: x.id, sprite: x.id, lado: x.lado === 'piratas' ? 'nossos' : 'deles', chefe: x.id === 'marinha-almirante' })))
       await new Promise((r) => setTimeout(r, 500))
-      while (vivo && !e.vencedor) {
-        await soltarUltimates()
-        if (e.vencedor) break
-        const u = proximo(e)
-        setAtual(u.id)
-        setEscolha('basico')
+      while (vivo && !est.current.vencedor) {
+        if (!est.current.atual) {
+          const r = proximaVez(est.current)
+          trocar(r.estado)
+          for (const v of r.eventos) {
+            if (v.t === 'queimou') c.numero(v.id, `${v.dano} queimadura`, '#ff8a3a')
+            if (v.t === 'recuperou') c.numero(v.id, 'Armamento +1', '#cfd6e0')
+            if (v.t === 'perdeu') c.numero(v.id, 'Perdeu a vez', '#d07bff', true)
+          }
+          if (!r.estado.atual) {
+            await new Promise((ok) => setTimeout(ok, 700 / velRef.current))
+            continue
+          }
+        }
+        const atual = porId(est.current, est.current.atual!)
+        c.marcarAtual(atual.id)
+        setEscolha(basicaDe(atual).id)
         setLeque(false)
-        c.marcarAtual(u.id)
-        redesenhar()
-        if (u.lado === 'inimigos') {
-          await new Promise((r) => setTimeout(r, 450 / velRef.current))
-          await animar(agirInimigo(e, u.id))
+        if (atual.lado === 'marinha' || autoRef.current) {
+          await new Promise((ok) => setTimeout(ok, 450 / velRef.current))
+          let n = 0
+          while (vivo && est.current.atual === atual.id && !est.current.vencedor && n++ < 8) {
+            if (!(await executar(proximaAcao(est.current)))) await executar({ t: 'passar' })
+          }
+          if (est.current.atual === atual.id) await executar({ t: 'passar' })
           continue
         }
         setOcupado(false)
-        await new Promise<void>((r) => (jogada.current = r))
+        await new Promise<void>((ok) => (fimDaVez.current = ok))
+        fimDaVez.current = null
         setOcupado(true)
       }
       c.marcarAtual(null)
-      setAtual(null)
-      redesenhar()
     })()
     return () => {
       vivo = false
-      jogada.current?.()
+      fimDaVez.current?.()
       c.destruir()
     }
-  }, [jogo, animar, soltarUltimates, redesenhar])
+  }, [jogo, executar, trocar])
 
-  const usar = useCallback(
-    async (esc: Escolha) => {
-      if (ocupado || !atual) return
-      const u = porId(est.current, atual)
-      if (u.lado !== 'tripulacao') return
-      if (esc !== 'basico' && esc !== 'ultimate' && est.current.ph < custoDe(golpeDe(u, esc))) return
+  /** Ação do jogador (a vez acaba quando o golpe gasta a vez). */
+  const jogar = useCallback(
+    async (a: Acao) => {
+      if (ocupado) return
       setOcupado(true)
       setLeque(false)
       setDica(null)
-      await animar(agir(est.current, atual, esc, alvoRef.current))
-      const fim = jogada.current
-      jogada.current = null
-      fim?.()
+      await executar(a)
+      if (!est.current.atual || est.current.vencedor) fimDaVez.current?.()
+      else setOcupado(false)
     },
-    [ocupado, atual, animar],
+    [ocupado, executar],
   )
 
-  const ultimate = useCallback(
-    async (id: string) => {
-      const u = porId(est.current, id)
-      if (u.hp <= 0 || u.energia < u.energiaMax || ults.current.includes(id)) return
-      ults.current.push(id)
-      redesenhar()
-      if (!ocupado) {
-        setOcupado(true)
-        await soltarUltimates()
-        cena.current?.marcarAtual(atual)
-        setOcupado(false)
-      }
+  const atual = e.atual ? porId(e, e.atual) : null
+  const minhaVez = !!atual && atual.lado === 'piratas' && !ocupado && !auto
+  const skills = atual ? skillsDe(atual) : []
+  const skill = skills.find((s) => s.id === escolha) ?? (atual ? basicaDe(atual) : null)
+  const alcance = skill ? alcanceDe(skill) : 'um'
+
+  const usarSkill = useCallback(
+    (s: Skill) => {
+      if (!atual) return
+      const al = alcanceDe(s)
+      void jogar({ t: 'skill', id: atual.id, skill: s.id, alvo: al === 'aliado' ? alvoAliado : al === 'si' ? atual.id : alvo })
     },
-    [ocupado, atual, soltarUltimates, redesenhar],
+    [atual, alvo, alvoAliado, jogar],
   )
 
-  // automático: usa a primeira habilidade quando há pontos, senão o básico; solta os ultimates cheios
-  useEffect(() => {
-    if (!auto || ocupado || !atual) return
-    const t = setTimeout(() => {
-      const u = porId(est.current, atual)
-      for (const x of vivos(est.current, 'tripulacao')) if (x.energia >= x.energiaMax && !ults.current.includes(x.id)) ults.current.push(x.id)
-      const hab = u.kit!.habilidades.findIndex((g) => g.alcance !== 'time' && est.current.ph >= custoDe(g))
-      void (async () => {
-        if (ults.current.length) {
-          setOcupado(true)
-          await soltarUltimates()
-          setOcupado(false)
-        }
-        void usar(hab >= 0 && est.current.ph >= 3 ? hab : 'basico')
-      })()
-    }, 400)
-    return () => clearTimeout(t)
-  }, [auto, ocupado, atual, usar, soltarUltimates])
-
-  // teclado: Q básico, E habilidades, Espaço usa, A/D mira, 1–4 ultimate
+  // teclado: Q básico, E skills, Espaço usa, A/D mira
   useEffect(() => {
     const tecla = (ev: KeyboardEvent) => {
       const k = ev.key.toLowerCase()
+      if (!atual || atual.lado !== 'piratas') return
       if (k === 'q') {
-        if (escolha === 'basico' && !leque) void usar('basico')
-        setEscolha('basico')
+        const b = basicaDe(atual)
+        if (escolha === b.id && !leque) usarSkill(b)
+        setEscolha(b.id)
         setLeque(false)
       }
       if (k === 'e') setLeque((v) => !v)
+      if (k === 'escape') setLeque(false)
       if (k === ' ') {
         ev.preventDefault()
-        void usar(escolha)
+        if (skill) usarSkill(skill)
       }
-      if (k === 'escape') setLeque(false)
       if (k === 'a' || k === 'd' || k === 'arrowleft' || k === 'arrowright') {
-        const linha = vivos(est.current, 'inimigos')
-        const i = linha.findIndex((u) => u.id === alvoRef.current)
-        const j = Math.max(0, Math.min(linha.length - 1, i + (k === 'a' || k === 'arrowleft' ? -1 : 1)))
-        if (linha[j]) setAlvo(linha[j].id)
-      }
-      const n = Number(k)
-      if (n >= 1 && n <= 4) {
-        const nossos = est.current.unidades.filter((u) => u.lado === 'tripulacao')
-        if (nossos[n - 1]) void ultimate(nossos[n - 1].id)
+        const dir = k === 'a' || k === 'arrowleft' ? -1 : 1
+        const aliado = alcance === 'aliado'
+        const linha = vivos(est.current, aliado ? 'piratas' : 'marinha')
+        const i = linha.findIndex((x) => x.id === (aliado ? alvoAliado : alvo))
+        const j = Math.max(0, Math.min(linha.length - 1, i + dir))
+        if (linha[j]) (aliado ? setAlvoAliado : setAlvo)(linha[j].id)
       }
     }
     window.addEventListener('keydown', tecla)
     return () => window.removeEventListener('keydown', tecla)
-  }, [usar, ultimate, escolha, leque])
+  }, [atual, escolha, leque, skill, alcance, alvo, alvoAliado, usarSkill])
 
-  const e = estado
-  const nossos = e.unidades.filter((u) => u.lado === 'tripulacao')
-  const inimigos = e.unidades.filter((u) => u.lado === 'inimigos')
-  const vez = atual ? porId(e, atual) : null
-  const minhaVez = !!vez && vez.lado === 'tripulacao' && !ocupado
-  const golpeAtual = vez?.kit ? golpeDe(vez, escolha) : null
-  const naMira = new Set(
-    !golpeAtual || golpeAtual.alcance === 'time' ? [] : golpeAtual.alcance === 'todos' ? vivos(e, 'inimigos').map((u) => u.id) : golpeAtual.alcance === 'leque' ? [alvo, ...vizinhos(e, alvo)] : [alvo],
-  )
-  const proximos = e.unidades.some((u) => u.hp > 0) ? fila(e, 8) : []
-  const alvoU = porId(e, alvo)
-  const podeUsar = (g: Golpe, esc: Escolha) => minhaVez && (esc === 'basico' || e.ph >= custoDe(g))
+  const nossos = e.combatentes.filter((x) => x.lado === 'piratas')
+  const inimigos = e.combatentes.filter((x) => x.lado === 'marinha')
+  const naMira = new Set(!skill || !atual || alcance === 'si' || alcance === 'aliado' ? [] : alcance === 'todos' ? vivos(e, outro(atual.lado)).map((x) => x.id) : alcance === 'leque' ? [alvo, ...vizinhos(e, alvo)] : [alvo])
+  const proximos = vivos(e).length ? fila(e, 8) : []
+  const alvoC = porId(e, alvo)
+  const podeSkill = (s: Skill) => !!atual && minhaVez && !atual.recargas[s.id] && atual.energia >= s.energia
+  const outras = atual ? skills.filter((s) => s.id !== basicaDe(atual).id) : []
 
   return (
-    <div className="gs-turnos" style={{ position: 'fixed', inset: 0, background: '#0b1220', overflow: 'hidden', userSelect: 'none', font: '14px Georgia, serif', color: PERGAMINHO }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#0b1220', overflow: 'hidden', userSelect: 'none', font: '14px Georgia, serif', color: PERGAMINHO }}>
       <canvas ref={tela} style={{ width: '100%', height: '100%', display: 'block' }} />
 
-      {/* camada que segue os inimigos: mira, fraquezas, escudo e vida */}
+      {/* camada que segue os inimigos: estado, vida e mira */}
       <div ref={camada} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {inimigos
           .filter((u) => u.hp > 0)
           .map((u) => (
             <div key={u.id}>
               <div data-segue={u.id} data-altura="1.06" style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', cursor: 'pointer' }} onClick={() => setAlvo(u.id)}>
-                <div style={{ transform: 'translate(-50%, -100%)', width: u.chefe ? 120 : 84 }}>
-                  <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginBottom: 3 }}>
-                    {u.fraquezas.map((t) => (
-                      <span key={t} title={`Fraco a ${NOMES_TIPO[t]}`} style={{ width: 18, height: 18, borderRadius: 9, background: 'rgba(8,12,20,0.85)', border: `1px solid ${COR_TIPO[t]}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <IconeTipo tipo={t} tam={13} />
-                      </span>
-                    ))}
-                  </div>
-                  {u.quebrado ? <div style={{ height: 3, background: '#7a7f88', marginBottom: 1 }} /> : <Barra v={u.escudo / u.escudoMax} cor="#f4f4f4" alt={3} />}
-                  <div style={{ height: 1 }} />
+                <div style={{ transform: 'translate(-50%, -100%)', width: u.id === 'marinha-almirante' ? 110 : 80 }}>
+                  <Estados c={u} />
                   <Barra v={u.hp / u.hpMax} cor="#d9483b" alt={5} />
                 </div>
               </div>
-              {naMira.has(u.id) && (
+              {naMira.has(u.id) && minhaVez && (
                 <div data-segue={u.id} data-altura="0.5" style={{ position: 'absolute', left: 0, top: 0 }}>
                   <Mira principal={u.id === alvo} />
                 </div>
@@ -271,39 +307,36 @@ export default function TelaTurnos() {
           ))}
       </div>
 
-      {/* fila de ação */}
-      <div style={{ position: 'absolute', left: 14, top: 14, display: 'flex', flexDirection: 'column', gap: 5, paddingLeft: 10, borderLeft: `1px solid rgba(232,194,106,0.35)` }}>
+      {/* fila de ação (pela agilidade) */}
+      <div style={{ position: 'absolute', left: 14, top: 14, display: 'flex', flexDirection: 'column', gap: 5, paddingLeft: 10, borderLeft: '1px solid rgba(232,194,106,0.35)' }}>
         {proximos.map((id, i) => {
           const u = porId(e, id)
-          const nosso = u.lado === 'tripulacao'
+          const nosso = u.lado === 'piratas'
           const w = i === 0 ? 92 : 74
           return (
             <div key={i} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               {i === 0 && <span style={{ position: 'absolute', left: -19, color: DOURADO, fontSize: 12 }}>▶</span>}
               <span style={{ position: 'absolute', left: -14, width: 7, height: 7, borderRadius: 4, background: nosso ? '#5ad1c4' : '#d9483b' }} />
-              <div
-                style={{
-                  ...retrato(u, w, i === 0 ? 50 : 38),
-                  backgroundColor: nosso ? 'rgba(30,48,70,0.85)' : 'rgba(70,24,24,0.8)',
-                  border: `1px solid ${i === 0 ? DOURADO : 'rgba(232,194,106,0.3)'}`,
-                  borderRadius: '4px 12px 4px 4px',
-                  boxShadow: i === 0 ? '0 0 10px rgba(232,194,106,0.5)' : undefined,
-                }}
-              />
+              <div style={{ ...retrato(u, w, i === 0 ? 50 : 38), backgroundColor: nosso ? 'rgba(30,48,70,0.85)' : 'rgba(70,24,24,0.8)', border: `1px solid ${i === 0 ? DOURADO : 'rgba(232,194,106,0.3)'}`, borderRadius: '4px 12px 4px 4px', boxShadow: i === 0 ? '0 0 10px rgba(232,194,106,0.5)' : undefined }} />
             </div>
           )
         })}
       </div>
 
-      {/* alvo e controles (canto de cima) */}
+      {/* alvo e controles (no alto) */}
       <div style={{ position: 'absolute', right: 14, top: 14, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        {alvoU && alvoU.hp > 0 && (
+        {alvoC && alvoC.hp > 0 && (
           <div style={{ ...painel, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px 4px 4px' }}>
-            <div style={{ ...retrato(alvoU, 34), borderRadius: 17, backgroundColor: 'rgba(70,24,24,0.8)' }} />
+            <div style={{ ...retrato(alvoC, 34), borderRadius: 17, backgroundColor: 'rgba(70,24,24,0.8)' }} />
             <div>
-              <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 16, fontWeight: 700 }}>{alvoU.nome} ▸</div>
-              <div style={{ fontSize: 11, opacity: 0.8 }}>
-                {alvoU.hp}/{alvoU.hpMax} · fraco a {alvoU.fraquezas.map((t) => NOMES_TIPO[t]).join(' e ')}
+              <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 16, fontWeight: 700 }}>{alvoC.nome} ▸</div>
+              <div style={{ fontSize: 11, opacity: 0.85 }}>
+                {alvoC.hp}/{alvoC.hpMax}
+                {alvoC.akuma && ` · ${FRUTAS[alvoC.akuma.fruta].nome}`}
+                {alvoC.logia && ` · Logia ${alvoC.logia.cargas}/${alvoC.logia.max}`}
+                {alvoC.haki.armamento && ` · Armamento ${alvoC.haki.armamento.usos}`}
+                {alvoC.haki.observacao && ` · Observação ${alvoC.haki.observacao.usos}`}
+                {alvoC.haki.rei && ' · Rei'}
               </div>
             </div>
           </div>
@@ -318,138 +351,149 @@ export default function TelaTurnos() {
         </div>
       </div>
 
-      {/* tripulação (embaixo, à esquerda) */}
-      <div style={{ position: 'absolute', left: 16, bottom: 46, display: 'flex', gap: 14 }}>
-        {nossos.map((u, i) => {
-          const cheio = u.energia >= u.energiaMax && u.hp > 0
-          const daVez = atual === u.id
-          const morto = u.hp <= 0
+      {/* tripulação (embaixo, à esquerda): vida, energia e espírito */}
+      <div style={{ position: 'absolute', left: 16, bottom: 44, display: 'flex', gap: 10 }}>
+        {nossos.map((u) => {
+          const daVez = atual?.id === u.id
+          const mirado = alcance === 'aliado' && alvoAliado === u.id && minhaVez
           return (
-            <div key={u.id} onClick={() => void ultimate(u.id)} title={`${u.kit!.ultimate.nome}: ${u.kit!.ultimate.descricao}`} style={{ position: 'relative', width: 128, opacity: morto ? 0.35 : 1, transform: daVez ? 'translateY(-10px)' : undefined, transition: 'transform 0.2s', cursor: cheio ? 'pointer' : 'default' }}>
-              <span style={{ position: 'absolute', right: 2, top: -10, zIndex: 2, width: 20, height: 20, borderRadius: 10, background: '#1b1409', border: `1px solid ${DOURADO}`, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <div style={{ ...retrato(u, 64), borderRadius: '6px 6px 0 0', backgroundColor: daVez ? 'rgba(232,194,106,0.28)' : 'rgba(20,32,50,0.8)', borderBottom: `2px solid ${daVez ? DOURADO : 'transparent'}`, boxShadow: daVez ? `0 0 12px rgba(232,194,106,0.6)` : undefined }} />
-                <div style={{ marginLeft: -6, marginBottom: 2, animation: cheio ? 'gs-pulso 1.2s infinite' : undefined, borderRadius: '50%' }}>
-                  <Anel v={u.energia / u.energiaMax} tam={52} cor={cheio ? '#ffd35a' : '#5ab4e8'} grossura={4}>
-                    <IconeTipo tipo={u.kit!.ultimate.tipo ?? u.tipo} tam={22} cor={cheio ? '#ffd35a' : 'rgba(246,234,208,0.55)'} />
+            <div
+              key={u.id}
+              onClick={() => alcance === 'aliado' && u.hp > 0 && setAlvoAliado(u.id)}
+              style={{ width: 112, opacity: u.hp > 0 ? 1 : 0.35, transform: daVez ? 'translateY(-10px)' : undefined, transition: 'transform 0.2s', cursor: alcance === 'aliado' ? 'pointer' : 'default' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+                <div style={{ ...retrato(u, 58), borderRadius: '6px 6px 0 0', backgroundColor: daVez ? 'rgba(232,194,106,0.28)' : 'rgba(20,32,50,0.8)', borderBottom: `2px solid ${daVez ? DOURADO : 'transparent'}`, boxShadow: mirado ? '0 0 0 2px #6dff9a, 0 0 14px #6dff9a' : daVez ? '0 0 12px rgba(232,194,106,0.6)' : undefined }} />
+                <div title="Espírito" style={{ marginBottom: 2 }}>
+                  <Anel v={u.espirito / ESPIRITO_MAX} tam={30} cor="#b77bff" grossura={3}>
+                    <span style={{ fontSize: 9 }}>{Math.round(u.espirito)}</span>
                   </Anel>
                 </div>
               </div>
               <div style={{ marginTop: 3 }}>
                 <Barra v={u.hp / u.hpMax} cor="#4fd1b5" alt={5} />
+                <div style={{ height: 2 }} />
+                <Barra v={u.energia / ENERGIA_MAX} cor="#5ab4e8" alt={3} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 1 }}>
                 <span style={{ fontFamily: 'Cinzel, Georgia, serif' }}>{u.nome}</span>
                 <span>{u.hp}</span>
               </div>
+              <Estados c={u} />
             </div>
           )
         })}
       </div>
 
       {/* ações (embaixo, à direita) */}
-      {vez?.kit && vez.lado === 'tripulacao' && golpeAtual && (
-        <div style={{ position: 'absolute', right: 52, bottom: 52, width: 330, height: 260 }}>
-          {/* leque de habilidades em volta do botão grande */}
+      {atual && atual.lado === 'piratas' && skill && !auto && (
+        <div style={{ position: 'absolute', right: 52, bottom: 50, width: 360, height: 270 }}>
+          {/* leque de skills em volta do botão grande */}
           {leque &&
-            vez.kit.habilidades.map((g, i) => {
-              const n = vez.kit!.habilidades.length
-              const ang = (240 + (i - (n - 1) / 2) * 36) * (Math.PI / 180)
-              const x = 255 + Math.cos(ang) * 150 - 30
-              const y = 180 + Math.sin(ang) * 150 - 30
-              const pode = podeUsar(g, i)
+            outras.map((s, i) => {
+              const n = outras.length
+              const passo = n > 5 ? 26 : 32
+              const ang = (238 + (i - (n - 1) / 2) * passo) * (Math.PI / 180)
+              const x = 285 + Math.cos(ang) * 158 - 27
+              const y = 190 + Math.sin(ang) * 158 - 27
+              const pode = podeSkill(s)
+              const rec = atual.recargas[s.id]
               return (
-                <div key={g.nome} style={{ position: 'absolute', left: x, top: y, animation: 'gs-surge 0.18s ease-out' }}>
-                  <BotaoRedondo
-                    tam={60}
-                    tipo={tipoDoGolpe(vez, g)}
-                    icone={g.icone}
-                    marcado={escolha === i}
-                    apagado={!pode}
-                    onClick={() => {
-                      if (!pode) return
-                      if (escolha === i) void usar(i)
-                      else setEscolha(i)
-                    }}
-                    onHover={(ev) => setDica(ev ? { u: vez, g, x: ev.x, y: ev.y } : null)}
-                  />
-                  <div style={{ textAlign: 'center', marginTop: 2, fontSize: 9, color: DOURADO }}>{'◆'.repeat(custoDe(g))}</div>
+                <div key={s.id} style={{ position: 'absolute', left: x, top: y, animation: 'gs-surge 0.18s ease-out', textAlign: 'center' }}>
+                  <BotaoRedondo tam={54} marcado={escolha === s.id} apagado={!pode} onClick={() => (escolha === s.id && pode ? usarSkill(s) : setEscolha(s.id))} onHover={(p) => setDica(p ? { c: atual, s, ...p } : null)}>
+                    <IconeSkill s={s} arma={atual.arma} tam={27} />
+                    {rec ? <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700 }}>{rec}</span> : null}
+                  </BotaoRedondo>
+                  <div style={{ fontSize: 10, marginTop: 1, color: atual.energia >= s.energia ? '#8fd0ff' : '#ff8a7a' }}>{s.energia}</div>
                 </div>
               )
             })}
-          {/* pontos de habilidade */}
-          <div style={{ position: 'absolute', right: 150, top: 222, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 22, fontWeight: 700, fontFamily: 'Cinzel, Georgia, serif', marginRight: 2 }}>{e.ph}</span>
-            <span style={{ opacity: 0.6, marginRight: 2 }}>/</span>
-            {Array.from({ length: e.phMax }, (_, i) => (
-              <span key={i} style={{ width: 10, height: 10, transform: 'rotate(45deg)', background: i < e.ph ? DOURADO : 'transparent', border: `1px solid ${DOURADO}`, display: 'inline-block', boxShadow: i < e.ph ? '0 0 6px rgba(232,194,106,0.7)' : undefined }} />
-            ))}
+          {/* Haki: ligar/desligar (não gasta a vez) */}
+          <div style={{ position: 'absolute', left: 0, top: 222, display: 'flex', gap: 6 }}>
+            {atual.haki.armamento && (
+              <BotaoHaki tipo="armamento" ligado={atual.armamentoLigado} conta={atual.haki.armamento.usos} titulo={`Haki de armamento${atual.haki.armamento.avancado ? ' (avançado)' : ''}: usos ${atual.haki.armamento.usos}/${atual.haki.armamento.max}. Cada golpe com ele gasta 1.`} onClick={() => void jogar({ t: 'haki', id: atual.id, tipo: 'armamento', ligado: !atual.armamentoLigado })} />
+            )}
+            {atual.haki.rei && atual.haki.armamento?.avancado && (
+              <BotaoHaki tipo="rei" ligado={atual.reiLigado} titulo={`Haki do Rei imbuído: ${REI_IMBUIDO.espirito} de espírito por golpe, mais dano e pode atordoar.`} onClick={() => void jogar({ t: 'haki', id: atual.id, tipo: 'rei', ligado: !atual.reiLigado })} />
+            )}
+            {atual.haki.observacao && (
+              <BotaoHaki tipo="observacao" ligado={atual.observando} conta={atual.haki.observacao.usos} titulo={`Haki de observação${atual.haki.observacao.avancado ? ' (avançado: revida golpes de perto)' : ''}: usos ${atual.haki.observacao.usos}. Gasta 1 quando é atacado.`} onClick={() => void jogar({ t: 'observar', id: atual.id, ligado: !atual.observando })} />
+            )}
+            {atual.haki.rei && (
+              <BotaoHaki tipo="haoshoku" ligado={false} apagado={atual.espirito < HAOSHOKU.espirito} titulo={`Haki do Rei em área: ${HAOSHOKU.espirito} de espírito; pode atordoar todos os inimigos mais fracos (não gasta a vez).`} onClick={() => void jogar({ t: 'haoshoku', id: atual.id })} />
+            )}
+            <button onClick={() => void jogar({ t: 'passar' })} disabled={!minhaVez} style={{ alignSelf: 'center', marginLeft: 4, background: 'transparent', border: '1px solid rgba(232,194,106,0.5)', color: PERGAMINHO, borderRadius: 12, padding: '3px 10px', font: '11px Georgia, serif', cursor: 'pointer' }}>
+              Passar
+            </button>
           </div>
-          {/* botão de habilidades (E) */}
-          <div style={{ position: 'absolute', left: 300, top: 92 }}>
-            <BotaoRedondo tam={58} tipo={tipoDoGolpe(vez, vez.kit.habilidades[0])} icone={vez.kit.habilidades[0].icone} tecla="E" marcado={leque || escolha !== 'basico'} onClick={() => setLeque((v) => !v)} />
-            <div style={{ textAlign: 'center', fontSize: 10, marginTop: 2, color: DOURADO }}>Habilidades</div>
+          {/* botão das skills (E) */}
+          <div style={{ position: 'absolute', left: 318, top: 96, textAlign: 'center' }}>
+            <BotaoRedondo tam={56} tecla="E" marcado={leque || escolha !== basicaDe(atual).id} onClick={() => setLeque((v) => !v)}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={DOURADO} strokeWidth="1.8">
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="18" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="18" r="3" />
+              </svg>
+            </BotaoRedondo>
+            <div style={{ fontSize: 10, marginTop: 2, color: DOURADO }}>Skills</div>
           </div>
-          {/* botão grande: o que está escolhido; clicar (ou Espaço) usa */}
-          <div style={{ position: 'absolute', left: 195, top: 120 }}>
-            <BotaoRedondo
-              tam={120}
-              tipo={tipoDoGolpe(vez, golpeAtual)}
-              icone={golpeAtual.icone}
-              tecla={escolha === 'basico' ? 'Q' : undefined}
-              marcado={minhaVez}
-              apagado={!podeUsar(golpeAtual, escolha)}
-              grande
-              onClick={() => void usar(escolha)}
-              onHover={(ev) => setDica(ev ? { u: vez, g: golpeAtual, x: ev.x, y: ev.y } : null)}
-            />
-            <div style={{ position: 'absolute', left: '50%', bottom: -8, transform: 'translateX(-50%)', whiteSpace: 'nowrap', background: '#1b1409', border: `1px solid ${DOURADO}`, borderRadius: 10, padding: '1px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <IconeTipo tipo={tipoDoGolpe(vez, golpeAtual)} tam={12} />
-              {NOME_ALCANCE[golpeAtual.alcance]}
+          {/* botão grande: a skill escolhida; clicar (ou Espaço) usa */}
+          <div style={{ position: 'absolute', left: 225, top: 130 }}>
+            <BotaoRedondo tam={118} tecla={skill.id === basicaDe(atual).id ? 'Q' : undefined} marcado={minhaVez} apagado={!podeSkill(skill)} grande onClick={() => usarSkill(skill)} onHover={(p) => setDica(p ? { c: atual, s: skill, ...p } : null)}>
+              <IconeSkill s={skill} arma={atual.arma} tam={58} />
+            </BotaoRedondo>
+            <div style={{ position: 'absolute', left: '50%', bottom: -8, transform: 'translateX(-50%)', whiteSpace: 'nowrap', background: '#1b1409', border: `1px solid ${DOURADO}`, borderRadius: 10, padding: '1px 10px', fontSize: 11 }}>{NOME_ALCANCE[alcance]}</div>
+          </div>
+          {/* nome da skill, energia e espírito de quem está na vez (some com o leque aberto) */}
+          <div style={{ position: 'absolute', right: 150, top: 168, opacity: leque ? 0 : 1, transition: 'opacity 0.15s', textAlign: 'right', textShadow: '0 2px 4px #000', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: 11, color: DOURADO }}>
+              {atual.nome} · {skill.energia ? `${skill.energia} de energia` : 'sem custo'}
+              {skill.recarga ? ` · recarga ${skill.recarga}` : ''}
             </div>
-          </div>
-          {/* nome do golpe escolhido */}
-          <div style={{ position: 'absolute', right: 150, top: 172, textAlign: 'right', textShadow: '0 2px 4px #000', whiteSpace: 'nowrap' }}>
-            <div style={{ fontSize: 11, color: DOURADO }}>{escolha === 'basico' ? 'Ataque básico · +1 ponto' : `Habilidade · −${custoDe(golpeAtual)} ponto${custoDe(golpeAtual) > 1 ? 's' : ''}`}</div>
-            <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 20, fontWeight: 700 }}>{golpeAtual.nome}</div>
+            <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 20, fontWeight: 700, color: corDaSkill(skill, atual.arma) }}>{skill.nome}</div>
+            <div style={{ fontSize: 11, opacity: 0.85 }}>
+              <span style={{ color: '#8fd0ff' }}>Energia {Math.round(atual.energia)}</span> · <span style={{ color: '#c9a2ff' }}>Espírito {Math.round(atual.espirito)}</span>
+            </div>
           </div>
         </div>
       )}
 
       {/* descrição só no hover */}
       {dica && (
-        <div style={{ position: 'fixed', left: dica.x - 290, top: dica.y - 40, width: 260, ...painel, padding: '10px 12px', pointerEvents: 'none', zIndex: 5 }}>
+        <div style={{ position: 'fixed', left: Math.max(8, dica.x - 300), top: dica.y - 50, width: 270, ...painel, padding: '10px 12px', pointerEvents: 'none', zIndex: 5 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <IconeTipo tipo={tipoDoGolpe(dica.u, dica.g)} icone={dica.g.icone} tam={18} />
-            <span style={{ fontFamily: 'Cinzel, Georgia, serif', fontWeight: 700, fontSize: 15 }}>{dica.g.nome}</span>
+            <IconeSkill s={dica.s} arma={dica.c.arma} tam={20} />
+            <span style={{ fontFamily: 'Cinzel, Georgia, serif', fontWeight: 700, fontSize: 15 }}>{dica.s.nome}</span>
           </div>
           <div style={{ fontSize: 11, color: DOURADO, margin: '4px 0' }}>
-            {dica.g.alcance === 'time' ? 'Tripulação' : `${NOMES_TIPO[dica.g.tipo ?? dica.u.tipo]} · ${NOME_ALCANCE[dica.g.alcance]}`}
-            {dica.g === dica.u.kit!.basico ? ' · +1 ponto' : ` · custa ${custoDe(dica.g)} ponto${custoDe(dica.g) > 1 ? 's' : ''}`}
-            {dica.g.mult > 0 && ` · ${Math.round(dica.g.mult * 100)}% do ataque`}
+            {NOME_ALCANCE[alcanceDe(dica.s)]} · {dica.s.energia ? `${dica.s.energia} de energia` : 'sem custo'}
+            {dica.s.recarga ? ` · recarga ${dica.s.recarga}` : ''}
+            {dica.s.mult > 0 && ` · ×${dica.s.mult}${dica.s.golpes ? ` × ${dica.s.golpes} golpes` : ''}`}
+            {dica.s.livre && ' · não gasta a vez'}
           </div>
-          <div style={{ fontSize: 12, lineHeight: 1.4 }}>{dica.g.descricao}</div>
+          <div style={{ fontSize: 12, lineHeight: 1.4 }}>{dica.s.descricao}</div>
         </div>
       )}
 
+      {aviso && <div style={{ position: 'absolute', left: '50%', bottom: 190, transform: 'translateX(-50%)', ...painel, padding: '6px 14px', fontSize: 13 }}>{aviso}</div>}
+
       {/* faixa de teclas */}
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 30, background: 'linear-gradient(0deg, rgba(8,12,20,0.95), rgba(8,12,20,0.6))', borderTop: '1px solid rgba(232,194,106,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 22, paddingRight: 24, fontSize: 12 }}>
-        <span style={{ marginRight: 'auto', marginLeft: 16, opacity: 0.5, fontSize: 11 }}>Grand Seas · teste de combate por turnos</span>
+        <span style={{ marginRight: 'auto', marginLeft: 16, opacity: 0.5, fontSize: 11 }}>Grand Seas · combate por turnos (regras do tabuleiro, sem casas)</span>
         <Tecla t="A" /> Mira ←
         <Tecla t="D" /> Mira →
         <Tecla t="Q" /> Ataque
-        <Tecla t="E" /> Habilidades
-        <Tecla t="1–4" /> Ultimate
+        <Tecla t="E" /> Skills
         <Tecla t="Espaço" /> Usar
       </div>
 
-      {/* cut-in do ultimate */}
       {cutin && (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', animation: 'gs-cutin 1.15s ease-out' }}>
           <div style={{ position: 'absolute', left: 0, right: 0, top: '30%', height: '40%', background: 'linear-gradient(100deg, rgba(10,14,26,0.94) 0%, rgba(30,50,80,0.88) 45%, rgba(232,194,106,0.55) 100%)', transform: 'skewY(-6deg)', borderTop: `2px solid ${DOURADO}`, borderBottom: `2px solid ${DOURADO}` }} />
-          <div style={{ position: 'relative', marginLeft: '12%', ...retrato(cutin.u, 260), backgroundPosition: 'center -100px', filter: 'drop-shadow(0 0 18px #ffb347)' }} />
+          <div style={{ position: 'relative', marginLeft: '12%', ...retrato(cutin.c, 260), backgroundPosition: 'center -100px', filter: 'drop-shadow(0 0 18px #ffb347)' }} />
           <div style={{ position: 'relative', marginLeft: 24 }}>
-            <div style={{ fontSize: 18, opacity: 0.85 }}>{cutin.u.nome}</div>
+            <div style={{ fontSize: 18, opacity: 0.85 }}>{cutin.c.nome}</div>
             <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 54, fontWeight: 900, letterSpacing: 2, textShadow: '0 4px 0 #000, 0 0 20px #ff7a2e' }}>{cutin.nome}</div>
           </div>
         </div>
@@ -457,7 +501,7 @@ export default function TelaTurnos() {
 
       {e.vencedor && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(5,8,14,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 50, fontWeight: 900 }}>{e.vencedor === 'tripulacao' ? 'Vitória!' : 'Derrota'}</div>
+          <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 50, fontWeight: 900 }}>{e.vencedor === 'piratas' ? 'Vitória!' : 'Derrota'}</div>
           <button onClick={() => setJogo((j) => j + 1)} style={{ font: '18px Georgia, serif', padding: '8px 20px', borderRadius: 8, border: `2px solid ${DOURADO}`, background: '#1b1409', color: PERGAMINHO, cursor: 'pointer' }}>
             Lutar de novo
           </button>
@@ -465,7 +509,6 @@ export default function TelaTurnos() {
       )}
       <style>{`
         @keyframes gs-cutin { 0% { opacity: 0; transform: translateX(-60px) } 15% { opacity: 1; transform: none } 85% { opacity: 1 } 100% { opacity: 0; transform: translateX(40px) } }
-        @keyframes gs-pulso { 0%, 100% { box-shadow: 0 0 6px #ffd35a } 50% { box-shadow: 0 0 18px #ffd35a } }
         @keyframes gs-surge { from { opacity: 0; transform: scale(0.6) } to { opacity: 1; transform: none } }
         @keyframes gs-gira { to { transform: rotate(360deg) } }
       `}</style>
@@ -475,6 +518,28 @@ export default function TelaTurnos() {
 
 const painel: React.CSSProperties = { background: MARINHO, border: '1px solid rgba(232,194,106,0.45)', borderRadius: 8, boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }
 
+/** Ícones pequenos do que está valendo no personagem (Haki ligado, Logia, efeitos). */
+function Estados({ c }: { c: Combatente }) {
+  const itens: [string, React.ReactNode][] = []
+  if (c.armamentoLigado) itens.push(['Armamento ligado', <IconeHaki key="a" tipo="armamento" tam={12} cor="#cfd6e0" />])
+  if (c.reiLigado) itens.push(['Rei imbuído', <IconeHaki key="r" tipo="rei" tam={12} cor="#d07bff" />])
+  if (c.observando) itens.push(['Observação ligada', <IconeHaki key="o" tipo="observacao" tam={12} cor="#7fe3ff" />])
+  if (c.logia && c.logia.cargas > 0) itens.push([`Logia: ${c.logia.cargas} cargas`, <span key="l" style={{ fontSize: 9, color: DOURADO }}>L{c.logia.cargas}</span>])
+  if (c.atordoado) itens.push(['Atordoado: perde a próxima vez', <span key="t" style={{ fontSize: 9, color: '#d07bff' }}>✶</span>])
+  if (c.queimadura) itens.push(['Queimando', <span key="q" style={{ fontSize: 9, color: '#ff8a3a' }}>♨</span>])
+  if (c.akuma?.transformado) itens.push([`Transformado (${c.akuma.transformado})`, <span key="z" style={{ fontSize: 9, color: DOURADO }}>▲{c.akuma.transformado}</span>])
+  if (!itens.length) return <div style={{ height: 14 }} />
+  return (
+    <div style={{ display: 'flex', gap: 3, justifyContent: 'center', height: 14, marginBottom: 2 }}>
+      {itens.map(([t, n]) => (
+        <span key={t} title={t} style={{ width: 14, height: 14, borderRadius: 7, background: 'rgba(8,12,20,0.85)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          {n}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function Barra({ v, cor, alt }: { v: number; cor: string; alt: number }) {
   return (
     <div style={{ height: alt, background: 'rgba(0,0,0,0.6)', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.7)' }}>
@@ -483,7 +548,6 @@ function Barra({ v, cor, alt }: { v: number; cor: string; alt: number }) {
   )
 }
 
-/** Mira laranja (o alvo principal maior; os do leque/área menores). */
 function Mira({ principal }: { principal: boolean }) {
   const t = principal ? 64 : 44
   return (
@@ -500,27 +564,7 @@ function Mira({ principal }: { principal: boolean }) {
   )
 }
 
-function BotaoRedondo({
-  tam,
-  tipo,
-  icone,
-  tecla,
-  marcado,
-  apagado,
-  grande,
-  onClick,
-  onHover,
-}: {
-  tam: number
-  tipo: Parameters<typeof IconeTipo>[0]['tipo']
-  icone?: Golpe['icone']
-  tecla?: string
-  marcado?: boolean
-  apagado?: boolean
-  grande?: boolean
-  onClick: () => void
-  onHover?: (p: { x: number; y: number } | null) => void
-}) {
+function BotaoRedondo({ tam, tecla, marcado, apagado, grande, onClick, onHover, children }: { tam: number; tecla?: string; marcado?: boolean; apagado?: boolean; grande?: boolean; onClick: () => void; onHover?: (p: { x: number; y: number } | null) => void; children: React.ReactNode }) {
   return (
     <div
       onClick={onClick}
@@ -534,8 +578,8 @@ function BotaoRedondo({
         width: tam,
         height: tam,
         borderRadius: '50%',
-        cursor: apagado ? 'default' : 'pointer',
-        background: `radial-gradient(circle at 50% 40%, #24344e, #0d1626 70%)`,
+        cursor: 'pointer',
+        background: 'radial-gradient(circle at 50% 40%, #24344e, #0d1626 70%)',
         border: `2px solid ${marcado ? DOURADO : 'rgba(232,194,106,0.45)'}`,
         boxShadow: marcado ? `0 0 ${grande ? 26 : 14}px rgba(232,194,106,0.65), inset 0 0 12px rgba(232,194,106,0.25)` : 'inset 0 0 10px rgba(0,0,0,0.6)',
         opacity: apagado ? 0.45 : 1,
@@ -546,7 +590,6 @@ function BotaoRedondo({
       }}
     >
       {grande && (
-        // anel de rosa-dos-ventos em volta do botão grande
         <svg width={tam + 30} height={tam + 30} style={{ position: 'absolute', left: -17, top: -17, pointerEvents: 'none' }}>
           <circle cx={(tam + 30) / 2} cy={(tam + 30) / 2} r={tam / 2 + 10} fill="none" stroke="rgba(232,194,106,0.35)" strokeWidth="1" />
           {Array.from({ length: 32 }, (_, i) => {
@@ -558,8 +601,18 @@ function BotaoRedondo({
           })}
         </svg>
       )}
-      <IconeTipo tipo={tipo} icone={icone} tam={tam * 0.5} />
+      {children}
       {tecla && <span style={{ position: 'absolute', right: grande ? 4 : -4, top: grande ? 4 : -4, width: 20, height: 20, borderRadius: 10, background: '#1b1409', border: `1px solid ${DOURADO}`, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', color: PERGAMINHO }}>{tecla}</span>}
+    </div>
+  )
+}
+
+function BotaoHaki({ tipo, ligado, conta, apagado, titulo, onClick }: { tipo: 'armamento' | 'rei' | 'observacao' | 'haoshoku'; ligado: boolean; conta?: number; apagado?: boolean; titulo: string; onClick: () => void }) {
+  const cor = tipo === 'armamento' ? '#e6e9ef' : tipo === 'observacao' ? '#7fe3ff' : '#d07bff'
+  return (
+    <div title={titulo} onClick={onClick} style={{ position: 'relative', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', background: ligado ? 'radial-gradient(circle, #3a2a50, #120c1c)' : 'radial-gradient(circle, #1d2a40, #0b1220)', border: `2px solid ${ligado ? cor : 'rgba(232,194,106,0.4)'}`, boxShadow: ligado ? `0 0 12px ${cor}` : undefined, opacity: apagado ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <IconeHaki tipo={tipo} tam={22} cor={cor} />
+      {conta !== undefined && <span style={{ position: 'absolute', right: -4, bottom: -4, minWidth: 16, height: 16, borderRadius: 8, background: '#1b1409', border: `1px solid ${DOURADO}`, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{conta}</span>}
     </div>
   )
 }

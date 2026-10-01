@@ -25,7 +25,7 @@ import {
 } from './regras'
 
 /** Dano esperado (bem grosseiro) de um golpe. */
-function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number, armamento: boolean) {
+export function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number, armamento: boolean) {
   const def = Math.min(60, alvo.at.def)
   let d = c.at.atk * FORCA * mult * golpes * (1 - def / 100)
   if (armamento) d *= c.haki.armamento?.avancado ? 1.4 : 1.25

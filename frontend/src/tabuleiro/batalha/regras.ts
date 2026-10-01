@@ -333,12 +333,15 @@ export function motivo(e: Estado, a: Acao): string | null {
   return null
 }
 
-export function aplicar(anterior: Estado, a: Acao): Resultado {
-  const m = motivo(anterior, a)
-  if (m) return { erro: m }
-  const e: Estado = structuredClone(anterior)
-  const rnd = sorteador(e.semente)
-  const ev: Evento[] = []
+
+/**
+ * O golpe de um personagem em outro, com todas as regras (choque de Haki do
+ * Rei, Logia, observação, esquiva, armamento, crítico, bloqueio, borracha,
+ * queimadura, congelar, atordoar). Compartilhado entre o tabuleiro e o modo
+ * por turnos sem tabuleiro: `revida` diz se a observação avançada revida
+ * (no tabuleiro: de perto).
+ */
+export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatente, alvo: Combatente) => boolean) {
   const espirito = (c: Combatente, v: number) => (c.espirito = Math.min(ESPIRITO_MAX, c.espirito + v))
 
   const ferir = (alvo: Combatente, dano: number) => {
@@ -350,8 +353,6 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     }
   }
 
-  /** resultado do choque de Haki do Rei por alvo, nesta ação */
-  let fimDaVez = false
   /** observação já usada neste ataque, por alvo (true = previu e esquiva de tudo) */
   const observados = new Map<string, boolean>()
   /** Logias em que o armamento já pagou o uso extra neste ataque */
@@ -413,7 +414,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
         observados.set(alvo.id, true)
         ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'observou' })
         // observação avançada: prevê e revida na hora (de perto)
-        if (obs.avancado && distancia(alvo.casa, c.casa) <= 1) {
+        if (obs.avancado && revida(c, alvo)) {
           const d = Math.max(1, Math.round(atkDe(alvo) * FORCA * 0.8 * (1 - Math.min(60, defDe(c)) / 100) * (0.9 + rnd() * 0.2)))
           ev.push({ t: 'contra', de: alvo.id, alvo: c.id, dano: d })
           ferir(c, d)
@@ -458,6 +459,18 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       } else ev.push({ t: 'resistiu', id: alvo.id })
     }
   }
+
+  return { golpear, ferir, espirito }
+}
+
+export function aplicar(anterior: Estado, a: Acao): Resultado {
+  const m = motivo(anterior, a)
+  if (m) return { erro: m }
+  const e: Estado = structuredClone(anterior)
+  const rnd = sorteador(e.semente)
+  const ev: Evento[] = []
+  const { golpear, espirito } = golpeador(rnd, ev, (c, alvo) => distancia(alvo.casa, c.casa) <= 1)
+  let fimDaVez = false
 
   switch (a.t) {
     case 'mover': {
