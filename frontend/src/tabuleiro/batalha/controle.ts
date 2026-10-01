@@ -67,6 +67,8 @@ export interface Palco {
   choqueRei(ponto: THREE.Vector3): void
   /** efeito desenhado à mão (spritesheet); resolve false se a folha não existe */
   efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number }): Promise<boolean>
+  /** Entei em fases (cena longa); resolve no impacto, a explosão continua sozinha */
+  entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
   deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
   /** Ice Age: o tabuleiro inteiro congela por um tempo */
@@ -896,24 +898,11 @@ export class ControleBatalha {
         break
       }
       case 'entei': {
-        // folhas 99–102: círculos de fogo no chão, o fogo sobe, a bola cresce e
-        // gira sobre a cabeça, é arremessada e explode no alvo (só a arte)
-        const pe = (v: THREE.Vector3) => v.clone().setY(0.02)
-        if (await P.efeitoFolha('entei-carga', 'S', pe(a.pos), { escala: k })) {
-          await P.efeitoFolha('entei-bola', 'S', pe(a.pos), { para: pe(ate), escala: k })
-          await P.efeitoFolha('entei-explosao', 'S', pe(ate), { escala: k })
-          break
-        }
-        // sem as folhas: sol de fogo gigante sobre a cabeça, arremessado, explosão enorme
-        const cima = a.pos.clone().setY(a.visual.altura + 1.3)
-        void P.efeito('aura', 'normal', origem, { dur: 0.9, escala: 1.4 })
-        await P.efeito('bolaFogo', 'normal', cima, { dur: 0.9, escala: 2.4 })
-        await P.efeito('bolaFogo', 'normal', cima, { para: chao(ate), dur: 0.45, escala: 2.4 })
-        P.lampejo('branco', 0.2)
-        P.tremer(0.8)
-        void P.efeito('explosaoFogo', 'normal', chao(ate), { dur: 1.1, escala: 4.2 })
-        for (const c of casas) if (Math.random() < 0.5) void P.efeito('fogo', 'normal', chao(c), { dur: 0.9, escala: 1 })
-        await esperar(500)
+        // cena longa em fases (cena/entei.ts): círculo de fogo no chão, fogo
+        // subindo em espiral, bola crescendo e girando sobre a cabeça, voo em
+        // arco, impacto (aqui o dano aparece) e a explosão seguindo sozinha
+        const centro = casas.length ? casas.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / casas.length) : ate
+        await P.entei(a, centro.clone().setY(0), k)
         break
       }
       case 'yasakani': {

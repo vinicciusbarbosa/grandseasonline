@@ -9,8 +9,6 @@ import { ControleBatalha, type Marca, type RetratoBatalha } from '../batalha/con
 import { TRIPULACOES } from '../batalha/elenco'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
-import { VisualRecorte } from './visualRecorte'
-import { VisualAnimado } from './visualAnimado'
 import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
@@ -18,16 +16,11 @@ import { Efeito, type Paleta, type TipoEfeito } from './efeitos'
 import { ChoqueTela } from './choqueTela'
 import { EfeitoFolha, manifestoEfeito, type DirEfeito } from './efeitoFolha'
 import { ImpactoHaki } from './impactoHaki'
+import { Entei } from './entei'
 import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
 
-/**
- * teste do boneco recortado em partes (estilo Wakfu): quem usa qual. Com
- * public/sprites/<boneco>/animacao.json (feito no /editor-animacao) usa as
- * animações do editor; sem ele, o recorte automático.
- */
-const RECORTADOS: Record<string, { boneco: string; arma?: string }> = { 'pirata-lutador': { boneco: 'base', arma: 'machado' } }
 
 /**
  * Cena do teste de tabuleiro: os dois navios, o mar e os personagens em
@@ -91,7 +84,9 @@ export class CenaTabuleiro {
   /** tremor curto da câmera no impacto de um golpe com Haki (s) */
   private tremorGolpe = 0
   private hakis: HakiRei[] = []
-  private efeitos: (Efeito | EfeitoFolha)[] = []
+  private efeitos: (Efeito | EfeitoFolha | Entei)[] = []
+  /** hit-stop: tempo (s, real) em que o jogo fica congelado no impacto */
+  private congelado = 0
   /** animações curtas por tempo (esquiva, Logia), f de 0 a 1 */
   private tweens: { t: number; dur: number; passo: (f: number) => void; fim: () => void }[] = []
   private readonly marcas = new THREE.Group()
@@ -219,8 +214,7 @@ export class CenaTabuleiro {
     void Promise.all(
       TRIPULACOES.map(async (t) => {
         const c = batalha.combatentes.find((x) => x.id === t.id)!
-        const recorte = RECORTADOS[t.id]
-        return new Personagem(t.id, t.nome, t.casa, c.hpMax, recorte ? ((await VisualAnimado.carregar(recorte.boneco)) ?? (await VisualRecorte.carregar(recorte.boneco, recorte.arma))) : await VisualFolhas.carregar(t.id), t.dir)
+        return new Personagem(t.id, t.nome, t.casa, c.hpMax, await VisualFolhas.carregar(t.id), t.dir)
       }),
     )
       .then((ps) => {
@@ -308,6 +302,18 @@ export class CenaTabuleiro {
       })
       return true
     },
+    /** Entei em fases (círculo, espiral, bola crescendo, voo, explosão); resolve no impacto */
+    entei: (p: Personagem, ate: THREE.Vector3, k: number) =>
+      new Promise<void>((r) => {
+        const ef = new Entei(p.pos, ate, p.visual.alturaPx / (PX_CASA * 0.88), k, {
+          tremer: (f) => (this.tremorGolpe = Math.max(this.tremorGolpe, f)),
+          lampejo: (tipo, dur) => (this.lampejoAtual = { tipo, t: 0, dur }),
+          focar: (pts, z) => this.focar(pts, z),
+          congelar: (dur) => (this.congelado = Math.max(this.congelado, dur)),
+        }, r)
+        this.efeitos.push(ef)
+        this.cenaFx.add(ef.sprite)
+      }),
     deslizar: (p: Personagem, para: THREE.Vector3 | null, dur: number) => {
       const de = p.deslize.clone()
       const alvo = para ? para.clone().setY(0).sub(p.pos.clone().setY(0)) : new THREE.Vector3()
@@ -443,7 +449,7 @@ export class CenaTabuleiro {
   private semFoco: { zoom: number; pan: THREE.Vector3 } | null = null
 
   /** Aproxima a câmera no meio dos pontos; null volta para onde estava. */
-  private focar(pontos: THREE.Vector3[] | null) {
+  private focar(pontos: THREE.Vector3[] | null, zoom = 2) {
     if (pontos && !this.semFoco) this.semFoco = { zoom: this.zoomAlvo, pan: this.pan.clone() }
     const volta = this.semFoco
     if (!pontos && !volta) return
@@ -452,7 +458,7 @@ export class CenaTabuleiro {
     if (pontos) {
       const m = pontos.reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(1 / pontos.length)
       para = new THREE.Vector3(m.x, 0, m.z - 0.3)
-      this.zoomAlvo = 2
+      this.zoomAlvo = zoom
     } else {
       para = volta!.pan
       this.zoomAlvo = volta!.zoom
@@ -759,7 +765,10 @@ export class CenaTabuleiro {
     this.quadro = requestAnimationFrame(this.laco)
     const dtReal = Math.min(0.05, (agora - this.anterior) / 1000)
     this.anterior = agora
-    const dt = dtReal * this.velocidade
+    // hit-stop: tudo que anda pelo tempo do jogo para por um instante
+    const parado = this.congelado > 0
+    if (parado) this.congelado -= dtReal
+    const dt = parado ? 0 : dtReal * this.velocidade
     this.tempo += dt
     this.mar.mat.uniforms.tempo.value = this.tempo
     if (!this.pinca && Math.abs(this.zoomAlvo - this.zoom) > 1e-4) {
@@ -805,7 +814,8 @@ export class CenaTabuleiro {
     }
     this.golpes = this.golpes.filter((g) => g.vivo)
     for (const ef of this.efeitos) {
-      ef.atualizar(dt)
+      // as cenas cinemáticas (Entei) não aceleram no 2×
+      ef.atualizar(ef instanceof Entei ? (parado ? 0 : dtReal) : dt)
       if (!ef.vivo) {
         this.cenaFx.remove(ef.sprite)
         ef.descartar()
