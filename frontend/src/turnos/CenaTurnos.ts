@@ -294,6 +294,8 @@ export class CenaTurnos {
   private animar(dur: number, fn: (k: number) => void) {
     return new Promise<void>((fim) => this.tweens.push({ t: 0, dur, fn, fim }))
   }
+  /** velocidade da batalha (1× ou 2×) */
+  velocidade = 1
   private esperar(ms: number) {
     return new Promise((r) => setTimeout(r, ms))
   }
@@ -409,7 +411,7 @@ export class CenaTurnos {
     const bs = alvos.map((id) => this.bonecos.get(id)!).filter(Boolean)
     const principal = bs[0]
     const centro = bs.reduce((s, b) => s.add(b.casa), new THREE.Vector3()).divideScalar(Math.max(1, bs.length))
-    const corpo = estilo !== 'tiro' && modo !== 'ultimate' && bs.length > 0 && efeito !== 'hiken-perto'
+    const corpo = estilo !== 'tiro' && modo !== 'ultimate' && bs.length > 0 && efeito !== 'hiken-perto' && !(modo === 'habilidade' && bs.length > 2)
     this.focar(modo === 'inimigo' ? null : centro, modo === 'ultimate' ? 0.55 : 0.3)
 
     if (modo === 'ultimate' && efeito === 'entei') {
@@ -419,12 +421,39 @@ export class CenaTurnos {
       this.focar(centro, 0.45)
       await this.folha('entei-bola', 'S', a.casa.clone().setY(0.02), { para: centro.clone().setY(0.02), escala: 1.4 })
       const exp = this.folha('entei-explosao', 'S', centro.clone().setY(0.02), { escala: 2.2 })
-      await this.esperar(160)
+      await this.esperar(160 / this.velocidade)
       for (const b of bs) this.apanhar(alvos[bs.indexOf(b)], true)
       this.tremer(1)
       aoImpacto()
       await exp
       this.focar(null)
+      return
+    }
+
+    if (efeito === 'hotarubi') {
+      a.anim = 'atacar'
+      a.t = 0
+      this.focar(centro, 0.35)
+      let fim = false
+      const ef = this.folha('hotarubi', 'S', centro.clone().setY(0.02), { largura: 6.5, chao: true }).then(() => (fim = true))
+      await this.esperar(1050 / this.velocidade)
+      a.anim = 'parado'
+      for (const id of alvos) this.apanhar(id)
+      this.tremer(0.5)
+      aoImpacto()
+      if (!fim) await ef
+      this.focar(null)
+      return
+    }
+    if (!bs.length) {
+      // golpe no próprio time (ordem do capitão): brilho dourado em todos
+      a.anim = 'atacar'
+      a.t = 0
+      await this.esperar((IMPACTO * 1000) / this.velocidade)
+      for (const b of this.bonecos.values()) if (b.lado === a.lado && b.opacidade > 0) this.anelImpacto(b.casa, 0xf0c76a, 0.8)
+      aoImpacto()
+      await this.esperar(500 / this.velocidade)
+      a.anim = 'parado'
       return
     }
 
@@ -440,11 +469,11 @@ export class CenaTurnos {
     }
     a.anim = 'atacar'
     a.t = 0
-    await this.esperar(IMPACTO * 1000)
+    await this.esperar((IMPACTO * 1000) / this.velocidade)
     // efeito por estilo
     if (efeito === 'hiken-perto') {
       for (const b of bs) void this.folha('hiken-perto', 'N', b.casa.clone().setY(0.9), { largura: 2.4 })
-      await this.esperar(120)
+      await this.esperar(120 / this.velocidade)
     }
     for (const b of bs) {
       if (estilo === 'tiro') this.tiro(a.pos, b.casa)
@@ -457,7 +486,7 @@ export class CenaTurnos {
     for (const id of alvos) this.apanhar(id, modo === 'ultimate')
     this.tremer(modo === 'ultimate' ? 0.8 : modo === 'habilidade' ? 0.45 : 0.25)
     aoImpacto()
-    await this.esperar(380)
+    await this.esperar(380 / this.velocidade)
     if (corpo) {
       a.anim = 'andar'
       a.t = 0
@@ -467,7 +496,7 @@ export class CenaTurnos {
     a.anim = 'parado'
     a.t = 0
     this.focar(null)
-    await this.esperar(150)
+    await this.esperar(150 / this.velocidade)
   }
 
   private readonly redimensionar = () => {
@@ -483,7 +512,7 @@ export class CenaTurnos {
   private readonly passo = () => {
     if (!this.vivo) return
     const agora = performance.now()
-    const dt = Math.min(0.05, (agora - this.ultimo) / 1000)
+    const dt = Math.min(0.05, (agora - this.ultimo) / 1000) * this.velocidade
     this.ultimo = agora
     for (let i = this.tweens.length - 1; i >= 0; i--) {
       const tw = this.tweens[i]

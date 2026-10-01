@@ -4,8 +4,8 @@
  * - Fila por velocidade: cada unidade tem um "valor de ação" (VA) que começa
  *   em 10000/vel; age quem tem o menor VA, o tempo anda para todos, e quem
  *   agiu volta para 10000/vel.
- * - Pontos de habilidade (PH) do time: o ataque básico dá 1, a habilidade
- *   gasta 1 (máx. 5).
+ * - Pontos de habilidade (PH) do time: o ataque básico dá 1, cada habilidade
+ *   gasta 1 ou 2 (máx. 5). Cada tripulante tem várias habilidades.
  * - Energia: básico +20, habilidade +30, apanhar +10, derrubar +10. Cheia,
  *   o ultimate pode ser usado A QUALQUER MOMENTO, furando a fila.
  * - Escudo e fraquezas: o escudo do inimigo só cai com golpes do tipo a que
@@ -17,8 +17,12 @@
 
 export type Tipo = 'corte' | 'impacto' | 'fogo' | 'tiro' | 'haki'
 export type Lado = 'tripulacao' | 'inimigos'
-export type Alcance = 'um' | 'leque' | 'todos' | 'aliado'
-export type Golpe = { nome: string; mult: number; alcance: Alcance; escudo: number; efeito?: string; cura?: number; atraso?: number; descricao: string }
+export type Alcance = 'um' | 'leque' | 'todos' | 'time'
+/** custo: pontos de habilidade (habilidades; padrão 1). energiaTime: energia que dá a cada aliado. */
+export type Golpe = { nome: string; mult: number; alcance: Alcance; escudo: number; efeito?: string; atraso?: number; tipo?: Tipo; custo?: number; energiaTime?: number; icone?: Icone; descricao: string }
+/** desenho do botão da habilidade (ver icones.tsx) */
+export type Icone = 'coroa' | 'imbuido' | 'ordem' | 'duplo' | 'giro' | 'saque' | 'punho' | 'vagalumes' | 'rajada' | 'perna'
+export type Escolha = 'basico' | 'ultimate' | number
 
 export type Unidade = {
   id: string
@@ -40,13 +44,13 @@ export type Unidade = {
   quebrado: boolean
   va: number
   chefe?: boolean
-  kit?: { basico: Golpe; habilidade: Golpe; ultimate: Golpe }
+  kit?: { basico: Golpe; habilidades: Golpe[]; ultimate: Golpe }
 }
 
 export type Estado = { unidades: Unidade[]; ph: number; phMax: number; rodada: number; vencedor: Lado | null }
 
 export type Acerto = { alvo: string; dano: number; cura: number; quebrou: boolean; caiu: boolean; fraco: boolean }
-export type Resultado = { ator: string; golpe: Golpe; tipoGolpe: 'basico' | 'habilidade' | 'ultimate' | 'inimigo'; acertos: Acerto[] }
+export type Resultado = { ator: string; golpe: Golpe; tipoGolpe: 'basico' | 'habilidade' | 'ultimate' | 'inimigo'; tipo: Tipo; acertos: Acerto[] }
 
 export const NOMES_TIPO: Record<Tipo, string> = { corte: 'Corte', impacto: 'Impacto', fogo: 'Fogo', tiro: 'Tiro', haki: 'Haki' }
 
@@ -63,22 +67,36 @@ export function criarBatalha(): Estado {
   const unidades = [
     aliado('pirata-capitao', 'Capitão', 1150, 95, 60, 101, 'haki', 120, {
       basico: g('Golpe de Espada', 1, 'um', 10, 'Um corte com Haki no alvo.'),
-      habilidade: g('Haki do Rei', 1.1, 'leque', 20, 'Pressão do Rei no alvo e nos vizinhos (metade do dano).'),
-      ultimate: g('Rei Imbuído', 1.9, 'todos', 30, 'Golpe imbuído com o Rei em todos os inimigos; atrasa a fila deles.', { atraso: 0.15 }),
+      habilidades: [
+        g('Haki do Rei', 1.1, 'leque', 20, 'A pressão do Rei no alvo e nos vizinhos (metade do dano nos vizinhos).', { icone: 'coroa' }),
+        g('Corte Imbuído', 2.3, 'um', 20, 'Um corte pesado com a lâmina imbuída de Haki.', { icone: 'imbuido' }),
+        g('Ordem do Capitão', 0, 'time', 0, 'Grita a ordem de ataque: cada tripulante ganha 20 de energia.', { energiaTime: 20, icone: 'ordem' }),
+      ],
+      ultimate: g('Rei Imbuído', 1.9, 'todos', 30, 'Golpe imbuído com o Rei em todos os inimigos; atrasa a fila deles em 15%.', { atraso: 0.15 }),
     }),
     aliado('pirata-espadachim', 'Espadachim', 950, 120, 45, 110, 'corte', 110, {
       basico: g('Corte Rápido', 1, 'um', 10, 'Um corte no alvo.'),
-      habilidade: g('Corte Duplo', 2.2, 'um', 20, 'Dois cortes fortes no alvo.'),
+      habilidades: [
+        g('Corte Duplo', 2.2, 'um', 20, 'Dois cortes fortes no alvo.', { icone: 'duplo' }),
+        g('Tornado', 1.2, 'leque', 15, 'Giro com as espadas no alvo e nos vizinhos (metade do dano nos vizinhos).', { icone: 'giro' }),
+        g('Iai', 1.6, 'um', 20, 'Saque rápido: atrasa a vez do alvo em 20%.', { atraso: 0.2, icone: 'saque' }),
+      ],
       ultimate: g('Três Espadas', 4, 'um', 30, 'Ataque devastador num único alvo.'),
     }),
     aliado('pirata-lutador', 'Lutador', 1300, 105, 70, 96, 'fogo', 130, {
-      basico: g('Soco', 1, 'um', 10, 'Um soco no alvo.'),
-      habilidade: g('Hiken', 1.3, 'leque', 20, 'Punho de fogo no alvo e nos vizinhos (metade do dano).', { efeito: 'hiken-perto' }),
+      basico: g('Soco', 1, 'um', 10, 'Um soco no alvo.', { tipo: 'impacto' }),
+      habilidades: [
+        g('Hiken', 1.3, 'leque', 20, 'Punho de fogo no alvo e nos vizinhos (metade do dano nos vizinhos).', { efeito: 'hiken-perto', icone: 'punho' }),
+        g('Hotarubi', 0.8, 'todos', 15, 'Vaga-lumes de fogo que explodem em todos os inimigos. Custa 2 pontos.', { efeito: 'hotarubi', custo: 2, icone: 'vagalumes' }),
+      ],
       ultimate: g('Entei', 2.1, 'todos', 30, 'O sol de fogo: cresce, é arremessado e explode em todos.', { efeito: 'entei' }),
     }),
     aliado('pirata-atiradora', 'Atiradora', 900, 100, 40, 105, 'tiro', 100, {
       basico: g('Disparo', 1, 'um', 10, 'Um tiro no alvo.'),
-      habilidade: g('Rajada', 0.75, 'todos', 10, 'Tiros em todos os inimigos.'),
+      habilidades: [
+        g('Rajada', 0.75, 'todos', 10, 'Tiros em todos os inimigos.', { icone: 'rajada' }),
+        g('Tiro na Perna', 1.3, 'um', 20, 'Acerta a perna: atrasa a vez do alvo em 25%.', { atraso: 0.25, icone: 'perna' }),
+      ],
       ultimate: g('Tiro Certeiro', 3.2, 'um', 30, 'Um tiro perfurante num único alvo.'),
     }),
     inimigo('marinha-oficial', 'Oficial', 1500, 70, 50, 100, 'corte', 30, ['impacto', 'tiro']),
@@ -139,7 +157,7 @@ function rolar() {
 }
 
 function bater(ator: Unidade, alvo: Unidade, golpe: Golpe, fator: number): Acerto {
-  const fraco = alvo.fraquezas.includes(ator.tipo)
+  const fraco = alvo.fraquezas.includes(golpe.tipo ?? ator.tipo)
   let quebrou = false
   if (fraco && alvo.escudoMax > 0 && !alvo.quebrado) {
     alvo.escudo = Math.max(0, alvo.escudo - golpe.escudo * fator)
@@ -161,29 +179,41 @@ function bater(ator: Unidade, alvo: Unidade, golpe: Golpe, fator: number): Acert
   return { alvo: alvo.id, dano, cura: 0, quebrou, caiu, fraco }
 }
 
-/** Ação de um tripulante. `alvo` é um inimigo (ou um aliado, para cura). */
-export function agir(e: Estado, atorId: string, tipoGolpe: 'basico' | 'habilidade' | 'ultimate', alvoId: string): Resultado {
+/** O golpe de uma escolha do tripulante. */
+export function golpeDe(u: Unidade, escolha: Escolha) {
+  return escolha === 'basico' ? u.kit!.basico : escolha === 'ultimate' ? u.kit!.ultimate : u.kit!.habilidades[escolha]
+}
+export const custoDe = (g: Golpe) => g.custo ?? 1
+
+/** Ação de um tripulante. `alvo` é o inimigo na mira. */
+export function agir(e: Estado, atorId: string, escolha: Escolha, alvoId: string): Resultado {
   const ator = porId(e, atorId)
-  const golpe = ator.kit![tipoGolpe]
+  const golpe = golpeDe(ator, escolha)
   const acertos: Acerto[] = []
-  const alvos: [string, number][] =
-    golpe.alcance === 'todos'
-      ? vivos(e, 'inimigos').map((u) => [u.id, 1])
-      : golpe.alcance === 'leque'
-        ? [[alvoId, 1], ...vizinhos(e, alvoId).map((v) => [v, 0.5] as [string, number])]
-        : [[alvoId, 1]]
-  for (const [id, f] of alvos) acertos.push(bater(ator, porId(e, id), golpe, f))
-  if (tipoGolpe === 'basico') {
+  if (golpe.alcance === 'time') {
+    for (const u of vivos(e, 'tripulacao')) if (u.id !== atorId) u.energia = Math.min(u.energiaMax, u.energia + (golpe.energiaTime ?? 0))
+  } else {
+    const alvos: [string, number][] =
+      golpe.alcance === 'todos'
+        ? vivos(e, 'inimigos').map((u) => [u.id, 1])
+        : golpe.alcance === 'leque'
+          ? [[alvoId, 1], ...vizinhos(e, alvoId).map((v) => [v, 0.5] as [string, number])]
+          : [[alvoId, 1]]
+    for (const [id, f] of alvos) acertos.push(bater(ator, porId(e, id), golpe, f))
+  }
+  if (escolha === 'basico') {
     e.ph = Math.min(e.phMax, e.ph + 1)
     ator.energia = Math.min(ator.energiaMax, ator.energia + 20)
-  } else if (tipoGolpe === 'habilidade') {
-    e.ph -= 1
+  } else if (escolha === 'ultimate') ator.energia = 5
+  else {
+    e.ph -= custoDe(golpe)
     ator.energia = Math.min(ator.energiaMax, ator.energia + 30)
-  } else ator.energia = 5
+  }
   // ultimate não mexe na fila; básico e habilidade gastam a vez
-  if (tipoGolpe !== 'ultimate') ator.va = 10000 / ator.vel
+  if (escolha !== 'ultimate') ator.va = 10000 / ator.vel
   conferir(e)
-  return { ator: atorId, golpe, tipoGolpe, acertos }
+  const tipoGolpe = escolha === 'basico' ? 'basico' : escolha === 'ultimate' ? 'ultimate' : 'habilidade'
+  return { ator: atorId, golpe, tipoGolpe, tipo: golpe.tipo ?? ator.tipo, acertos }
 }
 
 /** Vez de um inimigo: o chefe solta um golpe em todos a cada 3 rodadas. */
@@ -197,7 +227,7 @@ export function agirInimigo(e: Estado, atorId: string): Resultado {
   ator.va = 10000 / ator.vel
   if (ator.chefe) e.rodada++
   conferir(e)
-  return { ator: atorId, golpe, tipoGolpe: 'inimigo', acertos }
+  return { ator: atorId, golpe, tipoGolpe: 'inimigo', tipo: ator.tipo, acertos }
 }
 
 function conferir(e: Estado) {
