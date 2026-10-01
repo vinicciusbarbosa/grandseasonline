@@ -436,10 +436,6 @@ export class Entei {
       }
     }
 
-    // ---- câmera
-    if (t > ini.circulo * 0.2 && t - dt <= ini.circulo * 0.2) this.cena.focar([this.de.clone().add(new THREE.Vector3(0, 0, -this.alturaMao * 0.4))], 1.4)
-    if (t > ini.voo && t - dt <= ini.voo) this.cena.focar([this.de.clone().add(new THREE.Vector3(0, 0, -this.alturaMao * 0.3)), this.ate.clone()], 1.2)
-    if (t > ini.explosao + 0.3 && t - dt <= ini.explosao + 0.3) this.cena.focar([this.ate.clone()], 1.4)
 
     // ---- 6. impacto
     if (t >= ini.explosao && !this.impactou) {
@@ -541,7 +537,6 @@ export class Entei {
 
     if (t >= TOTAL) {
       this.vivo = false
-      this.cena.focar(null)
       if (!this.impactou) {
         this.impactou = true
         this.aoImpacto()
