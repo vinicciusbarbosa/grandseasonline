@@ -3,7 +3,7 @@ import { FRUTAS, type Skill } from '../tabuleiro/batalha/armas'
 import { aplicarConfig, combatentesIniciais, configPadrao } from '../tabuleiro/batalha/elenco'
 import { ESPIRITO_MAX, ENERGIA_MAX, HAOSHOKU, REI_IMBUIDO } from '../tabuleiro/batalha/regras'
 import { recurso } from '../tabuleiro/cena/visualFolhas'
-import { CenaTurnos, type Estilo } from './CenaTurnos'
+import { COM_ARTE, CenaTurnos, type Estilo } from './CenaTurnos'
 import { proximaAcao } from './ia'
 import { IconeHaki, IconeSkill, corDaSkill } from './icones'
 import { alvosDe, aplicar, corpoACorpo, criar, fila, miraDe, motivo, nomeDaMira, porId, proximaVez, skillsDe, vivos, type Acao, type Combatente, type Estado, type Ev } from './regras'
@@ -28,7 +28,19 @@ const MARINHO = 'rgba(12, 20, 34, 0.86)'
 const GRANDES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca', 'martelada-titanica'])
 /** tela de toque (celular): sem hover — a descrição aparece no quadro da skill */
 const TOQUE = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
-const retrato = (c: Combatente, tam: number, alto = tam): React.CSSProperties => ({
+const retrato = (c: Combatente, tam: number, alto = tam): React.CSSProperties =>
+  COM_ARTE.has(c.id)
+    ? {
+        // arte desenhada: o rosto recortado da pose parada (cabeça perto do topo, no meio)
+        width: tam,
+        height: alto,
+        backgroundImage: `url(${recurso(`${base}sprites/${c.id}/arte/parado.webp`)})`,
+        backgroundSize: `${tam * 2.6}px auto`,
+        backgroundPosition: `${tam / 2 - tam * 2.6 * 0.47}px ${alto / 2 - tam * 2.6 * 1.454 * 0.08}px`,
+        backgroundRepeat: 'no-repeat',
+        flex: 'none',
+      }
+    : {
   width: tam,
   height: alto,
   backgroundImage: `url(${recurso(`${base}sprites/${c.id}/parado_S.png`)})`,
@@ -37,7 +49,7 @@ const retrato = (c: Combatente, tam: number, alto = tam): React.CSSProperties =>
   imageRendering: 'pixelated',
   backgroundRepeat: 'no-repeat',
   flex: 'none',
-})
+}
 const basicaDe = (c: Combatente) => skillsDe(c).find((s) => s.energia === 0 && !s.cura) ?? skillsDe(c)[0]
 
 function estiloDe(c: Combatente, s: Skill, rei: boolean): Estilo {
@@ -516,7 +528,17 @@ export default function TelaTurnos() {
 
       {aviso && <div style={{ position: 'absolute', left: '50%', top: 60 * k, transform: `translateX(-50%) scale(${k})`, transformOrigin: 'top center', ...painel, padding: '6px 14px', fontSize: 13, whiteSpace: 'nowrap' }}>{aviso}</div>}
 
-      {cutin && (
+      {cutin && COM_ARTE.has(cutin.c.id) && (
+        // com arte: a splash inteira numa faixa inclinada, o nome do golpe no vazio da esquerda
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', animation: 'gs-cutin 1.15s ease-out' }}>
+          <div style={{ position: 'absolute', left: '-5%', right: '-5%', top: '18%', height: '64%', backgroundImage: `url(${recurso(`${base}sprites/${cutin.c.id}/arte/splash.webp`)})`, backgroundSize: 'cover', backgroundPosition: '70% 30%', transform: 'skewY(-6deg)', borderTop: `3px solid ${DOURADO}`, borderBottom: `3px solid ${DOURADO}`, boxShadow: '0 0 40px rgba(0,0,0,0.7)' }} />
+          <div style={{ position: 'relative', marginLeft: '6%', transform: `scale(${k})`, transformOrigin: 'left center' }}>
+            <div style={{ fontSize: 16, color: '#0e1a2c', fontWeight: 700, textShadow: '0 0 8px #fff' }}>{cutin.c.nome}</div>
+            <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 40, fontWeight: 900, letterSpacing: 2, textShadow: '0 4px 0 #000, 0 0 20px #4aa3ff' }}>{cutin.nome}</div>
+          </div>
+        </div>
+      )}
+      {cutin && !COM_ARTE.has(cutin.c.id) && (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', animation: 'gs-cutin 1.15s ease-out' }}>
           <div style={{ position: 'absolute', left: 0, right: 0, top: '30%', height: '40%', background: 'linear-gradient(100deg, rgba(10,14,26,0.94) 0%, rgba(30,50,80,0.88) 45%, rgba(232,194,106,0.55) 100%)', transform: 'skewY(-6deg)', borderTop: `2px solid ${DOURADO}`, borderBottom: `2px solid ${DOURADO}` }} />
           <div style={{ position: 'relative', marginLeft: '10%', ...retrato(cutin.c, 200 * k), filter: 'drop-shadow(0 0 18px #ffb347)' }} />

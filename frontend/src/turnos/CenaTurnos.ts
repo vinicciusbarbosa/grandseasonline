@@ -25,13 +25,22 @@ const K = 2.3 / 128
 const FPS: Record<Anim, number> = { parado: 1, andar: 10, atacar: 12 }
 const IMPACTO = 3 / 12
 
+/**
+ * Arte parada (imagens desenhadas em alta, uma por pose) no lugar das folhas
+ * de pixel: o movimento todo é código. `pe` é o pivô em fração da imagem.
+ */
+type PoseArte = { l: number; a: number; pe: [number, number] }
+type Arte = Record<'parado' | 'atacar' | 'apanhar' | 'costas', PoseArte> & { altura: number }
+/** quem já tem arte (pasta dentro de sprites/<id>/) */
+export const COM_ARTE = new Set(['marinha-almirante'])
+
 const texturas = new Map<string, THREE.Texture>()
-function textura(url: string) {
+function textura(url: string, suave = false) {
   let t = texturas.get(url)
   if (!t) {
     t = new THREE.TextureLoader().load(recurso(url))
-    t.magFilter = THREE.NearestFilter
-    t.minFilter = THREE.LinearFilter
+    t.magFilter = suave ? THREE.LinearFilter : THREE.NearestFilter
+    t.minFilter = suave ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter
     t.colorSpace = THREE.SRGBColorSpace
     texturas.set(url, t)
   }
@@ -49,6 +58,12 @@ class Boneco {
   tremor = 0
   opacidade = 1
   respira = Math.random() * 6
+  /** tempo que ainda segura a pose de dor (só na arte) */
+  dor = 0
+  /** caído: tomba para trás (só na arte) */
+  queda = 0
+  /** arte parada (se houver): as poses e a pasta */
+  arte: { info: Arte; base: string } | null = null
   private readonly mapas = new Map<string, THREE.Texture>()
 
   private readonly base: string
@@ -81,6 +96,8 @@ class Boneco {
     this.respira += dt
     this.clarao = Math.max(0, this.clarao - dt * 4)
     this.tremor = Math.max(0, this.tremor - dt * 3)
+    this.dor = Math.max(0, this.dor - dt)
+    if (this.arte) return this.atualizarArte()
     const f = this.man.anims[this.anim]?.[this.dir] ?? this.man.anims.parado[this.dir]
     let m = this.mapas.get(f.arquivo)
     if (!m) {
@@ -107,6 +124,49 @@ class Boneco {
     mat.color.setRGB(k, k, k)
     mat.opacity = this.opacidade
     this.sombra.position.set(this.pos.x, 0.01, this.pos.z)
+    ;(this.sombra.material as THREE.MeshBasicMaterial).opacity = 0.32 * this.opacidade
+  }
+
+  /**
+   * Arte parada: escolhe a pose (parado / atacar / apanhar; de costas só há
+   * uma) e anima por código — respiração, inclinação ao correr, investida no
+   * golpe e queda.
+   */
+  private atualizarArte() {
+    const { info, base } = this.arte!
+    const nosso = this.lado === 'nossos'
+    // de costas só existe uma pose; de frente, a do momento
+    const pose = nosso ? 'costas' : this.dor > 0 ? 'apanhar' : this.anim === 'atacar' && this.t > 0.08 ? 'atacar' : 'parado'
+    const p = info[pose]
+    const m = textura(`${base}${pose}.webp`, true)
+    const mat = this.sprite.material
+    if (mat.map !== m) {
+      mat.map = m
+      mat.needsUpdate = true
+    }
+    // a arte olha para a direita da tela (onde estão os nossos); de costas, espelha
+    const espelho = nosso ? -1 : 1
+    this.sprite.center.set(nosso ? 1 - p.pe[0] : p.pe[0], 1 - p.pe[1])
+    // mesma escala em todas as poses: px → mundo pela altura do "parado"
+    const k = (1.95 * this.escala) / info.altura
+    const parado = this.anim === 'parado' && this.dor === 0
+    const r = parado ? Math.sin(this.respira * 2.2) * 0.015 : 0
+    this.sprite.scale.set(p.l * k * espelho * (1 - r * 0.4), p.a * k * (1 + r), 1)
+    // inclina: balanço leve parado, para frente correndo, para trás caindo
+    const frente = nosso ? 1 : -1
+    let gira = parado ? Math.sin(this.respira * 1.1) * 0.012 : 0
+    if (this.anim === 'andar') gira = 0.12 * frente
+    gira += this.queda * 0.9 * -frente
+    mat.rotation = gira
+    // golpe: recua um pouco (preparo) e investe
+    let inv = 0
+    if (this.anim === 'atacar') inv = this.t < 0.08 ? -0.2 * (this.t / 0.08) : 0.35 * Math.min(1, (this.t - 0.08) / 0.06) * Math.max(0, 1 - (this.t - 0.4) / 0.3)
+    const tr = this.tremor > 0 ? (Math.random() - 0.5) * 0.25 * this.tremor : 0
+    this.sprite.position.set(this.pos.x + tr, this.pos.y, this.pos.z + inv * (nosso ? -1 : 1))
+    const c = 1 + this.clarao * 2.5
+    mat.color.setRGB(c, c, c)
+    mat.opacity = this.opacidade
+    this.sombra.position.set(this.pos.x, 0.01, this.pos.z + inv * (nosso ? -1 : 1))
     ;(this.sombra.material as THREE.MeshBasicMaterial).opacity = 0.32 * this.opacidade
   }
 }
@@ -184,6 +244,11 @@ export class CenaTurnos {
         const casa = (nosso ? CENTRO_NOSSOS : CENTRO_DELES).clone().addScaledVector(FILEIRA, (i - (n - 1) / 2) * (nosso ? 1.5 : 2.1))
         if (u.chefe) casa.addScaledVector(EIXO, 0.6)
         const b = new Boneco(base, man, u.lado, casa, u.chefe ? 1.3 : 1)
+        if (COM_ARTE.has(u.sprite)) {
+          const ua = recurso(`${base}arte/arte.json`)
+          const info = (ua.startsWith('data:') ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(ua.split(',')[1]), (ch) => ch.charCodeAt(0)))) : await (await fetch(ua)).json()) as Arte
+          b.arte = { info, base: `${base}arte/` }
+        }
         this.bonecos.set(u.id, b)
         this.cena.add(b.sprite, b.sombra)
       }),
@@ -274,6 +339,7 @@ export class CenaTurnos {
     if (!b) return
     b.clarao = 1
     b.tremor = forte ? 1.4 : 1
+    b.dor = forte ? 0.55 : 0.4
     const recuo = EIXO.clone().multiplyScalar(b.lado === 'nossos' ? -0.3 : 0.3)
     void this.animar(0.28, (k) => b.pos.copy(b.casa).addScaledVector(recuo, Math.sin(k * Math.PI)))
   }
@@ -281,9 +347,12 @@ export class CenaTurnos {
   async cair(id: string) {
     const b = this.bonecos.get(id)
     if (!b) return
-    await this.animar(0.6, (k) => {
-      b.opacidade = 1 - k
-      b.pos.y = -k * 0.4
+    b.dor = b.arte ? 0.9 : 0
+    await this.animar(b.arte ? 0.8 : 0.6, (k) => {
+      // a arte tomba para trás e some; o sprite de pixel só afunda e some
+      if (b.arte) b.queda = suave(Math.min(1, k * 1.6))
+      b.opacidade = 1 - Math.max(0, (k - 0.35) / 0.65)
+      b.pos.y = b.arte ? 0 : -k * 0.4
     })
     b.sprite.visible = false
     b.sombra.visible = false
