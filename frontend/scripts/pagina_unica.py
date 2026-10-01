@@ -1,7 +1,9 @@
-"""Gera uma página HTML única (JS e sprites embutidos) do teste de tabuleiro,
-para publicar e abrir em qualquer lugar, inclusive no celular.
+"""Gera uma página HTML única (JS e sprites embutidos) de um teste (tabuleiro
+ou turnos), para publicar e abrir em qualquer lugar, inclusive no celular.
 
     npm --prefix frontend run build:teste && python3 frontend/scripts/pagina_unica.py saida.html
+    npm --prefix frontend run build:turnos && python3 frontend/scripts/pagina_unica.py saida.html \
+        --dist=dist-turnos --titulo="Batalha por Turnos" --incluir=pirata-,marinha-,efeitos/hiken-perto,efeitos/hotarubi,efeitos/entei
 
 Os PNG entram como WebP sem perda (menores). Com `--sem-sprites` não são
 embutidos (a página os busca em ./sprites/...) — mas publicados como arquivos
@@ -10,7 +12,12 @@ separados as texturas não carregam no artifact (boneco invisível).
 import base64, glob, io, json, os, sys
 from PIL import Image
 raiz = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-js = open(glob.glob(os.path.join(raiz, 'dist-teste', 'assets', '*.js'))[0], encoding='utf8').read()
+opcao = lambda nome, padrao: next((a.split('=', 1)[1] for a in sys.argv if a.startswith(f'--{nome}=')), padrao)
+DIST = opcao('dist', 'dist-teste')
+TITULO = opcao('titulo', 'Tabuleiro Pirata')
+# --incluir=a,b: só os sprites cujo caminho (depois de sprites/) começa com um desses
+INCLUIR = [x for x in opcao('incluir', '').split(',') if x]
+js = open(glob.glob(os.path.join(raiz, DIST, 'assets', '*.js'))[0], encoding='utf8').read()
 js = js.replace('</script', '<\\/script')
 emb = {}
 sem_sprites = '--sem-sprites' in sys.argv
@@ -19,7 +26,10 @@ QUALIDADE = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--qual
 # --pular=a,b: pastas de sprites que não entram (personagens fora do tabuleiro)
 PULAR = next((a.split('=')[1].split(',') for a in sys.argv if a.startswith('--pular=')), [])
 for arq in [] if sem_sprites else glob.glob(os.path.join(raiz, 'public', 'sprites', '**', '*.*'), recursive=True):
-    if arq.endswith('.csv') or os.path.relpath(arq, os.path.join(raiz, 'public', 'sprites')).split(os.sep)[0] in PULAR:
+    dentro_sprites = os.path.relpath(arq, os.path.join(raiz, 'public', 'sprites')).replace(os.sep, '/')
+    if arq.endswith('.csv') or dentro_sprites.split('/')[0] in PULAR:
+        continue
+    if INCLUIR and not any(dentro_sprites.startswith(x) for x in INCLUIR):
         continue
     rel = os.path.relpath(arq, os.path.join(raiz, 'public')).replace(os.sep, '/')
     if arq.endswith('.png'):
@@ -33,7 +43,10 @@ for arq in [] if sem_sprites else glob.glob(os.path.join(raiz, 'public', 'sprite
         continue
     tipo = 'application/json' if arq.endswith('.json') else 'application/octet-stream'
     emb[rel] = f'data:{tipo};base64,' + base64.b64encode(open(arq, 'rb').read()).decode()
-html = f'''<title>Tabuleiro Pirata</title>
+html = f'''<meta charset="utf-8" />
+<title>{TITULO}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet" />
 <style>
   :root {{ color-scheme: dark; }}
   html, body {{ height: 100%; }}

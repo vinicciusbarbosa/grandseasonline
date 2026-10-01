@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { FRUTAS, type Skill } from '../tabuleiro/batalha/armas'
 import { aplicarConfig, combatentesIniciais, configPadrao } from '../tabuleiro/batalha/elenco'
 import { ESPIRITO_MAX, ENERGIA_MAX, HAOSHOKU, REI_IMBUIDO } from '../tabuleiro/batalha/regras'
+import { recurso } from '../tabuleiro/cena/visualFolhas'
 import { CenaTurnos, type Estilo } from './CenaTurnos'
 import { proximaAcao } from './ia'
 import { Anel, IconeHaki, IconeSkill, corDaSkill } from './icones'
@@ -24,12 +25,14 @@ const GRANDES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca', 'mart
 const retrato = (c: Combatente, tam: number, alto = tam): React.CSSProperties => ({
   width: tam,
   height: alto,
-  backgroundImage: `url(${base}sprites/${c.id}/parado_S.png)`,
+  backgroundImage: `url(${recurso(`${base}sprites/${c.id}/parado_S.png`)})`,
   backgroundSize: `${tam * 2.2}px ${tam * 2.2}px`,
   backgroundPosition: `center ${-tam * 0.42}px`,
   imageRendering: 'pixelated',
   backgroundRepeat: 'no-repeat',
 })
+/** tela de toque (celular): sem hover — tocar numa skill mostra a descrição */
+const TOQUE = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
 const basicaDe = (c: Combatente) => skillsDe(c).find((s) => s.energia === 0 && !s.cura) ?? skillsDe(c)[0]
 
 function estiloDe(c: Combatente, s: Skill, rei: boolean): Estilo {
@@ -74,6 +77,18 @@ export default function TelaTurnos() {
   const [rapido, setRapido] = useState(false)
   const [auto, setAuto] = useState(false)
   const fimDaVez = useRef<(() => void) | null>(null)
+  // a interface foi desenhada para 1280×720: em telas menores (celular) encolhe junto
+  const [k, setK] = useState(1)
+  const [empe, setEmpe] = useState(false)
+  useEffect(() => {
+    const medir = () => {
+      setK(Math.min(1, window.innerWidth / 1280, window.innerHeight / 720))
+      setEmpe(window.innerHeight > window.innerWidth)
+    }
+    medir()
+    window.addEventListener('resize', medir)
+    return () => window.removeEventListener('resize', medir)
+  }, [])
   const alvoRef = useRef(alvo)
   const autoRef = useRef(auto)
   const velRef = useRef(1)
@@ -89,6 +104,10 @@ export default function TelaTurnos() {
     velRef.current = rapido ? 2 : 1
     if (cena.current) cena.current.velocidade = velRef.current
   }, [rapido])
+
+  useEffect(() => {
+    if (!leque) setDica(null)
+  }, [leque])
 
   const avisar = useCallback((t: string) => {
     setAviso(t)
@@ -293,14 +312,16 @@ export default function TelaTurnos() {
           .map((u) => (
             <div key={u.id}>
               <div data-segue={u.id} data-altura="1.06" style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', cursor: 'pointer' }} onClick={() => setAlvo(u.id)}>
-                <div style={{ transform: 'translate(-50%, -100%)', width: u.id === 'marinha-almirante' ? 110 : 80 }}>
+                <div style={{ zoom: k, transform: 'translate(-50%, -100%)', width: u.id === 'marinha-almirante' ? 110 : 80 }}>
                   <Estados c={u} />
                   <Barra v={u.hp / u.hpMax} cor="#d9483b" alt={5} />
                 </div>
               </div>
               {naMira.has(u.id) && minhaVez && (
                 <div data-segue={u.id} data-altura="0.5" style={{ position: 'absolute', left: 0, top: 0 }}>
-                  <Mira principal={u.id === alvo} />
+                  <div style={{ zoom: Math.max(0.6, k) }}>
+                    <Mira principal={u.id === alvo} />
+                  </div>
                 </div>
               )}
             </div>
@@ -308,7 +329,7 @@ export default function TelaTurnos() {
       </div>
 
       {/* fila de ação (pela agilidade) */}
-      <div style={{ position: 'absolute', left: 14, top: 14, display: 'flex', flexDirection: 'column', gap: 5, paddingLeft: 10, borderLeft: '1px solid rgba(232,194,106,0.35)' }}>
+      <div style={{ zoom: k, position: 'absolute', left: 14, top: 14, display: 'flex', flexDirection: 'column', gap: 5, paddingLeft: 10, borderLeft: '1px solid rgba(232,194,106,0.35)' }}>
         {proximos.map((id, i) => {
           const u = porId(e, id)
           const nosso = u.lado === 'piratas'
@@ -324,7 +345,7 @@ export default function TelaTurnos() {
       </div>
 
       {/* alvo e controles (no alto) */}
-      <div style={{ position: 'absolute', right: 14, top: 14, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <div style={{ zoom: k, position: 'absolute', right: 14, top: 14, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         {alvoC && alvoC.hp > 0 && (
           <div style={{ ...painel, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px 4px 4px' }}>
             <div style={{ ...retrato(alvoC, 34), borderRadius: 17, backgroundColor: 'rgba(70,24,24,0.8)' }} />
@@ -352,7 +373,7 @@ export default function TelaTurnos() {
       </div>
 
       {/* tripulação (embaixo, à esquerda): vida, energia e espírito */}
-      <div style={{ position: 'absolute', left: 16, bottom: 44, display: 'flex', gap: 10 }}>
+      <div style={{ zoom: k, position: 'absolute', left: 16, bottom: TOQUE ? 12 : 44, display: 'flex', gap: 10 }}>
         {nossos.map((u) => {
           const daVez = atual?.id === u.id
           const mirado = alcance === 'aliado' && alvoAliado === u.id && minhaVez
@@ -387,7 +408,7 @@ export default function TelaTurnos() {
 
       {/* ações (embaixo, à direita) */}
       {atual && atual.lado === 'piratas' && skill && !auto && (
-        <div style={{ position: 'absolute', right: 52, bottom: 50, width: 360, height: 270 }}>
+        <div style={{ zoom: k, position: 'absolute', right: TOQUE ? 24 : 52, bottom: TOQUE ? 16 : 50, width: 360, height: 270 }}>
           {/* leque de skills em volta do botão grande */}
           {leque &&
             outras.map((s, i) => {
@@ -400,7 +421,12 @@ export default function TelaTurnos() {
               const rec = atual.recargas[s.id]
               return (
                 <div key={s.id} style={{ position: 'absolute', left: x, top: y, animation: 'gs-surge 0.18s ease-out', textAlign: 'center' }}>
-                  <BotaoRedondo tam={54} marcado={escolha === s.id} apagado={!pode} onClick={() => (escolha === s.id && pode ? usarSkill(s) : setEscolha(s.id))} onHover={(p) => setDica(p ? { c: atual, s, ...p } : null)}>
+                  <BotaoRedondo tam={54} marcado={escolha === s.id} apagado={!pode} onClick={(p) => {
+                      if (escolha === s.id && pode) return usarSkill(s)
+                      setEscolha(s.id)
+                      // sem hover no celular: tocar mostra a descrição; tocar de novo usa
+                      if (TOQUE && p) setDica({ c: atual, s, ...p })
+                    }} onHover={TOQUE ? undefined : (p) => setDica(p ? { c: atual, s, ...p } : null)}>
                     <IconeSkill s={s} arma={atual.arma} tam={27} />
                     {rec ? <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700 }}>{rec}</span> : null}
                   </BotaoRedondo>
@@ -440,7 +466,7 @@ export default function TelaTurnos() {
           </div>
           {/* botão grande: a skill escolhida; clicar (ou Espaço) usa */}
           <div style={{ position: 'absolute', left: 225, top: 130 }}>
-            <BotaoRedondo tam={118} tecla={skill.id === basicaDe(atual).id ? 'Q' : undefined} marcado={minhaVez} apagado={!podeSkill(skill)} grande onClick={() => usarSkill(skill)} onHover={(p) => setDica(p ? { c: atual, s: skill, ...p } : null)}>
+            <BotaoRedondo tam={118} tecla={skill.id === basicaDe(atual).id ? 'Q' : undefined} marcado={minhaVez} apagado={!podeSkill(skill)} grande onClick={() => usarSkill(skill)} onHover={TOQUE ? undefined : (p) => setDica(p ? { c: atual, s: skill, ...p } : null)}>
               <IconeSkill s={skill} arma={atual.arma} tam={58} />
             </BotaoRedondo>
             <div style={{ position: 'absolute', left: '50%', bottom: -8, transform: 'translateX(-50%)', whiteSpace: 'nowrap', background: '#1b1409', border: `1px solid ${DOURADO}`, borderRadius: 10, padding: '1px 10px', fontSize: 11 }}>{NOME_ALCANCE[alcance]}</div>
@@ -461,7 +487,7 @@ export default function TelaTurnos() {
 
       {/* descrição só no hover */}
       {dica && (
-        <div style={{ position: 'fixed', left: Math.max(8, dica.x - 300), top: dica.y - 50, width: 270, ...painel, padding: '10px 12px', pointerEvents: 'none', zIndex: 5 }}>
+        <div style={{ zoom: k, position: 'fixed', left: Math.max(8, dica.x - 300 * k) / k, top: Math.max(8, dica.y - 50 * k) / k, width: 270, ...painel, padding: '10px 12px', pointerEvents: 'none', zIndex: 5 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <IconeSkill s={dica.s} arma={dica.c.arma} tam={20} />
             <span style={{ fontFamily: 'Cinzel, Georgia, serif', fontWeight: 700, fontSize: 15 }}>{dica.s.nome}</span>
@@ -478,15 +504,15 @@ export default function TelaTurnos() {
 
       {aviso && <div style={{ position: 'absolute', left: '50%', bottom: 190, transform: 'translateX(-50%)', ...painel, padding: '6px 14px', fontSize: 13 }}>{aviso}</div>}
 
-      {/* faixa de teclas */}
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 30, background: 'linear-gradient(0deg, rgba(8,12,20,0.95), rgba(8,12,20,0.6))', borderTop: '1px solid rgba(232,194,106,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 22, paddingRight: 24, fontSize: 12 }}>
+      {/* faixa de teclas (não no celular) */}
+      {!TOQUE && <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 30, background: 'linear-gradient(0deg, rgba(8,12,20,0.95), rgba(8,12,20,0.6))', borderTop: '1px solid rgba(232,194,106,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 22, paddingRight: 24, fontSize: 12 }}>
         <span style={{ marginRight: 'auto', marginLeft: 16, opacity: 0.5, fontSize: 11 }}>Grand Seas · combate por turnos (regras do tabuleiro, sem casas)</span>
         <Tecla t="A" /> Mira ←
         <Tecla t="D" /> Mira →
         <Tecla t="Q" /> Ataque
         <Tecla t="E" /> Skills
         <Tecla t="Espaço" /> Usar
-      </div>
+      </div>}
 
       {cutin && (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', animation: 'gs-cutin 1.15s ease-out' }}>
@@ -496,6 +522,14 @@ export default function TelaTurnos() {
             <div style={{ fontSize: 18, opacity: 0.85 }}>{cutin.c.nome}</div>
             <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 54, fontWeight: 900, letterSpacing: 2, textShadow: '0 4px 0 #000, 0 0 20px #ff7a2e' }}>{cutin.nome}</div>
           </div>
+        </div>
+      )}
+
+      {empe && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(5,8,14,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 24, zIndex: 10 }}>
+          <div style={{ fontSize: 44 }}>⟲</div>
+          <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 22 }}>Vire o celular</div>
+          <div style={{ opacity: 0.8 }}>A batalha é jogada com a tela deitada.</div>
         </div>
       )}
 
@@ -564,10 +598,13 @@ function Mira({ principal }: { principal: boolean }) {
   )
 }
 
-function BotaoRedondo({ tam, tecla, marcado, apagado, grande, onClick, onHover, children }: { tam: number; tecla?: string; marcado?: boolean; apagado?: boolean; grande?: boolean; onClick: () => void; onHover?: (p: { x: number; y: number } | null) => void; children: React.ReactNode }) {
+function BotaoRedondo({ tam, tecla, marcado, apagado, grande, onClick, onHover, children }: { tam: number; tecla?: string; marcado?: boolean; apagado?: boolean; grande?: boolean; onClick: (p?: { x: number; y: number }) => void; onHover?: (p: { x: number; y: number } | null) => void; children: React.ReactNode }) {
   return (
     <div
-      onClick={onClick}
+      onClick={(ev) => {
+        const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+        onClick({ x: r.left, y: r.top + r.height / 2 })
+      }}
       onMouseEnter={(ev) => {
         const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
         onHover?.({ x: r.left, y: r.top + r.height / 2 })

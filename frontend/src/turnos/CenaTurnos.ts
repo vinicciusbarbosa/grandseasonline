@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { EfeitoFolha, manifestoEfeito, type DirEfeito } from '../tabuleiro/cena/efeitoFolha'
+import { recurso } from '../tabuleiro/cena/visualFolhas'
 /** os nossos (de costas) ou os deles (de frente) */
 type Lado = 'nossos' | 'deles'
 
@@ -27,7 +28,7 @@ const texturas = new Map<string, THREE.Texture>()
 function textura(url: string) {
   let t = texturas.get(url)
   if (!t) {
-    t = new THREE.TextureLoader().load(url)
+    t = new THREE.TextureLoader().load(recurso(url))
     t.magFilter = THREE.NearestFilter
     t.minFilter = THREE.LinearFilter
     t.colorSpace = THREE.SRGBColorSpace
@@ -266,7 +267,9 @@ export class CenaTurnos {
     await Promise.all(
       lista.map(async (u) => {
         const base = `${import.meta.env.BASE_URL}sprites/${u.sprite}/`
-        const man = (await (await fetch(`${base}manifesto.json`)).json()) as Manifesto
+        // na página publicada (celular) os arquivos vêm embutidos como data URI
+        const url = recurso(`${base}manifesto.json`)
+        const man = (url.startsWith('data:') ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (ch) => ch.charCodeAt(0)))) : await (await fetch(url)).json()) as Manifesto
         const nosso = u.lado === 'nossos'
         const casa = nosso ? lugar(nossos.indexOf(u), nossos.length, 2.6, nossos.length > 4 ? 1.75 : 2.1) : lugar(eles.indexOf(u), eles.length, -3.2, eles.length > 4 ? 1.9 : 2.1)
         if (u.chefe) casa.z -= 0.6
