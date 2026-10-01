@@ -85,6 +85,12 @@ export class CenaTabuleiro {
   private tremorGolpe = 0
   private hakis: HakiRei[] = []
   private efeitos: (Efeito | EfeitoFolha | Entei)[] = []
+  /**
+   * silhuetas invisíveis dos personagens na camada de efeitos: só escrevem
+   * profundidade, para o efeito que passa por trás de alguém ficar escondido
+   * (o anel e as labaredas do Entei atrás do corpo)
+   */
+  private readonly silhuetas = new Map<THREE.Sprite, THREE.Sprite>()
   /** hit-stop: tempo (s, real) em que o jogo fica congelado no impacto */
   private congelado = 0
   /** animações curtas por tempo (esquiva, Logia), f de 0 a 1 */
@@ -760,6 +766,40 @@ export class CenaTabuleiro {
     this.enquadrar()
   }
 
+  /** Copia cada sprite de personagem para a camada de efeitos, só como profundidade. */
+  private atualizarSilhuetas() {
+    const vivos = new Set<THREE.Sprite>()
+    for (const p of this.personagens)
+      for (const o of p.visual.objetos) {
+        const sp = o as THREE.Sprite
+        if (!sp.isSprite) continue
+        vivos.add(sp)
+        let s = this.silhuetas.get(sp)
+        if (!s) {
+          s = new THREE.Sprite(new THREE.SpriteMaterial({ alphaTest: 0.5, colorWrite: false, depthWrite: true }))
+          s.renderOrder = -10
+          this.silhuetas.set(sp, s)
+          this.cenaFx.add(s)
+        }
+        const m = s.material
+        if (m.map !== sp.material.map) {
+          m.map = sp.material.map
+          m.needsUpdate = true
+        }
+        m.rotation = sp.material.rotation
+        s.position.copy(sp.position)
+        s.scale.copy(sp.scale)
+        s.center.copy(sp.center)
+        s.visible = sp.visible
+      }
+    for (const [sp, s] of this.silhuetas)
+      if (!vivos.has(sp)) {
+        this.cenaFx.remove(s)
+        s.material.dispose()
+        this.silhuetas.delete(sp)
+      }
+  }
+
   // ------------------------------------------------------------ laço
   private laco = (agora: number) => {
     this.quadro = requestAnimationFrame(this.laco)
@@ -862,6 +902,7 @@ export class CenaTabuleiro {
       this.camera.position.add(new THREE.Vector3((Math.random() - 0.5) * a, (Math.random() - 0.5) * a, (Math.random() - 0.5) * a))
     }
     this.renderer.render(this.cena, this.camera)
+    if (this.efeitos.length) this.atualizarSilhuetas()
     if (this.efeitos.length || this.rendererFx.info.render.calls) this.rendererFx.render(this.cenaFx, this.camera)
     this.camera.position.copy(salva)
     // choques de Haki do Rei na tela

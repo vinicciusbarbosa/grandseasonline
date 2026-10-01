@@ -93,18 +93,44 @@ function fumaca() {
   return texFumaca
 }
 
+let texChama: THREE.Texture | null = null
+/** labareda (gota de fogo, base embaixo), branca: a cor vem do sprite */
+function chama() {
+  if (texChama) return texChama
+  const c = document.createElement('canvas')
+  c.width = 64
+  c.height = 128
+  const g = c.getContext('2d')!
+  g.beginPath()
+  g.moveTo(32, 2)
+  g.bezierCurveTo(40, 40, 60, 70, 56, 98)
+  g.bezierCurveTo(52, 122, 12, 122, 8, 98)
+  g.bezierCurveTo(4, 70, 24, 40, 32, 2)
+  g.closePath()
+  const gr = g.createRadialGradient(32, 96, 2, 32, 80, 70)
+  gr.addColorStop(0, 'rgba(255,255,255,1)')
+  gr.addColorStop(0.45, 'rgba(255,255,255,0.7)')
+  gr.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = gr
+  g.filter = 'blur(3px)'
+  g.fill()
+  texChama = new THREE.CanvasTexture(c)
+  return texChama
+}
+
 /** anel no chão: arco que se desenha (progresso), com cintilação */
-function materialAnel(cor: THREE.Color, espessura: number) {
+function materialAnel(cor: THREE.Color, espessura: number, lado = 0) {
   return new THREE.ShaderMaterial({
     transparent: true,
-    depthTest: false,
+    // metade de trás testa profundidade (o personagem a cobre); a da frente fica por cima
+    depthTest: lado < 0,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    uniforms: { uProg: { value: 0 }, uForca: { value: 1 }, uTempo: { value: 0 }, uCor: { value: cor }, uEsp: { value: espessura }, uRaio: { value: 0.42 } },
+    uniforms: { uProg: { value: 0 }, uForca: { value: 1 }, uTempo: { value: 0 }, uCor: { value: cor }, uEsp: { value: espessura }, uRaio: { value: 0.42 }, uLado: { value: lado }, uGiro: { value: 0 }, uFogo: { value: 1 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
       varying vec2 vUv;
-      uniform float uProg, uForca, uTempo, uEsp, uRaio;
+      uniform float uProg, uForca, uTempo, uEsp, uRaio, uLado, uGiro, uFogo;
       uniform vec3 uCor;
       float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
       float ruido(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -112,16 +138,25 @@ function materialAnel(cor: THREE.Color, espessura: number) {
       void main(){
         vec2 p = vUv - 0.5;
         float r = length(p);
-        float a = atan(p.y, p.x) / 6.28318 + 0.5;
+        float a = fract(atan(p.y, p.x) / 6.28318 + 0.5 + uGiro);
+        // y < 0 no plano = lado da câmera (frente)
+        float metade = uLado == 0.0 ? 1.0 : (uLado > 0.0 ? smoothstep(0.03, -0.03, p.y) : smoothstep(-0.03, 0.03, p.y));
         // arco já desenhado (com a ponta brilhando)
         float desenhado = step(a, uProg);
         float ponta = exp(-pow((a - uProg) * 40.0, 2.0)) * step(0.001, uProg) * step(uProg, 0.999);
         float n = ruido(vec2(a * 40.0, uTempo * 3.0)) * 0.5 + ruido(vec2(a * 90.0, uTempo * 7.0)) * 0.5;
-        float anel = exp(-pow((r - uRaio) / (uEsp * (0.7 + n * 0.6)), 2.0));
-        // brilho macio por dentro do círculo
-        float dentro = smoothstep(uRaio, 0.0, r) * 0.05;
-        float v = (anel * (0.8 + n * 0.6) + dentro) * desenhado + ponta * anel * 3.0;
-        gl_FragColor = vec4(uCor * v * uForca, v * uForca);
+        // línguas de fogo: o anel se espalha para fora em labaredas que correm
+        float lingua = ruido(vec2(a * 28.0 - uTempo * 1.5, (r - uRaio) * 30.0 - uTempo * 6.0));
+        float esp = uEsp * (0.8 + n * 0.8) * (1.0 + uFogo * lingua * 1.6 * step(uRaio, r));
+        float anel = exp(-pow((r - uRaio) / esp, 2.0));
+        float v = anel * (0.7 + n * 0.7) * desenhado + ponta * anel * 3.0;
+        v *= metade;
+        // cor de fogo: vermelho nas bordas, laranja, amarelo e branco no miolo
+        float q = clamp(v * 1.3, 0.0, 1.6);
+        vec3 fogo = mix(vec3(0.9, 0.12, 0.02), vec3(1.0, 0.55, 0.08), smoothstep(0.1, 0.6, q));
+        fogo = mix(fogo, vec3(1.0, 0.92, 0.55), smoothstep(0.7, 1.3, q));
+        vec3 c = mix(uCor, fogo, uFogo);
+        gl_FragColor = vec4(c * v * uForca, v * uForca);
       }`,
   })
 }
@@ -149,8 +184,8 @@ export class Entei {
   private particulas: Particula[] = []
   private emitir = 0
 
-  private readonly anelFora: THREE.Mesh
-  private readonly anelDentro: THREE.Mesh
+  /** anéis no chão: cada um em duas metades (trás: o personagem cobre; frente: por cima) */
+  private readonly aneis: { meshes: THREE.Mesh[]; atraso: number; sentido: number; giro: number }[] = []
   private readonly luzChao: THREE.Sprite
   private bola: THREE.Sprite | null = null
   private bolaQuadros = 8
@@ -183,20 +218,30 @@ export class Entei {
       m.renderOrder = 5
       return m
     }
-    this.anelFora = plano((this.raio / 0.42) * 1.0, materialAnel(new THREE.Color(1.0, 0.45, 0.1), 0.018))
-    this.anelFora.position.copy(this.de)
-    this.anelDentro = plano((this.raio / 0.42) * 0.7, materialAnel(new THREE.Color(1.0, 0.75, 0.25), 0.012))
-    this.anelDentro.position.copy(this.de)
+    for (const [tam, esp, atraso, sentido] of [[1, 0.022, 0, 1], [0.72, 0.014, 0.35, -1]] as const) {
+      const meshes = [-1, 1].map((lado) => {
+        const m = plano((this.raio / 0.42) * tam, materialAnel(new THREE.Color(1, 0.5, 0.1), esp, lado))
+        m.position.copy(this.de)
+        m.renderOrder = lado < 0 ? 4 : 7
+        this.sprite.add(m)
+        return m
+      })
+      this.aneis.push({ meshes, atraso, sentido, giro: 0 })
+    }
     this.onda = plano(1, materialAnel(new THREE.Color(1.0, 0.55, 0.2), 0.03))
+    ;(this.onda.material as THREE.ShaderMaterial).uniforms.uFogo.value = 0.6
     this.onda.position.copy(this.ate)
     this.onda.visible = false
     ;(this.onda.material as THREE.ShaderMaterial).uniforms.uProg.value = 1
 
     this.luzChao = this.sprAditivo(brilho(), new THREE.Color(1, 0.45, 0.12), 0)
+    // luz no chão por trás do personagem (ele a cobre)
+    this.luzChao.material.depthTest = true
+    this.luzChao.renderOrder = 3
     this.luzChao.position.copy(this.de).setY(0.3)
     this.halo = this.sprAditivo(brilho(), new THREE.Color(1, 0.55, 0.15), 0)
     this.halo.position.copy(this.de).setY(this.alturaMao)
-    this.sprite.add(this.anelFora, this.anelDentro, this.onda, this.luzChao, this.halo)
+    this.sprite.add(this.onda, this.luzChao, this.halo)
     void this.carregarFolhas()
   }
 
@@ -240,8 +285,13 @@ export class Entei {
     s.material.map!.offset.set((q % gc) / gc, 1 - (Math.floor(q / gc) + 1) / gl)
   }
 
-  private particula(tex: THREE.Texture, cor: THREE.Color, dur: number, atualizar: Particula['atualizar'], aditivo = true) {
+  private particula(tex: THREE.Texture, cor: THREE.Color, dur: number, atualizar: Particula['atualizar'], aditivo = true, atras = false) {
     const s = this.sprAditivo(tex, cor, 0, aditivo)
+    if (atras) {
+      // atrás do personagem: testa profundidade (a silhueta dele a cobre)
+      s.material.depthTest = true
+      s.renderOrder = 5
+    }
     this.sprite.add(s)
     this.particulas.push({ s, vida: 0, dur, atualizar })
   }
@@ -262,33 +312,48 @@ export class Entei {
     // ---- 1. círculo no chão
     const pc = entre(t, ini.circulo, FASES.circulo)
     const fimCirculo = 1 - entre(t, ini.explosao, 1.2)
-    for (const [anel, atraso, sentido] of [[this.anelFora, 0, 1], [this.anelDentro, 0.35, -1]] as const) {
-      const u = (anel.material as THREE.ShaderMaterial).uniforms
-      u.uProg.value = suave(entre(t, ini.circulo + atraso, FASES.circulo - atraso * 0.5))
-      u.uTempo.value = tempo
+    let progFora = 0
+    for (const an of this.aneis) {
+      an.giro += dt * 0.08 * an.sentido
+      const prog = suave(entre(t, ini.circulo + an.atraso, FASES.circulo - an.atraso * 0.5))
+      if (an.atraso === 0) progFora = prog
       // pulsa forte enquanto a bola cresce
       const pulso = 1 + 0.25 * Math.sin(tempo * 8) * entre(t, ini.crescer, 0.3)
-      u.uForca.value = fimCirculo * pulso * (1 + entre(t, ini.crescer, FASES.crescer) * 0.6)
-      anel.rotation.z += dt * 0.6 * sentido
+      for (const m of an.meshes) {
+        const u = (m.material as THREE.ShaderMaterial).uniforms
+        u.uProg.value = prog
+        u.uTempo.value = tempo
+        u.uGiro.value = an.giro
+        u.uForca.value = fimCirculo * pulso * (1 + entre(t, ini.crescer, FASES.crescer) * 0.6)
+      }
     }
+    const giroFora = this.aneis[0].giro
     this.luzChao.scale.setScalar(this.raio * 2.4 * suave(pc))
     this.luzChao.material.opacity = 0.35 * pc * fimCirculo
-    // chamas nascendo ao longo do arco que se desenha
-    if (t < ini.crescer + FASES.crescer) {
-      this.emitir += dt * (t < ini.espiral ? 26 : 14)
+    // labaredas de pé ao longo do arco já desenhado (as de trás o personagem cobre)
+    if (fimCirculo > 0 && progFora > 0) {
+      this.emitir += dt * 70 * progFora * fimCirculo
       while (this.emitir > 1) {
         this.emitir--
-        const prog = (this.anelFora.material as THREE.ShaderMaterial).uniforms.uProg.value as number
-        const ang = (Math.random() * prog - 0.5) * Math.PI * 2 + this.anelFora.rotation.z
-        const r = this.raio
-        const base = this.de.clone().add(new THREE.Vector3(Math.cos(ang) * r, 0.05, -Math.sin(ang) * r))
-        const sobe = 0.4 + Math.random() * 0.5
-        const cor = new THREE.Color().setHSL(0.05 + Math.random() * 0.05, 1, 0.55)
-        this.particula(brilho(), cor, 0.6 + Math.random() * 0.4, (p, f) => {
-          p.s.position.copy(base).setY(base.y + f * sobe * k)
-          p.s.scale.setScalar(0.32 * k * (1 - f * 0.7))
-          p.s.material.opacity = Math.sin(f * Math.PI)
-        })
+        const aa = Math.random() * progFora
+        const th = (aa - 0.5 - giroFora) * Math.PI * 2
+        const r = this.raio * (0.97 + Math.random() * 0.08)
+        const off = new THREE.Vector3(Math.cos(th) * r, 0.02, -Math.sin(th) * r)
+        const base = this.de.clone().add(off)
+        const atras = off.z < 0
+        const alto = (0.35 + Math.random() * 0.4) * this.raio * (1 + entre(t, ini.crescer, FASES.crescer) * 0.5)
+        const miolo = Math.random() < 0.35
+        const cor = miolo ? new THREE.Color(1, 0.8, 0.35) : new THREE.Color().setHSL(0.02 + Math.random() * 0.05, 1, 0.5)
+        const fase = Math.random() * 6
+        this.particula(chama(), cor, 0.45 + Math.random() * 0.35, (p, f) => {
+          p.s.position.copy(base).setY(base.y + f * alto * 0.35)
+          const tremor = 1 + 0.15 * Math.sin(tempo * 25 + fase)
+          const sobe = Math.sin(Math.min(1, f * 1.8) * Math.PI * 0.5) * (1 - f * 0.5)
+          p.s.scale.set(alto * 0.45 * (miolo ? 0.6 : 1) * (1 - f * 0.4), alto * sobe * tremor, 1)
+          p.s.material.opacity = Math.min(1, f * 6) * (1 - f)
+        }, true, atras)
+        const ult = this.particulas[this.particulas.length - 1].s
+        ult.center.set(0.5, 0.08)
       }
     }
 
@@ -468,7 +533,7 @@ export class Entei {
       const f = Math.min(1, p.vida / p.dur)
       p.atualizar(p, f, dt)
       if (f >= 1) {
-        this.sprite.remove(p.s)
+        p.s.parent?.remove(p.s)
         p.s.material.dispose()
       }
     }
