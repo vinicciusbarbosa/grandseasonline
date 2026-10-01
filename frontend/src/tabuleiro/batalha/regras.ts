@@ -337,9 +337,8 @@ export function motivo(e: Estado, a: Acao): string | null {
 /**
  * O golpe de um personagem em outro, com todas as regras (choque de Haki do
  * Rei, Logia, observação, esquiva, armamento, crítico, bloqueio, borracha,
- * queimadura, congelar, atordoar). Compartilhado entre o tabuleiro e o modo
- * por turnos sem tabuleiro: `revida` diz se a observação avançada revida
- * (no tabuleiro: de perto).
+ * queimadura, congelar, atordoar). `revida` diz se a observação avançada
+ * revida (no tabuleiro: de perto).
  */
 export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatente, alvo: Combatente) => boolean) {
   const espirito = (c: Combatente, v: number) => (c.espirito = Math.min(ESPIRITO_MAX, c.espirito + v))

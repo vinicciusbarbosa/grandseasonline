@@ -9,6 +9,7 @@ import { ControleBatalha, type Marca, type RetratoBatalha } from '../batalha/con
 import { TRIPULACOES } from '../batalha/elenco'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
+import { VisualRecorte } from './visualRecorte'
 import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
@@ -19,6 +20,9 @@ import { ImpactoHaki } from './impactoHaki'
 import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
+
+/** teste do boneco recortado em partes (estilo Wakfu): quem usa qual */
+const RECORTADOS: Record<string, string> = { 'pirata-lutador': 'base' }
 
 /**
  * Cena do teste de tabuleiro: os dois navios, o mar e os personagens em
@@ -210,7 +214,8 @@ export class CenaTabuleiro {
     void Promise.all(
       TRIPULACOES.map(async (t) => {
         const c = batalha.combatentes.find((x) => x.id === t.id)!
-        return new Personagem(t.id, t.nome, t.casa, c.hpMax, await VisualFolhas.carregar(t.id), t.dir)
+        const recorte = RECORTADOS[t.id]
+        return new Personagem(t.id, t.nome, t.casa, c.hpMax, recorte ? await VisualRecorte.carregar(recorte) : await VisualFolhas.carregar(t.id), t.dir)
       }),
     )
       .then((ps) => {

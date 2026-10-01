@@ -1,9 +1,7 @@
 """Gera uma página HTML única (JS e sprites embutidos) de um teste (tabuleiro
-ou turnos), para publicar e abrir em qualquer lugar, inclusive no celular.
+ou outro), para publicar e abrir em qualquer lugar, inclusive no celular.
 
     npm --prefix frontend run build:teste && python3 frontend/scripts/pagina_unica.py saida.html
-    npm --prefix frontend run build:turnos && python3 frontend/scripts/pagina_unica.py saida.html \
-        --dist=dist-turnos --titulo="Batalha por Turnos" --incluir=pirata-,marinha-,efeitos/hiken-perto,efeitos/hotarubi,efeitos/entei
 
 Os PNG entram como WebP sem perda (menores). Com `--sem-sprites` não são
 embutidos (a página os busca em ./sprites/...) — mas publicados como arquivos

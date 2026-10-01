@@ -10,8 +10,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "build:teste": "vite build --config vite.teste.config.ts",
-    "build:turnos": "vite build --config vite.turnos.config.ts"
+    "build:teste": "vite build --config vite.teste.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.4",
