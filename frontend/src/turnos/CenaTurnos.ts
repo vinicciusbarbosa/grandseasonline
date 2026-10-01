@@ -71,7 +71,9 @@ class Boneco {
 
   /** costas para a câmera (N) nos nossos; de frente (S) na Marinha */
   private get dir() {
-    return this.lado === 'nossos' ? 'N' : 'S'
+    // na diagonal: os nossos embaixo à esquerda olhando para a direita; eles
+    // em cima à direita olhando para a esquerda
+    return this.lado === 'nossos' ? 'E' : 'W'
   }
 
   atualizar(dt: number) {
@@ -109,6 +111,14 @@ class Boneco {
   }
 }
 
+/** eixo da batalha (dos nossos para eles) e a fileira de cada lado, no chão */
+const EIXO = new THREE.Vector3(1, 0, -0.75).normalize()
+const FILEIRA = new THREE.Vector3(0.75, 0, 1).normalize()
+const CENTRO_NOSSOS = new THREE.Vector3(-2.7, 0, 1.4)
+const CENTRO_DELES = new THREE.Vector3(2.7, 0, -2.6)
+const CAM_POS = new THREE.Vector3(-0.6, 5.4, 9.6)
+const CAM_OLHA = new THREE.Vector3(0.2, 0.9, -0.6)
+
 type Tween = { t: number; dur: number; fn: (k: number) => void; fim: () => void }
 const suave = (k: number) => k * k * (3 - 2 * k)
 
@@ -120,8 +130,8 @@ export class CenaTurnos {
   private readonly tweens: Tween[] = []
   private readonly efeitos: EfeitoFolha[] = []
   private readonly anel: THREE.Mesh
-  private readonly camPos = new THREE.Vector3(0, 3.5, 10.4)
-  private readonly camOlha = new THREE.Vector3(0, 1.2, -2.2)
+  private readonly camPos = CAM_POS.clone()
+  private readonly camOlha = CAM_OLHA.clone()
   private readonly camPosAlvo = this.camPos.clone()
   private readonly camOlhaAlvo = this.camOlha.clone()
   private tremorTela = 0
@@ -263,7 +273,6 @@ export class CenaTurnos {
   async carregar(lista: { id: string; sprite: string; lado: Lado; chefe?: boolean }[]) {
     const nossos = lista.filter((u) => u.lado === 'nossos')
     const eles = lista.filter((u) => u.lado === 'deles')
-    const lugar = (i: number, n: number, z: number, passo: number) => new THREE.Vector3((i - (n - 1) / 2) * passo, 0, z)
     await Promise.all(
       lista.map(async (u) => {
         const base = `${import.meta.env.BASE_URL}sprites/${u.sprite}/`
@@ -271,8 +280,11 @@ export class CenaTurnos {
         const url = recurso(`${base}manifesto.json`)
         const man = (url.startsWith('data:') ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (ch) => ch.charCodeAt(0)))) : await (await fetch(url)).json()) as Manifesto
         const nosso = u.lado === 'nossos'
-        const casa = nosso ? lugar(nossos.indexOf(u), nossos.length, 2.6, nossos.length > 4 ? 1.75 : 2.1) : lugar(eles.indexOf(u), eles.length, -3.2, eles.length > 4 ? 1.9 : 2.1)
-        if (u.chefe) casa.z -= 0.6
+        // cada formação é uma fileira na diagonal; os dois lados se encaram ao longo do eixo da batalha
+        const i = nosso ? nossos.indexOf(u) : eles.indexOf(u)
+        const n = nosso ? nossos.length : eles.length
+        const casa = (nosso ? CENTRO_NOSSOS : CENTRO_DELES).clone().addScaledVector(FILEIRA, (i - (n - 1) / 2) * 1.55)
+        if (u.chefe) casa.addScaledVector(EIXO, 0.6)
         const b = new Boneco(base, man, u.lado, casa, u.chefe ? 1.3 : 1)
         this.bonecos.set(u.id, b)
         this.cena.add(b.sprite, b.sombra)
@@ -288,6 +300,27 @@ export class CenaTurnos {
     p.y += 1.85 * b.escala * altura
     p.project(this.camera)
     return { x: ((p.x + 1) / 2) * this.tela.clientWidth, y: ((1 - p.y) / 2) * this.tela.clientHeight }
+  }
+
+  /** Quem está no ponto (px) da tela — o mais perto, se tocou em cima do corpo. */
+  pegar(x: number, y: number) {
+    let melhor: string | null = null
+    let dist = Infinity
+    for (const [id, b] of this.bonecos) {
+      if (!b.sprite.visible || b.opacidade < 0.5) continue
+      const pe = this.telaDe(id, 0)!
+      const topo = this.telaDe(id, 1)!
+      const alto = pe.y - topo.y
+      const cx = pe.x
+      const cy = (pe.y + topo.y) / 2
+      if (Math.abs(x - cx) > alto * 0.45 || y < topo.y - 10 || y > pe.y + 10) continue
+      const d = Math.hypot(x - cx, y - cy)
+      if (d < dist) {
+        dist = d
+        melhor = id
+      }
+    }
+    return melhor
   }
 
   /** Anel dourado no pé de quem está agindo. */
@@ -309,19 +342,19 @@ export class CenaTurnos {
   /** Câmera: aproxima de um ponto (ou volta para trás da tripulação). */
   focar(alvo: THREE.Vector3 | null, perto = 0.35) {
     if (!alvo) {
-      this.camPosAlvo.set(0, 3.5, 10.4)
-      this.camOlhaAlvo.set(0, 1.2, -2.2)
+      this.camPosAlvo.copy(CAM_POS)
+      this.camOlhaAlvo.copy(CAM_OLHA)
       return
     }
-    this.camOlhaAlvo.copy(alvo).setY(1.1)
-    this.camPosAlvo.set(0, 3.5, 10.4).lerp(new THREE.Vector3(alvo.x * 0.6, 2.4, alvo.z + 6), perto)
+    this.camOlhaAlvo.copy(CAM_OLHA).lerp(alvo.clone().setY(1), perto)
+    this.camPosAlvo.copy(CAM_POS).lerp(alvo.clone().add(new THREE.Vector3(0, 4.2, 7)), perto * 0.7)
   }
 
   tremer(f: number) {
     this.tremorTela = Math.max(this.tremorTela, f)
   }
 
-  /** Número de dano subindo (e "Quebra!" quando o escudo cai). */
+  /** Número (dano, cura) ou aviso subindo sobre o personagem. */
   numero(id: string, texto: string, cor: string, grande = false) {
     const p = this.telaDe(id, 0.75)
     if (!p) return
@@ -343,8 +376,8 @@ export class CenaTurnos {
     if (!b) return
     b.clarao = 1
     b.tremor = forte ? 1.4 : 1
-    const recuo = b.lado === 'nossos' ? 0.25 : -0.25
-    void this.animar(0.28, (k) => (b.pos.z = b.casa.z + Math.sin(k * Math.PI) * recuo))
+    const recuo = EIXO.clone().multiplyScalar(b.lado === 'nossos' ? -0.3 : 0.3)
+    void this.animar(0.28, (k) => b.pos.copy(b.casa).addScaledVector(recuo, Math.sin(k * Math.PI)))
   }
 
   async cair(id: string) {
@@ -412,7 +445,7 @@ export class CenaTurnos {
     const b = this.bonecos.get(id)
     if (!b) return
     const lado = Math.random() < 0.5 ? -1 : 1
-    void this.animar(0.35, (k) => (b.pos.x = b.casa.x + Math.sin(k * Math.PI) * 0.7 * lado))
+    void this.animar(0.35, (k) => b.pos.copy(b.casa).addScaledVector(FILEIRA, Math.sin(k * Math.PI) * 0.7 * lado))
   }
 
   /** Haki do Rei em área: onda roxa saindo de quem solta. */
@@ -509,8 +542,8 @@ export class CenaTurnos {
 
     let ida = a.casa.clone()
     if (op.corpo && principal) {
-      const dz = nosso ? 1.25 : -1.25
-      ida = principal.casa.clone().add(new THREE.Vector3(0, 0, dz))
+      // corre até a frente do alvo, ao longo do eixo da batalha
+      ida = principal.casa.clone().addScaledVector(EIXO, nosso ? -1.3 : 1.3)
       a.anim = 'andar'
       a.t = 0
       const de = a.pos.clone()
@@ -520,7 +553,7 @@ export class CenaTurnos {
     a.t = 0
     await this.esperar((IMPACTO * 1000) / this.velocidade)
     if (op.efeito === 'hiken-perto') {
-      for (const b of bs) void this.folha('hiken-perto', nosso ? 'N' : 'S', b.casa.clone().setY(0.9), { largura: 2.4 })
+      for (const b of bs) void this.folha('hiken-perto', nosso ? 'NE' : 'SW', b.casa.clone().setY(0.9), { largura: 2.4 })
       await this.esperar(120 / this.velocidade)
     }
     for (const b of bs) {

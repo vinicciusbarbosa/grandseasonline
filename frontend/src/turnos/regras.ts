@@ -10,8 +10,7 @@
  * - a vez é INDIVIDUAL, numa fila pela agilidade (quem é mais ágil age mais
  *   vezes): valor de ação = 10000 / velocidade; age o menor, o tempo anda;
  * - sem movimento e sem alcance: a área da skill vira o número de alvos —
- *   alvo → um; linha, leque, volta e explosão 3×3 → o alvo e os vizinhos
- *   na formação; explosão 5×5 e mapa → todos; si → o próprio;
+ *   ver `miraDe` (tiros em mais de uma casa escolhem os alvos livremente);
  * - Haki do Rei em área pega todos os inimigos;
  * - a observação avançada revida golpes corpo a corpo (alcance 1).
  *
@@ -41,16 +40,31 @@ import {
 export type { Combatente, Lado }
 export { skillsDe }
 
-export type Alcance = 'um' | 'leque' | 'todos' | 'si' | 'aliado'
-export const NOME_ALCANCE: Record<Alcance, string> = { um: 'Um alvo', leque: 'Alvo e vizinhos', todos: 'Todos', si: 'Em si', aliado: 'Um aliado' }
+/**
+ * Como a skill escolhe os alvos sem casas:
+ *   um     — um inimigo;
+ *   varios — até `n` inimigos À ESCOLHA, em qualquer lugar da formação (tiros
+ *            e golpes à distância que pegavam mais de uma casa: leque, linha);
+ *   area   — o alvo e os vizinhos dele (o que acontece em volta: golpe que
+ *            gira em volta de si, explosão 3×3);
+ *   todos  — todos os inimigos (explosão 5×5, mapa inteiro);
+ *   si     — o próprio; aliado — um aliado (cura).
+ */
+export type Alcance = 'um' | 'varios' | 'area' | 'todos' | 'si' | 'aliado'
+export type Mira = { tipo: Alcance; n: number }
 
-/** A área do tabuleiro vira o número de alvos. */
-export function alcanceDe(s: Skill): Alcance {
-  if (s.cura) return 'aliado'
-  if (s.area === 'si') return 'si'
-  if (s.area === 'mapa' || (s.area === 'explosao' && (s.raio ?? 1) >= 2)) return 'todos'
-  if (s.area === 'alvo') return 'um'
-  return 'leque'
+export function miraDe(s: Skill): Mira {
+  if (s.cura) return { tipo: 'aliado', n: 1 }
+  if (s.area === 'si') return { tipo: 'si', n: 0 }
+  if (s.area === 'mapa' || (s.area === 'explosao' && (s.raio ?? 1) >= 2)) return { tipo: 'todos', n: 0 }
+  if (s.area === 'alvo') return { tipo: 'um', n: 1 }
+  if (s.area === 'volta' || s.area === 'explosao') return { tipo: 'area', n: 3 }
+  // leque e linha à distância: escolhe os alvos livremente
+  return { tipo: 'varios', n: s.area === 'leque' ? 3 : Math.min(3, Math.max(2, s.alcance)) }
+}
+export const alcanceDe = (s: Skill) => miraDe(s).tipo
+export function nomeDaMira(m: Mira) {
+  return m.tipo === 'varios' ? `Até ${m.n} alvos à escolha` : { um: 'Um alvo', area: 'Alvo e vizinhos', todos: 'Todos os inimigos', si: 'Em si', aliado: 'Um aliado', varios: '' }[m.tipo]
 }
 
 /** Golpe de perto (avança até o alvo; a observação avançada revida). */
@@ -71,7 +85,8 @@ export type Estado = {
 }
 
 export type Acao =
-  | { t: 'skill'; id: string; skill: string; alvo: string }
+  /** alvos: o escolhido (um, área, aliado) ou os escolhidos (vários) */
+  | { t: 'skill'; id: string; skill: string; alvos: string[] }
   | { t: 'observar'; id: string; ligado: boolean }
   | { t: 'haki'; id: string; tipo: 'armamento' | 'rei'; ligado: boolean }
   | { t: 'haoshoku'; id: string }
@@ -123,14 +138,14 @@ export function vizinhos(e: Estado, id: string) {
   return [linha[i - 1], linha[i + 1]].filter(Boolean).map((c) => c!.id)
 }
 
-/** Quem é atingido por uma skill mirando `alvo`. */
-export function alvosDe(e: Estado, c: Combatente, s: Skill, alvo: string): string[] {
-  const a = alcanceDe(s)
-  if (a === 'si') return [c.id]
-  if (a === 'aliado') return [alvo]
-  if (a === 'todos') return vivos(e, outro(c.lado)).map((x) => x.id)
-  if (a === 'leque') return [alvo, ...vizinhos(e, alvo)]
-  return [alvo]
+/** Quem é atingido por uma skill com os alvos escolhidos. */
+export function alvosDe(e: Estado, c: Combatente, s: Skill, escolhidos: string[]): string[] {
+  const m = miraDe(s)
+  if (m.tipo === 'si') return [c.id]
+  if (m.tipo === 'todos') return vivos(e, outro(c.lado)).map((x) => x.id)
+  if (m.tipo === 'area') return [escolhidos[0], ...vizinhos(e, escolhidos[0])]
+  if (m.tipo === 'varios') return [...new Set(escolhidos)].slice(0, m.n)
+  return [escolhidos[0]]
 }
 
 /**
@@ -205,10 +220,13 @@ export function motivo(e: Estado, a: Acao): string | null {
   if (!s) return 'Skill inválida.'
   if (c.recargas[s.id]) return `Em recarga (${c.recargas[s.id]}).`
   if (c.energia < s.energia) return 'Energia insuficiente.'
-  const alc = alcanceDe(s)
-  const alvo = alc === 'si' || alc === 'todos' ? null : porId(e, a.alvo)
-  if (alc === 'aliado' && (!alvo || alvo.hp <= 0 || alvo.lado !== c.lado)) return 'Escolha um aliado.'
-  if ((alc === 'um' || alc === 'leque') && (!alvo || alvo.hp <= 0 || alvo.lado === c.lado)) return 'Escolha um inimigo.'
+  const m = miraDe(s)
+  if (m.tipo === 'si' || m.tipo === 'todos') return null
+  const alvos = [...new Set(a.alvos)].map((id) => e.combatentes.find((x) => x.id === id))
+  if (!alvos.length || alvos.some((x) => !x || x.hp <= 0)) return m.tipo === 'aliado' ? 'Escolha um aliado.' : 'Escolha o alvo.'
+  if (m.tipo === 'aliado') return alvos[0]!.lado === c.lado ? null : 'Escolha um aliado.'
+  if (alvos.some((x) => x!.lado === c.lado)) return 'Escolha inimigos.'
+  if (m.tipo === 'varios' && alvos.length > m.n) return `No máximo ${m.n} alvos.`
   return null
 }
 
@@ -265,13 +283,13 @@ export function aplicar(anterior: Estado, a: Acao): { estado: Estado; eventos: E
       if (rei) c.espirito -= REI_IMBUIDO.espirito
       if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
       if (c.espirito < REI_IMBUIDO.espirito) c.reiLigado = false
-      const alvos = alvosDe(e, c, s, a.alvo)
+      const alvos = alvosDe(e, c, s, a.alvos)
       ev.push({ t: 'skill', id: c.id, skill: s.id, nome: s.nome, alvo: { l: 0, c: 0 }, casas: [], armamento, rei })
       if (s.transforma && c.akuma) {
         c.akuma.transformado = s.transforma
         ev.push({ t: 'transformou', id: c.id, vezes: s.transforma })
       } else if (s.cura) {
-        const o = porId(e, a.alvo)
+        const o = porId(e, a.alvos[0])
         const valor = Math.min(s.cura, o.hpMax - o.hp)
         o.hp += valor
         ev.push({ t: 'cura', de: c.id, alvo: o.id, valor })

@@ -5,23 +5,29 @@ import { ESPIRITO_MAX, ENERGIA_MAX, HAOSHOKU, REI_IMBUIDO } from '../tabuleiro/b
 import { recurso } from '../tabuleiro/cena/visualFolhas'
 import { CenaTurnos, type Estilo } from './CenaTurnos'
 import { proximaAcao } from './ia'
-import { Anel, IconeHaki, IconeSkill, corDaSkill } from './icones'
-import { alcanceDe, alvosDe, aplicar, corpoACorpo, criar, fila, NOME_ALCANCE, outro, porId, proximaVez, skillsDe, vivos, vizinhos, type Acao, type Combatente, type Estado, type Ev } from './regras'
+import { IconeHaki, IconeSkill, corDaSkill } from './icones'
+import { alvosDe, aplicar, corpoACorpo, criar, fila, miraDe, motivo, nomeDaMira, porId, proximaVez, skillsDe, vivos, type Acao, type Combatente, type Estado, type Ev } from './regras'
 
 /**
  * Tela de teste do combate por turnos SEM tabuleiro: /teste-turnos
  * Regras do tabuleiro (energia, espírito, recargas, Haki, Logia, frutas),
- * vez individual pela agilidade. Interface no estilo do Honkai com a cara do
- * Grand Seas: o E abre o leque de skills (ícones redondos; a descrição só no
- * hover), o botão grande mostra a escolhida e o Espaço (ou clicar) usa.
+ * vez individual pela agilidade, câmera na diagonal.
+ *
+ * Na vez de um dos nossos: escolhe a skill (botão Skills abre a fileira de
+ * ícones; o ataque básico já vem escolhido), toca nos inimigos para mirar
+ * (as skills de vários alvos deixam escolher quem quiser) e confirma no
+ * botão grande. O Haki liga e desliga nos botões grandes da esquerda.
+ * Feita primeiro para o celular deitado; no PC cresce junto com a tela.
  */
 
 const base = import.meta.env.BASE_URL
 const DOURADO = '#e8c26a'
 const PERGAMINHO = '#f6ead0'
-const MARINHO = 'rgba(12, 20, 34, 0.82)'
+const MARINHO = 'rgba(12, 20, 34, 0.86)'
 /** golpes grandes: entram com o cut-in */
 const GRANDES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca', 'martelada-titanica'])
+/** tela de toque (celular): sem hover — a descrição aparece no quadro da skill */
+const TOQUE = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
 const retrato = (c: Combatente, tam: number, alto = tam): React.CSSProperties => ({
   width: tam,
   height: alto,
@@ -30,9 +36,8 @@ const retrato = (c: Combatente, tam: number, alto = tam): React.CSSProperties =>
   backgroundPosition: `center ${-tam * 0.42}px`,
   imageRendering: 'pixelated',
   backgroundRepeat: 'no-repeat',
+  flex: 'none',
 })
-/** tela de toque (celular): sem hover — tocar numa skill mostra a descrição */
-const TOQUE = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
 const basicaDe = (c: Combatente) => skillsDe(c).find((s) => s.energia === 0 && !s.cura) ?? skillsDe(c)[0]
 
 function estiloDe(c: Combatente, s: Skill, rei: boolean): Estilo {
@@ -49,7 +54,7 @@ function novaBatalha() {
   // teste: o Lutador com a Fruta do Fogo (Hiken, Hotarubi, Enjōmō, Entei)
   const cfg = configPadrao()
   cfg.find((k) => k.id === 'pirata-lutador')!.akuma = 'fogo'
-  // formação: o capitão e o comandante no meio da linha
+  // formação: o capitão e o comandante no meio da fileira
   const ordem = ['pirata-espadachim', 'pirata-lutador', 'pirata-capitao', 'pirata-atiradora', 'pirata-medico', 'marinha-oficial', 'marinha-soldado', 'marinha-almirante', 'marinha-atirador', 'marinha-enfermeira']
   const cs = aplicarConfig(combatentesIniciais(), cfg).sort((a, b) => ordem.indexOf(a.id) - ordem.indexOf(b.id))
   return criar(cs)
@@ -65,11 +70,10 @@ export default function TelaTurnos() {
     est.current = n
     setE(n)
   }, [])
-  const [alvo, setAlvo] = useState('marinha-almirante')
-  const [alvoAliado, setAlvoAliado] = useState('pirata-capitao')
   const [ocupado, setOcupado] = useState(true)
-  const [escolha, setEscolha] = useState<string>('')
-  const [leque, setLeque] = useState(false)
+  const [escolha, setEscolha] = useState('')
+  const [alvos, setAlvos] = useState<string[]>(['marinha-almirante'])
+  const [aberto, setAberto] = useState(false)
   const [dica, setDica] = useState<{ c: Combatente; s: Skill; x: number; y: number } | null>(null)
   const [cutin, setCutin] = useState<{ c: Combatente; nome: string } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
@@ -77,24 +81,20 @@ export default function TelaTurnos() {
   const [rapido, setRapido] = useState(false)
   const [auto, setAuto] = useState(false)
   const fimDaVez = useRef<(() => void) | null>(null)
-  // a interface foi desenhada para 1280×720: em telas menores (celular) encolhe junto
+  const autoRef = useRef(auto)
+  const velRef = useRef(1)
+  // desenhada para 900×420 (celular deitado); cresce no PC, encolhe em telas menores
   const [k, setK] = useState(1)
   const [empe, setEmpe] = useState(false)
   useEffect(() => {
     const medir = () => {
-      setK(Math.min(1, window.innerWidth / 1280, window.innerHeight / 720))
+      setK(Math.max(0.7, Math.min(1.45, window.innerWidth / 900, window.innerHeight / 420)))
       setEmpe(window.innerHeight > window.innerWidth)
     }
     medir()
     window.addEventListener('resize', medir)
     return () => window.removeEventListener('resize', medir)
   }, [])
-  const alvoRef = useRef(alvo)
-  const autoRef = useRef(auto)
-  const velRef = useRef(1)
-  useEffect(() => {
-    alvoRef.current = alvo
-  }, [alvo])
   useEffect(() => {
     autoRef.current = auto
     // ligou o automático na vez de um dos nossos: a IA assume esta vez
@@ -104,10 +104,6 @@ export default function TelaTurnos() {
     velRef.current = rapido ? 2 : 1
     if (cena.current) cena.current.velocidade = velRef.current
   }, [rapido])
-
-  useEffect(() => {
-    if (!leque) setDica(null)
-  }, [leque])
 
   const avisar = useCallback((t: string) => {
     setAviso(t)
@@ -156,9 +152,9 @@ export default function TelaTurnos() {
         await espera(1150)
         setCutin(null)
       }
-      const alvos = alvosDe(antes, ator, s, a.alvo).filter((id) => porId(antes, id).hp > 0)
+      const atingidos = alvosDe(antes, ator, s, a.alvos).filter((id) => porId(antes, id).hp > 0)
       const apanham = new Set(ev.filter((v) => v.t === 'golpe' && v.dano > 0).map((v) => (v as { alvo: string }).alvo))
-      await c.golpe(a.id, alvos, { estilo: estiloDe(ator, s, !!sk?.rei), efeito: efeitoDe(s), corpo: corpoACorpo(s), grande: GRANDES.has(s.id), apanham }, textos)
+      await c.golpe(a.id, atingidos, { estilo: estiloDe(ator, s, !!sk?.rei), efeito: efeitoDe(s), corpo: corpoACorpo(s), grande: GRANDES.has(s.id), apanham }, textos)
     }
     await Promise.all(ev.filter((v) => v.t === 'caiu').map((v) => c.cair((v as { id: string }).id)))
   }, [])
@@ -174,9 +170,6 @@ export default function TelaTurnos() {
       }
       trocar(r.estado)
       await animar(antes, a, r.eventos)
-      // o alvo caiu: a mira passa para outro
-      const ini = vivos(r.estado, 'marinha')
-      if (ini.length && !ini.some((x) => x.id === alvoRef.current)) setAlvo(ini[Math.floor(ini.length / 2)].id)
       return true
     },
     [animar, avisar, trocar],
@@ -210,7 +203,7 @@ export default function TelaTurnos() {
         const atual = porId(est.current, est.current.atual!)
         c.marcarAtual(atual.id)
         setEscolha(basicaDe(atual).id)
-        setLeque(false)
+        setAberto(false)
         if (atual.lado === 'marinha' || autoRef.current) {
           await new Promise((ok) => setTimeout(ok, 450 / velRef.current))
           let n = 0
@@ -239,7 +232,7 @@ export default function TelaTurnos() {
     async (a: Acao) => {
       if (ocupado) return
       setOcupado(true)
-      setLeque(false)
+      setAberto(false)
       setDica(null)
       await executar(a)
       if (!est.current.atual || est.current.vencedor) fimDaVez.current?.()
@@ -252,75 +245,126 @@ export default function TelaTurnos() {
   const minhaVez = !!atual && atual.lado === 'piratas' && !ocupado && !auto
   const skills = atual ? skillsDe(atual) : []
   const skill = skills.find((s) => s.id === escolha) ?? (atual ? basicaDe(atual) : null)
-  const alcance = skill ? alcanceDe(skill) : 'um'
+  const mira = skill ? miraDe(skill) : { tipo: 'um' as const, n: 1 }
 
-  const usarSkill = useCallback(
-    (s: Skill) => {
-      if (!atual) return
-      const al = alcanceDe(s)
-      void jogar({ t: 'skill', id: atual.id, skill: s.id, alvo: al === 'aliado' ? alvoAliado : al === 'si' ? atual.id : alvo })
+  // os alvos escolhidos continuam valendo? (morreram, trocou de skill) — senão, um padrão
+  const ladoAlvo = mira.tipo === 'aliado' ? 'piratas' : 'marinha'
+  const validos = alvos.filter((id) => {
+    const x = e.combatentes.find((c) => c.id === id)
+    return x && x.hp > 0 && x.lado === ladoAlvo
+  })
+  const padrao = (() => {
+    const lista = vivos(e, ladoAlvo)
+    if (!lista.length) return []
+    if (mira.tipo === 'aliado') return [lista.reduce((a, b) => (b.hp / b.hpMax < a.hp / a.hpMax ? b : a)).id]
+    return [lista[Math.floor(lista.length / 2)].id]
+  })()
+  const escolhidos = (validos.length ? validos : padrao).slice(0, mira.tipo === 'varios' ? mira.n : 1)
+  const atingidos = atual && skill && mira.tipo !== 'si' && mira.tipo !== 'aliado' ? alvosDe(e, atual, skill, escolhidos) : []
+  const acao: Acao | null = atual && skill ? { t: 'skill', id: atual.id, skill: skill.id, alvos: escolhidos } : null
+  const problema = acao ? motivo(e, acao) : 'Aguarde.'
+
+  /** Tocou num personagem (na cena ou na barra): mira nele. */
+  const mirar = useCallback(
+    (id: string) => {
+      if (!minhaVez) return
+      const x = est.current.combatentes.find((c) => c.id === id)
+      if (!x || x.hp <= 0 || x.lado !== ladoAlvo) return
+      if (mira.tipo === 'varios') {
+        setAlvos(() => {
+          const atual = escolhidos.includes(id) ? escolhidos.filter((a) => a !== id) : [...escolhidos, id]
+          return atual.slice(-mira.n)
+        })
+      } else setAlvos([id])
     },
-    [atual, alvo, alvoAliado, jogar],
+    [minhaVez, ladoAlvo, mira.tipo, mira.n, escolhidos],
   )
 
-  // teclado: Q básico, E skills, Espaço usa, A/D mira
+  const usar = useCallback(() => {
+    if (!acao || problema) {
+      if (problema) avisar(problema)
+      return
+    }
+    void jogar(acao)
+  }, [acao, problema, avisar, jogar])
+
+  const escolher = (s: Skill) => {
+    setEscolha(s.id)
+    if (TOQUE) setAberto(false)
+  }
+
+  // teclado (PC): Q básico, E skills, Espaço usa, A/D trocam o alvo
   useEffect(() => {
     const tecla = (ev: KeyboardEvent) => {
-      const k = ev.key.toLowerCase()
+      const t = ev.key.toLowerCase()
       if (!atual || atual.lado !== 'piratas') return
-      if (k === 'q') {
-        const b = basicaDe(atual)
-        if (escolha === b.id && !leque) usarSkill(b)
-        setEscolha(b.id)
-        setLeque(false)
+      if (t === 'q') {
+        setEscolha(basicaDe(atual).id)
+        setAberto(false)
       }
-      if (k === 'e') setLeque((v) => !v)
-      if (k === 'escape') setLeque(false)
-      if (k === ' ') {
+      if (t === 'e') setAberto((v) => !v)
+      if (t === 'escape') setAberto(false)
+      if (t === ' ') {
         ev.preventDefault()
-        if (skill) usarSkill(skill)
+        usar()
       }
-      if (k === 'a' || k === 'd' || k === 'arrowleft' || k === 'arrowright') {
-        const dir = k === 'a' || k === 'arrowleft' ? -1 : 1
-        const aliado = alcance === 'aliado'
-        const linha = vivos(est.current, aliado ? 'piratas' : 'marinha')
-        const i = linha.findIndex((x) => x.id === (aliado ? alvoAliado : alvo))
-        const j = Math.max(0, Math.min(linha.length - 1, i + dir))
-        if (linha[j]) (aliado ? setAlvoAliado : setAlvo)(linha[j].id)
+      if (t === 'a' || t === 'd' || t === 'arrowleft' || t === 'arrowright') {
+        const linha = vivos(est.current, ladoAlvo)
+        const i = linha.findIndex((x) => x.id === escolhidos[escolhidos.length - 1])
+        const j = Math.max(0, Math.min(linha.length - 1, i + (t === 'a' || t === 'arrowleft' ? -1 : 1)))
+        if (linha[j]) setAlvos([linha[j].id])
       }
     }
     window.addEventListener('keydown', tecla)
     return () => window.removeEventListener('keydown', tecla)
-  }, [atual, escolha, leque, skill, alcance, alvo, alvoAliado, usarSkill])
+  }, [atual, ladoAlvo, escolhidos, usar])
 
   const nossos = e.combatentes.filter((x) => x.lado === 'piratas')
   const inimigos = e.combatentes.filter((x) => x.lado === 'marinha')
-  const naMira = new Set(!skill || !atual || alcance === 'si' || alcance === 'aliado' ? [] : alcance === 'todos' ? vivos(e, outro(atual.lado)).map((x) => x.id) : alcance === 'leque' ? [alvo, ...vizinhos(e, alvo)] : [alvo])
-  const proximos = vivos(e).length ? fila(e, 8) : []
-  const alvoC = porId(e, alvo)
-  const podeSkill = (s: Skill) => !!atual && minhaVez && !atual.recargas[s.id] && atual.energia >= s.energia
-  const outras = atual ? skills.filter((s) => s.id !== basicaDe(atual).id) : []
+  const proximos = vivos(e).length ? fila(e, 9) : []
+  const podeSkill = (s: Skill) => !!atual && !atual.recargas[s.id] && atual.energia >= s.energia
+  const instrucao = !minhaVez
+    ? ''
+    : mira.tipo === 'varios'
+      ? `Toque nos inimigos: ${escolhidos.length} de ${mira.n}`
+      : mira.tipo === 'um' || mira.tipo === 'area'
+        ? `Alvo: ${porId(e, escolhidos[0] ?? '')?.nome ?? '—'} (toque para trocar)`
+        : mira.tipo === 'aliado'
+          ? `Cura: ${porId(e, escolhidos[0] ?? '')?.nome ?? '—'} (toque num aliado)`
+          : mira.tipo === 'todos'
+            ? 'Atinge todos os inimigos'
+            : 'Em si mesmo'
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#0b1220', overflow: 'hidden', userSelect: 'none', font: '14px Georgia, serif', color: PERGAMINHO }}>
-      <canvas ref={tela} style={{ width: '100%', height: '100%', display: 'block' }} />
+    <div style={{ position: 'fixed', inset: 0, background: '#0b1220', overflow: 'hidden', userSelect: 'none', WebkitUserSelect: 'none', font: '14px Georgia, serif', color: PERGAMINHO, touchAction: 'manipulation' }}>
+      <canvas
+        ref={tela}
+        style={{ width: '100%', height: '100%', display: 'block' }}
+        onClick={(ev) => {
+          const r = (ev.currentTarget as HTMLCanvasElement).getBoundingClientRect()
+          const id = cena.current?.pegar(ev.clientX - r.left, ev.clientY - r.top)
+          if (id) mirar(id)
+          setAberto(false)
+        }}
+      />
 
-      {/* camada que segue os inimigos: estado, vida e mira */}
+      {/* sobre os inimigos: só a vida; a mira em quem será atingido */}
       <div ref={camada} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {inimigos
+        {[...inimigos, ...nossos]
           .filter((u) => u.hp > 0)
           .map((u) => (
             <div key={u.id}>
-              <div data-segue={u.id} data-altura="1.06" style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', cursor: 'pointer' }} onClick={() => setAlvo(u.id)}>
-                <div style={{ zoom: k, transform: 'translate(-50%, -100%)', width: u.id === 'marinha-almirante' ? 110 : 80 }}>
-                  <Estados c={u} />
-                  <Barra v={u.hp / u.hpMax} cor="#d9483b" alt={5} />
+              {u.lado === 'marinha' && (
+                <div data-segue={u.id} data-altura="1.05" style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto' }} onClick={() => mirar(u.id)}>
+                  <div style={{ transform: `translate(-50%, -100%) scale(${k})`, transformOrigin: '50% 100%', width: u.id === 'marinha-almirante' ? 84 : 64, padding: '6px 0' }}>
+                    <Barra v={u.hp / u.hpMax} cor="#d9483b" alt={5} />
+                  </div>
                 </div>
-              </div>
-              {naMira.has(u.id) && minhaVez && (
+              )}
+              {minhaVez && (atingidos.includes(u.id) || (mira.tipo === 'aliado' && escolhidos.includes(u.id))) && (
                 <div data-segue={u.id} data-altura="0.5" style={{ position: 'absolute', left: 0, top: 0 }}>
-                  <div style={{ zoom: Math.max(0.6, k) }}>
-                    <Mira principal={u.id === alvo} />
+                  <div style={{ transform: `scale(${k})`, transformOrigin: '0 0' }}>
+                    <Mira principal={escolhidos.includes(u.id)} cura={mira.tipo === 'aliado'} />
                   </div>
                 </div>
               )}
@@ -328,205 +372,163 @@ export default function TelaTurnos() {
           ))}
       </div>
 
-      {/* fila de ação (pela agilidade) */}
-      <div style={{ zoom: k, position: 'absolute', left: 14, top: 14, display: 'flex', flexDirection: 'column', gap: 5, paddingLeft: 10, borderLeft: '1px solid rgba(232,194,106,0.35)' }}>
+      {/* fila de ação (pela agilidade), no alto à esquerda */}
+      <div style={{ transform: `scale(${k})`, transformOrigin: 'top left', position: 'absolute', left: 8, top: 8, display: 'flex', alignItems: 'flex-end', gap: 4, ...painel, padding: '4px 6px' }}>
         {proximos.map((id, i) => {
           const u = porId(e, id)
           const nosso = u.lado === 'piratas'
-          const w = i === 0 ? 92 : 74
-          return (
-            <div key={i} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              {i === 0 && <span style={{ position: 'absolute', left: -19, color: DOURADO, fontSize: 12 }}>▶</span>}
-              <span style={{ position: 'absolute', left: -14, width: 7, height: 7, borderRadius: 4, background: nosso ? '#5ad1c4' : '#d9483b' }} />
-              <div style={{ ...retrato(u, w, i === 0 ? 50 : 38), backgroundColor: nosso ? 'rgba(30,48,70,0.85)' : 'rgba(70,24,24,0.8)', border: `1px solid ${i === 0 ? DOURADO : 'rgba(232,194,106,0.3)'}`, borderRadius: '4px 12px 4px 4px', boxShadow: i === 0 ? '0 0 10px rgba(232,194,106,0.5)' : undefined }} />
-            </div>
-          )
+          const t = i === 0 ? 42 : 32
+          return <div key={i} title={u.nome} style={{ ...retrato(u, t), borderRadius: 6, backgroundColor: nosso ? 'rgba(40,70,90,0.9)' : 'rgba(80,28,28,0.9)', borderBottom: `3px solid ${nosso ? '#5ad1c4' : '#d9483b'}`, outline: i === 0 ? `2px solid ${DOURADO}` : undefined }} />
         })}
       </div>
 
-      {/* alvo e controles (no alto) */}
-      <div style={{ zoom: k, position: 'absolute', right: 14, top: 14, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        {alvoC && alvoC.hp > 0 && (
-          <div style={{ ...painel, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px 4px 4px' }}>
-            <div style={{ ...retrato(alvoC, 34), borderRadius: 17, backgroundColor: 'rgba(70,24,24,0.8)' }} />
-            <div>
-              <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 16, fontWeight: 700 }}>{alvoC.nome} ▸</div>
-              <div style={{ fontSize: 11, opacity: 0.85 }}>
-                {alvoC.hp}/{alvoC.hpMax}
-                {alvoC.akuma && ` · ${FRUTAS[alvoC.akuma.fruta].nome}`}
-                {alvoC.logia && ` · Logia ${alvoC.logia.cargas}/${alvoC.logia.max}`}
-                {alvoC.haki.armamento && ` · Armamento ${alvoC.haki.armamento.usos}`}
-                {alvoC.haki.observacao && ` · Observação ${alvoC.haki.observacao.usos}`}
-                {alvoC.haki.rei && ' · Rei'}
-              </div>
-            </div>
+      {/* velocidade e automático */}
+      <div style={{ transform: `scale(${k})`, transformOrigin: 'top right', position: 'absolute', right: 8, top: 8, display: 'flex', gap: 6 }}>
+        <BotaoTopo ativo={rapido} onClick={() => setRapido((v) => !v)}>2×</BotaoTopo>
+        <BotaoTopo ativo={auto} onClick={() => setAuto((v) => !v)}>AUTO</BotaoTopo>
+      </div>
+
+      {/* tripulação (embaixo, à esquerda) e, na vez de um deles, o Haki em cima */}
+      <div style={{ transform: `scale(${k})`, transformOrigin: 'bottom left', position: 'absolute', left: 8, bottom: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+        {atual && atual.lado === 'piratas' && !auto && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {atual.haki.armamento && (
+              <BotaoHaki tipo="armamento" nome="Armamento" ligado={atual.armamentoLigado} conta={`${atual.haki.armamento.usos}`} apagado={!minhaVez} onClick={() => void jogar({ t: 'haki', id: atual.id, tipo: 'armamento', ligado: !atual.armamentoLigado })} />
+            )}
+            {atual.haki.rei && atual.haki.armamento?.avancado && (
+              <BotaoHaki tipo="rei" nome="Rei imbuído" ligado={atual.reiLigado} conta={`${REI_IMBUIDO.espirito}✦`} apagado={!minhaVez || (!atual.reiLigado && atual.espirito < REI_IMBUIDO.espirito)} onClick={() => void jogar({ t: 'haki', id: atual.id, tipo: 'rei', ligado: !atual.reiLigado })} />
+            )}
+            {atual.haki.observacao && (
+              <BotaoHaki tipo="observacao" nome="Observação" ligado={atual.observando} conta={`${atual.haki.observacao.usos}`} apagado={!minhaVez} onClick={() => void jogar({ t: 'observar', id: atual.id, ligado: !atual.observando })} />
+            )}
+            {atual.haki.rei && (
+              <BotaoHaki tipo="haoshoku" nome="Haki do Rei" ligado={false} conta={`${HAOSHOKU.espirito}✦`} apagado={!minhaVez || atual.espirito < HAOSHOKU.espirito} onClick={() => void jogar({ t: 'haoshoku', id: atual.id })} />
+            )}
           </div>
         )}
-        <div style={{ ...painel, display: 'flex', gap: 2, padding: 3 }}>
-          <BotaoTopo ativo={rapido} onClick={() => setRapido((v) => !v)} titulo="Velocidade 2×">
-            ▶▶
-          </BotaoTopo>
-          <BotaoTopo ativo={auto} onClick={() => setAuto((v) => !v)} titulo="Batalha automática">
-            AUTO
-          </BotaoTopo>
-        </div>
-      </div>
-
-      {/* tripulação (embaixo, à esquerda): vida, energia e espírito */}
-      <div style={{ zoom: k, position: 'absolute', left: 16, bottom: TOQUE ? 12 : 44, display: 'flex', gap: 10 }}>
-        {nossos.map((u) => {
-          const daVez = atual?.id === u.id
-          const mirado = alcance === 'aliado' && alvoAliado === u.id && minhaVez
-          return (
-            <div
-              key={u.id}
-              onClick={() => alcance === 'aliado' && u.hp > 0 && setAlvoAliado(u.id)}
-              style={{ width: 112, opacity: u.hp > 0 ? 1 : 0.35, transform: daVez ? 'translateY(-10px)' : undefined, transition: 'transform 0.2s', cursor: alcance === 'aliado' ? 'pointer' : 'default' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                <div style={{ ...retrato(u, 58), borderRadius: '6px 6px 0 0', backgroundColor: daVez ? 'rgba(232,194,106,0.28)' : 'rgba(20,32,50,0.8)', borderBottom: `2px solid ${daVez ? DOURADO : 'transparent'}`, boxShadow: mirado ? '0 0 0 2px #6dff9a, 0 0 14px #6dff9a' : daVez ? '0 0 12px rgba(232,194,106,0.6)' : undefined }} />
-                <div title="Espírito" style={{ marginBottom: 2 }}>
-                  <Anel v={u.espirito / ESPIRITO_MAX} tam={30} cor="#b77bff" grossura={3}>
-                    <span style={{ fontSize: 9 }}>{Math.round(u.espirito)}</span>
-                  </Anel>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {nossos.map((u) => {
+            const daVez = atual?.id === u.id
+            const curando = mira.tipo === 'aliado' && minhaVez
+            return (
+              <div
+                key={u.id}
+                onClick={() => curando && mirar(u.id)}
+                style={{ ...painel, width: 92, padding: 4, opacity: u.hp > 0 ? 1 : 0.35, borderColor: daVez ? DOURADO : curando && escolhidos.includes(u.id) ? '#6dff9a' : 'rgba(232,194,106,0.3)', boxShadow: daVez ? '0 0 10px rgba(232,194,106,0.55)' : undefined, transform: daVez ? 'translateY(-6px)' : undefined, transition: 'transform 0.2s', cursor: curando ? 'pointer' : 'default' }}
+              >
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <div style={{ ...retrato(u, 30), borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nome}</div>
+                    <Selos c={u} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 2 }}>
+                  <span style={{ color: '#7fe8cf' }}>{u.hp}</span>
+                  <span style={{ opacity: 0.6 }}>/{u.hpMax}</span>
+                </div>
+                <Barra v={u.hp / u.hpMax} cor="#4fd1b5" alt={4} />
+                <div style={{ display: 'flex', gap: 2, marginTop: 2 }}>
+                  <div style={{ flex: 1 }} title="Energia">
+                    <Barra v={u.energia / ENERGIA_MAX} cor="#5ab4e8" alt={3} />
+                  </div>
+                  <div style={{ flex: 1 }} title="Espírito">
+                    <Barra v={u.espirito / ESPIRITO_MAX} cor="#b77bff" alt={3} />
+                  </div>
                 </div>
               </div>
-              <div style={{ marginTop: 3 }}>
-                <Barra v={u.hp / u.hpMax} cor="#4fd1b5" alt={5} />
-                <div style={{ height: 2 }} />
-                <Barra v={u.energia / ENERGIA_MAX} cor="#5ab4e8" alt={3} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 1 }}>
-                <span style={{ fontFamily: 'Cinzel, Georgia, serif' }}>{u.nome}</span>
-                <span>{u.hp}</span>
-              </div>
-              <Estados c={u} />
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {/* ações (embaixo, à direita) */}
       {atual && atual.lado === 'piratas' && skill && !auto && (
-        <div style={{ zoom: k, position: 'absolute', right: TOQUE ? 24 : 52, bottom: TOQUE ? 16 : 50, width: 360, height: 270 }}>
-          {/* leque de skills em volta do botão grande */}
-          {leque &&
-            outras.map((s, i) => {
-              const n = outras.length
-              const passo = n > 5 ? 26 : 32
-              const ang = (238 + (i - (n - 1) / 2) * passo) * (Math.PI / 180)
-              const x = 285 + Math.cos(ang) * 158 - 27
-              const y = 190 + Math.sin(ang) * 158 - 27
-              const pode = podeSkill(s)
-              const rec = atual.recargas[s.id]
-              return (
-                <div key={s.id} style={{ position: 'absolute', left: x, top: y, animation: 'gs-surge 0.18s ease-out', textAlign: 'center' }}>
-                  <BotaoRedondo tam={54} marcado={escolha === s.id} apagado={!pode} onClick={(p) => {
-                      if (escolha === s.id && pode) return usarSkill(s)
-                      setEscolha(s.id)
-                      // sem hover no celular: tocar mostra a descrição; tocar de novo usa
-                      if (TOQUE && p) setDica({ c: atual, s, ...p })
-                    }} onHover={TOQUE ? undefined : (p) => setDica(p ? { c: atual, s, ...p } : null)}>
-                    <IconeSkill s={s} arma={atual.arma} tam={27} />
-                    {rec ? <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700 }}>{rec}</span> : null}
-                  </BotaoRedondo>
-                  <div style={{ fontSize: 10, marginTop: 1, color: atual.energia >= s.energia ? '#8fd0ff' : '#ff8a7a' }}>{s.energia}</div>
-                </div>
-              )
-            })}
-          {/* Haki: ligar/desligar (não gasta a vez) */}
-          <div style={{ position: 'absolute', left: 0, top: 222, display: 'flex', gap: 6 }}>
-            {atual.haki.armamento && (
-              <BotaoHaki tipo="armamento" ligado={atual.armamentoLigado} conta={atual.haki.armamento.usos} titulo={`Haki de armamento${atual.haki.armamento.avancado ? ' (avançado)' : ''}: usos ${atual.haki.armamento.usos}/${atual.haki.armamento.max}. Cada golpe com ele gasta 1.`} onClick={() => void jogar({ t: 'haki', id: atual.id, tipo: 'armamento', ligado: !atual.armamentoLigado })} />
-            )}
-            {atual.haki.rei && atual.haki.armamento?.avancado && (
-              <BotaoHaki tipo="rei" ligado={atual.reiLigado} titulo={`Haki do Rei imbuído: ${REI_IMBUIDO.espirito} de espírito por golpe, mais dano e pode atordoar.`} onClick={() => void jogar({ t: 'haki', id: atual.id, tipo: 'rei', ligado: !atual.reiLigado })} />
-            )}
-            {atual.haki.observacao && (
-              <BotaoHaki tipo="observacao" ligado={atual.observando} conta={atual.haki.observacao.usos} titulo={`Haki de observação${atual.haki.observacao.avancado ? ' (avançado: revida golpes de perto)' : ''}: usos ${atual.haki.observacao.usos}. Gasta 1 quando é atacado.`} onClick={() => void jogar({ t: 'observar', id: atual.id, ligado: !atual.observando })} />
-            )}
-            {atual.haki.rei && (
-              <BotaoHaki tipo="haoshoku" ligado={false} apagado={atual.espirito < HAOSHOKU.espirito} titulo={`Haki do Rei em área: ${HAOSHOKU.espirito} de espírito; pode atordoar todos os inimigos mais fracos (não gasta a vez).`} onClick={() => void jogar({ t: 'haoshoku', id: atual.id })} />
-            )}
-            <button onClick={() => void jogar({ t: 'passar' })} disabled={!minhaVez} style={{ alignSelf: 'center', marginLeft: 4, background: 'transparent', border: '1px solid rgba(232,194,106,0.5)', color: PERGAMINHO, borderRadius: 12, padding: '3px 10px', font: '11px Georgia, serif', cursor: 'pointer' }}>
+        <div style={{ transform: `scale(${k})`, transformOrigin: 'bottom right', position: 'absolute', right: 8, bottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, maxWidth: 400 }}>
+          {/* quadro da skill escolhida: nome, alvos e (no celular) a descrição */}
+          <div style={{ ...painel, padding: '6px 10px', maxWidth: 300, textAlign: 'right' }}>
+            <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 16, fontWeight: 700, color: corDaSkill(skill, atual.arma) }}>{skill.nome}</div>
+            <div style={{ fontSize: 11, color: DOURADO }}>
+              {nomeDaMira(mira)} · {skill.energia ? `${skill.energia} de energia` : 'sem custo'}
+              {skill.recarga ? ` · recarga ${skill.recarga}` : ''}
+              {skill.livre ? ' · não gasta a vez' : ''}
+            </div>
+            {TOQUE && <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2, lineHeight: 1.35 }}>{skill.descricao}</div>}
+            <div style={{ fontSize: 12, marginTop: 3, color: '#ffb07a' }}>{instrucao}</div>
+          </div>
+          {/* fileira de skills (abre no botão Skills) */}
+          {aberto && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', ...painel, padding: 6, animation: 'gs-surge 0.15s ease-out' }}>
+              {skills.map((s) => {
+                const rec = atual.recargas[s.id]
+                return (
+                  <div key={s.id} style={{ textAlign: 'center', width: 52 }}>
+                    <BotaoRedondo tam={48} marcado={escolha === s.id} apagado={!podeSkill(s)} onClick={() => escolher(s)} onHover={TOQUE ? undefined : (p) => setDica(p ? { c: atual, s, ...p } : null)}>
+                      <IconeSkill s={s} arma={atual.arma} tam={24} />
+                      {rec ? <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700 }}>{rec}</span> : null}
+                    </BotaoRedondo>
+                    <div style={{ fontSize: 10, marginTop: 1, color: atual.energia >= s.energia ? '#8fd0ff' : '#ff8a7a' }}>{s.energia || '—'}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => void jogar({ t: 'passar' })} disabled={!minhaVez} style={{ ...painel, color: PERGAMINHO, height: 36, padding: '0 12px', font: '13px Georgia, serif', opacity: minhaVez ? 1 : 0.5 }}>
               Passar
             </button>
-          </div>
-          {/* botão das skills (E) */}
-          <div style={{ position: 'absolute', left: 318, top: 96, textAlign: 'center' }}>
-            <BotaoRedondo tam={56} tecla="E" marcado={leque || escolha !== basicaDe(atual).id} onClick={() => setLeque((v) => !v)}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={DOURADO} strokeWidth="1.8">
-                <circle cx="6" cy="6" r="3" />
-                <circle cx="18" cy="6" r="3" />
-                <circle cx="6" cy="18" r="3" />
-                <circle cx="18" cy="18" r="3" />
-              </svg>
-            </BotaoRedondo>
-            <div style={{ fontSize: 10, marginTop: 2, color: DOURADO }}>Skills</div>
-          </div>
-          {/* botão grande: a skill escolhida; clicar (ou Espaço) usa */}
-          <div style={{ position: 'absolute', left: 225, top: 130 }}>
-            <BotaoRedondo tam={118} tecla={skill.id === basicaDe(atual).id ? 'Q' : undefined} marcado={minhaVez} apagado={!podeSkill(skill)} grande onClick={() => usarSkill(skill)} onHover={TOQUE ? undefined : (p) => setDica(p ? { c: atual, s: skill, ...p } : null)}>
-              <IconeSkill s={skill} arma={atual.arma} tam={58} />
-            </BotaoRedondo>
-            <div style={{ position: 'absolute', left: '50%', bottom: -8, transform: 'translateX(-50%)', whiteSpace: 'nowrap', background: '#1b1409', border: `1px solid ${DOURADO}`, borderRadius: 10, padding: '1px 10px', fontSize: 11 }}>{NOME_ALCANCE[alcance]}</div>
-          </div>
-          {/* nome da skill, energia e espírito de quem está na vez (some com o leque aberto) */}
-          <div style={{ position: 'absolute', right: 150, top: 168, opacity: leque ? 0 : 1, transition: 'opacity 0.15s', textAlign: 'right', textShadow: '0 2px 4px #000', whiteSpace: 'nowrap' }}>
-            <div style={{ fontSize: 11, color: DOURADO }}>
-              {atual.nome} · {skill.energia ? `${skill.energia} de energia` : 'sem custo'}
-              {skill.recarga ? ` · recarga ${skill.recarga}` : ''}
+            <div style={{ textAlign: 'center' }}>
+              <BotaoRedondo tam={58} marcado={aberto} onClick={() => setAberto((v) => !v)}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={DOURADO} strokeWidth="1.8">
+                  <circle cx="6" cy="6" r="3" />
+                  <circle cx="18" cy="6" r="3" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="18" r="3" />
+                </svg>
+              </BotaoRedondo>
+              <div style={{ fontSize: 11, color: DOURADO }}>Skills</div>
             </div>
-            <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 20, fontWeight: 700, color: corDaSkill(skill, atual.arma) }}>{skill.nome}</div>
-            <div style={{ fontSize: 11, opacity: 0.85 }}>
-              <span style={{ color: '#8fd0ff' }}>Energia {Math.round(atual.energia)}</span> · <span style={{ color: '#c9a2ff' }}>Espírito {Math.round(atual.espirito)}</span>
+            <div style={{ textAlign: 'center' }}>
+              <BotaoRedondo tam={84} marcado={minhaVez && !problema} apagado={!minhaVez || !!problema} grande onClick={usar} onHover={TOQUE ? undefined : (p) => setDica(p ? { c: atual, s: skill, ...p } : null)}>
+                <IconeSkill s={skill} arma={atual.arma} tam={40} />
+              </BotaoRedondo>
+              <div style={{ fontSize: 12, fontWeight: 700, color: DOURADO, marginTop: 2 }}>Usar</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* descrição só no hover */}
-      {dica && (
-        <div style={{ zoom: k, position: 'fixed', left: Math.max(8, dica.x - 300 * k) / k, top: Math.max(8, dica.y - 50 * k) / k, width: 270, ...painel, padding: '10px 12px', pointerEvents: 'none', zIndex: 5 }}>
+      {/* descrição no hover (PC) */}
+      {dica && !TOQUE && (
+        <div style={{ position: 'fixed', left: Math.max(8, dica.x - 290), top: Math.max(8, dica.y - 60), width: 270, ...painel, padding: '10px 12px', pointerEvents: 'none', zIndex: 5 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <IconeSkill s={dica.s} arma={dica.c.arma} tam={20} />
             <span style={{ fontFamily: 'Cinzel, Georgia, serif', fontWeight: 700, fontSize: 15 }}>{dica.s.nome}</span>
           </div>
           <div style={{ fontSize: 11, color: DOURADO, margin: '4px 0' }}>
-            {NOME_ALCANCE[alcanceDe(dica.s)]} · {dica.s.energia ? `${dica.s.energia} de energia` : 'sem custo'}
+            {nomeDaMira(miraDe(dica.s))} · {dica.s.energia ? `${dica.s.energia} de energia` : 'sem custo'}
             {dica.s.recarga ? ` · recarga ${dica.s.recarga}` : ''}
             {dica.s.mult > 0 && ` · ×${dica.s.mult}${dica.s.golpes ? ` × ${dica.s.golpes} golpes` : ''}`}
-            {dica.s.livre && ' · não gasta a vez'}
           </div>
           <div style={{ fontSize: 12, lineHeight: 1.4 }}>{dica.s.descricao}</div>
         </div>
       )}
 
-      {aviso && <div style={{ position: 'absolute', left: '50%', bottom: 190, transform: 'translateX(-50%)', ...painel, padding: '6px 14px', fontSize: 13 }}>{aviso}</div>}
-
-      {/* faixa de teclas (não no celular) */}
-      {!TOQUE && <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 30, background: 'linear-gradient(0deg, rgba(8,12,20,0.95), rgba(8,12,20,0.6))', borderTop: '1px solid rgba(232,194,106,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 22, paddingRight: 24, fontSize: 12 }}>
-        <span style={{ marginRight: 'auto', marginLeft: 16, opacity: 0.5, fontSize: 11 }}>Grand Seas · combate por turnos (regras do tabuleiro, sem casas)</span>
-        <Tecla t="A" /> Mira ←
-        <Tecla t="D" /> Mira →
-        <Tecla t="Q" /> Ataque
-        <Tecla t="E" /> Skills
-        <Tecla t="Espaço" /> Usar
-      </div>}
+      {aviso && <div style={{ position: 'absolute', left: '50%', top: 60 * k, transform: `translateX(-50%) scale(${k})`, transformOrigin: 'top center', ...painel, padding: '6px 14px', fontSize: 13, whiteSpace: 'nowrap' }}>{aviso}</div>}
 
       {cutin && (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', animation: 'gs-cutin 1.15s ease-out' }}>
           <div style={{ position: 'absolute', left: 0, right: 0, top: '30%', height: '40%', background: 'linear-gradient(100deg, rgba(10,14,26,0.94) 0%, rgba(30,50,80,0.88) 45%, rgba(232,194,106,0.55) 100%)', transform: 'skewY(-6deg)', borderTop: `2px solid ${DOURADO}`, borderBottom: `2px solid ${DOURADO}` }} />
-          <div style={{ position: 'relative', marginLeft: '12%', ...retrato(cutin.c, 260), backgroundPosition: 'center -100px', filter: 'drop-shadow(0 0 18px #ffb347)' }} />
-          <div style={{ position: 'relative', marginLeft: 24 }}>
-            <div style={{ fontSize: 18, opacity: 0.85 }}>{cutin.c.nome}</div>
-            <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 54, fontWeight: 900, letterSpacing: 2, textShadow: '0 4px 0 #000, 0 0 20px #ff7a2e' }}>{cutin.nome}</div>
+          <div style={{ position: 'relative', marginLeft: '10%', ...retrato(cutin.c, 200 * k), filter: 'drop-shadow(0 0 18px #ffb347)' }} />
+          <div style={{ position: 'relative', marginLeft: 20, transform: `scale(${k})`, transformOrigin: 'left center' }}>
+            <div style={{ fontSize: 16, opacity: 0.85 }}>{cutin.c.nome}</div>
+            <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 40, fontWeight: 900, letterSpacing: 2, textShadow: '0 4px 0 #000, 0 0 20px #ff7a2e' }}>{cutin.nome}</div>
           </div>
         </div>
       )}
 
       {empe && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(5,8,14,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 24, zIndex: 10 }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(5,8,14,0.94)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 24, zIndex: 10 }}>
           <div style={{ fontSize: 44 }}>⟲</div>
           <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 22 }}>Vire o celular</div>
           <div style={{ opacity: 0.8 }}>A batalha é jogada com a tela deitada.</div>
@@ -535,15 +537,15 @@ export default function TelaTurnos() {
 
       {e.vencedor && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(5,8,14,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 50, fontWeight: 900 }}>{e.vencedor === 'piratas' ? 'Vitória!' : 'Derrota'}</div>
-          <button onClick={() => setJogo((j) => j + 1)} style={{ font: '18px Georgia, serif', padding: '8px 20px', borderRadius: 8, border: `2px solid ${DOURADO}`, background: '#1b1409', color: PERGAMINHO, cursor: 'pointer' }}>
+          <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 46, fontWeight: 900 }}>{e.vencedor === 'piratas' ? 'Vitória!' : 'Derrota'}</div>
+          <button onClick={() => setJogo((j) => j + 1)} style={{ font: '18px Georgia, serif', padding: '10px 22px', borderRadius: 8, border: `2px solid ${DOURADO}`, background: '#1b1409', color: PERGAMINHO, cursor: 'pointer' }}>
             Lutar de novo
           </button>
         </div>
       )}
       <style>{`
         @keyframes gs-cutin { 0% { opacity: 0; transform: translateX(-60px) } 15% { opacity: 1; transform: none } 85% { opacity: 1 } 100% { opacity: 0; transform: translateX(40px) } }
-        @keyframes gs-surge { from { opacity: 0; transform: scale(0.6) } to { opacity: 1; transform: none } }
+        @keyframes gs-surge { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
         @keyframes gs-gira { to { transform: rotate(360deg) } }
       `}</style>
     </div>
@@ -552,21 +554,20 @@ export default function TelaTurnos() {
 
 const painel: React.CSSProperties = { background: MARINHO, border: '1px solid rgba(232,194,106,0.45)', borderRadius: 8, boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }
 
-/** Ícones pequenos do que está valendo no personagem (Haki ligado, Logia, efeitos). */
-function Estados({ c }: { c: Combatente }) {
+/** Selos do que está valendo no tripulante (Haki ligado, Logia, efeitos). */
+function Selos({ c }: { c: Combatente }) {
   const itens: [string, React.ReactNode][] = []
-  if (c.armamentoLigado) itens.push(['Armamento ligado', <IconeHaki key="a" tipo="armamento" tam={12} cor="#cfd6e0" />])
-  if (c.reiLigado) itens.push(['Rei imbuído', <IconeHaki key="r" tipo="rei" tam={12} cor="#d07bff" />])
-  if (c.observando) itens.push(['Observação ligada', <IconeHaki key="o" tipo="observacao" tam={12} cor="#7fe3ff" />])
+  if (c.armamentoLigado) itens.push(['Armamento ligado', <IconeHaki key="a" tipo="armamento" tam={11} cor="#e6e9ef" />])
+  if (c.reiLigado) itens.push(['Rei imbuído', <IconeHaki key="r" tipo="rei" tam={11} cor="#d07bff" />])
+  if (c.observando) itens.push(['Observação ligada', <IconeHaki key="o" tipo="observacao" tam={11} cor="#7fe3ff" />])
   if (c.logia && c.logia.cargas > 0) itens.push([`Logia: ${c.logia.cargas} cargas`, <span key="l" style={{ fontSize: 9, color: DOURADO }}>L{c.logia.cargas}</span>])
-  if (c.atordoado) itens.push(['Atordoado: perde a próxima vez', <span key="t" style={{ fontSize: 9, color: '#d07bff' }}>✶</span>])
+  if (c.atordoado) itens.push(['Atordoado', <span key="t" style={{ fontSize: 9, color: '#d07bff' }}>✶</span>])
   if (c.queimadura) itens.push(['Queimando', <span key="q" style={{ fontSize: 9, color: '#ff8a3a' }}>♨</span>])
-  if (c.akuma?.transformado) itens.push([`Transformado (${c.akuma.transformado})`, <span key="z" style={{ fontSize: 9, color: DOURADO }}>▲{c.akuma.transformado}</span>])
-  if (!itens.length) return <div style={{ height: 14 }} />
+  if (c.akuma?.transformado) itens.push([`Transformado (${c.akuma.transformado})`, <span key="z" style={{ fontSize: 9, color: DOURADO }}>▲</span>])
   return (
-    <div style={{ display: 'flex', gap: 3, justifyContent: 'center', height: 14, marginBottom: 2 }}>
+    <div style={{ display: 'flex', gap: 2, height: 12 }}>
       {itens.map(([t, n]) => (
-        <span key={t} title={t} style={{ width: 14, height: 14, borderRadius: 7, background: 'rgba(8,12,20,0.85)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span key={t} title={t} style={{ display: 'inline-flex', alignItems: 'center' }}>
           {n}
         </span>
       ))}
@@ -576,35 +577,33 @@ function Estados({ c }: { c: Combatente }) {
 
 function Barra({ v, cor, alt }: { v: number; cor: string; alt: number }) {
   return (
-    <div style={{ height: alt, background: 'rgba(0,0,0,0.6)', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.7)' }}>
+    <div style={{ height: alt, background: 'rgba(0,0,0,0.6)', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.7)', borderRadius: 2 }}>
       <div style={{ width: `${Math.max(0, Math.min(1, v)) * 100}%`, height: '100%', background: cor, transition: 'width 0.35s' }} />
     </div>
   )
 }
 
-function Mira({ principal }: { principal: boolean }) {
-  const t = principal ? 64 : 44
+function Mira({ principal, cura }: { principal: boolean; cura: boolean }) {
+  const t = principal ? 62 : 46
+  const c = cura ? '#6dff9a' : '#ff7a3a'
   return (
-    <svg width={t} height={t} viewBox="0 0 64 64" style={{ transform: 'translate(-50%, -50%)', filter: 'drop-shadow(0 0 6px rgba(255,110,40,0.8))' }}>
+    <svg width={t} height={t} viewBox="0 0 64 64" style={{ transform: 'translate(-50%, -50%)', filter: `drop-shadow(0 0 6px ${c})` }}>
       <g style={{ transformOrigin: '32px 32px', animation: 'gs-gira 6s linear infinite' }}>
-        <circle cx="32" cy="32" r="24" fill="none" stroke="#ff7a3a" strokeWidth="3" strokeDasharray="30 8" />
+        <circle cx="32" cy="32" r="24" fill="none" stroke={c} strokeWidth="3" strokeDasharray="30 8" />
         {[0, 120, 240].map((a) => (
-          <path key={a} d="M32 2 L28 9 L36 9 Z" fill="#ffb07a" transform={`rotate(${a} 32 32)`} />
+          <path key={a} d="M32 2 L28 9 L36 9 Z" fill={c} transform={`rotate(${a} 32 32)`} />
         ))}
       </g>
-      <circle cx="32" cy="32" r="12" fill="rgba(255,120,60,0.25)" stroke="#ffd0b0" strokeWidth="2" />
+      {principal && <circle cx="32" cy="32" r="11" fill="none" stroke="#fff" strokeOpacity="0.8" strokeWidth="2" />}
       <circle cx="32" cy="32" r="3" fill="#fff" />
     </svg>
   )
 }
 
-function BotaoRedondo({ tam, tecla, marcado, apagado, grande, onClick, onHover, children }: { tam: number; tecla?: string; marcado?: boolean; apagado?: boolean; grande?: boolean; onClick: (p?: { x: number; y: number }) => void; onHover?: (p: { x: number; y: number } | null) => void; children: React.ReactNode }) {
+function BotaoRedondo({ tam, marcado, apagado, grande, onClick, onHover, children }: { tam: number; marcado?: boolean; apagado?: boolean; grande?: boolean; onClick: () => void; onHover?: (p: { x: number; y: number } | null) => void; children: React.ReactNode }) {
   return (
     <div
-      onClick={(ev) => {
-        const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
-        onClick({ x: r.left, y: r.top + r.height / 2 })
-      }}
+      onClick={onClick}
       onMouseEnter={(ev) => {
         const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
         onHover?.({ x: r.left, y: r.top + r.height / 2 })
@@ -617,51 +616,56 @@ function BotaoRedondo({ tam, tecla, marcado, apagado, grande, onClick, onHover, 
         borderRadius: '50%',
         cursor: 'pointer',
         background: 'radial-gradient(circle at 50% 40%, #24344e, #0d1626 70%)',
-        border: `2px solid ${marcado ? DOURADO : 'rgba(232,194,106,0.45)'}`,
-        boxShadow: marcado ? `0 0 ${grande ? 26 : 14}px rgba(232,194,106,0.65), inset 0 0 12px rgba(232,194,106,0.25)` : 'inset 0 0 10px rgba(0,0,0,0.6)',
+        border: `${grande ? 3 : 2}px solid ${marcado ? DOURADO : 'rgba(232,194,106,0.45)'}`,
+        boxShadow: marcado ? `0 0 ${grande ? 22 : 12}px rgba(232,194,106,0.65), inset 0 0 12px rgba(232,194,106,0.25)` : 'inset 0 0 10px rgba(0,0,0,0.6)',
         opacity: apagado ? 0.45 : 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         transition: 'box-shadow 0.2s, border-color 0.2s',
+        flex: 'none',
       }}
     >
-      {grande && (
-        <svg width={tam + 30} height={tam + 30} style={{ position: 'absolute', left: -17, top: -17, pointerEvents: 'none' }}>
-          <circle cx={(tam + 30) / 2} cy={(tam + 30) / 2} r={tam / 2 + 10} fill="none" stroke="rgba(232,194,106,0.35)" strokeWidth="1" />
-          {Array.from({ length: 32 }, (_, i) => {
-            const a = (i / 32) * Math.PI * 2
-            const r0 = tam / 2 + (i % 8 === 0 ? 4 : 7)
-            const r1 = tam / 2 + 12
-            const c = (tam + 30) / 2
-            return <line key={i} x1={c + Math.cos(a) * r0} y1={c + Math.sin(a) * r0} x2={c + Math.cos(a) * r1} y2={c + Math.sin(a) * r1} stroke={DOURADO} strokeOpacity={i % 8 === 0 ? 0.9 : 0.4} strokeWidth={i % 8 === 0 ? 2 : 1} />
-          })}
-        </svg>
-      )}
       {children}
-      {tecla && <span style={{ position: 'absolute', right: grande ? 4 : -4, top: grande ? 4 : -4, width: 20, height: 20, borderRadius: 10, background: '#1b1409', border: `1px solid ${DOURADO}`, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', color: PERGAMINHO }}>{tecla}</span>}
     </div>
   )
 }
 
-function BotaoHaki({ tipo, ligado, conta, apagado, titulo, onClick }: { tipo: 'armamento' | 'rei' | 'observacao' | 'haoshoku'; ligado: boolean; conta?: number; apagado?: boolean; titulo: string; onClick: () => void }) {
+/** Botão grande de Haki: ícone, nome e o que custa/sobra. Aceso quando ligado. */
+function BotaoHaki({ tipo, nome, ligado, conta, apagado, onClick }: { tipo: 'armamento' | 'rei' | 'observacao' | 'haoshoku'; nome: string; ligado: boolean; conta: string; apagado?: boolean; onClick: () => void }) {
   const cor = tipo === 'armamento' ? '#e6e9ef' : tipo === 'observacao' ? '#7fe3ff' : '#d07bff'
   return (
-    <div title={titulo} onClick={onClick} style={{ position: 'relative', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', background: ligado ? 'radial-gradient(circle, #3a2a50, #120c1c)' : 'radial-gradient(circle, #1d2a40, #0b1220)', border: `2px solid ${ligado ? cor : 'rgba(232,194,106,0.4)'}`, boxShadow: ligado ? `0 0 12px ${cor}` : undefined, opacity: apagado ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <button
+      onClick={onClick}
+      disabled={apagado}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        height: 40,
+        padding: '0 12px 0 8px',
+        borderRadius: 20,
+        cursor: apagado ? 'default' : 'pointer',
+        background: ligado ? `linear-gradient(180deg, ${cor}33, ${cor}11), #141c2c` : 'rgba(12,20,34,0.88)',
+        border: `2px solid ${ligado ? cor : 'rgba(232,194,106,0.45)'}`,
+        boxShadow: ligado ? `0 0 12px ${cor}` : undefined,
+        color: PERGAMINHO,
+        opacity: apagado ? 0.45 : 1,
+        font: '13px Georgia, serif',
+      }}
+    >
       <IconeHaki tipo={tipo} tam={22} cor={cor} />
-      {conta !== undefined && <span style={{ position: 'absolute', right: -4, bottom: -4, minWidth: 16, height: 16, borderRadius: 8, background: '#1b1409', border: `1px solid ${DOURADO}`, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{conta}</span>}
-    </div>
-  )
-}
-
-function BotaoTopo({ ativo, onClick, titulo, children }: { ativo: boolean; onClick: () => void; titulo: string; children: React.ReactNode }) {
-  return (
-    <button title={titulo} onClick={onClick} style={{ minWidth: 46, height: 30, borderRadius: 6, border: 'none', background: ativo ? 'rgba(232,194,106,0.85)' : 'transparent', color: ativo ? '#1b1409' : PERGAMINHO, font: '700 12px Georgia, serif', cursor: 'pointer' }}>
-      {children}
+      <span style={{ fontWeight: 700 }}>{nome}</span>
+      <span style={{ fontSize: 11, color: DOURADO }}>{conta}</span>
+      {tipo !== 'haoshoku' && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 6, background: ligado ? cor : 'rgba(255,255,255,0.12)', color: ligado ? '#111' : PERGAMINHO }}>{ligado ? 'LIGADO' : 'desligado'}</span>}
     </button>
   )
 }
 
-function Tecla({ t }: { t: string }) {
-  return <span style={{ minWidth: 20, height: 20, padding: '0 5px', borderRadius: 10, border: `1px solid ${DOURADO}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, marginRight: -16, color: DOURADO }}>{t}</span>
+function BotaoTopo({ ativo, onClick, children }: { ativo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} style={{ minWidth: 52, height: 36, borderRadius: 8, border: `1px solid ${DOURADO}`, background: ativo ? DOURADO : 'rgba(12,20,34,0.86)', color: ativo ? '#1b1409' : PERGAMINHO, font: '700 13px Georgia, serif', cursor: 'pointer' }}>
+      {children}
+    </button>
+  )
 }
