@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { EfeitoFolha, manifestoEfeito, type DirEfeito } from '../tabuleiro/cena/efeitoFolha'
 import { recurso } from '../tabuleiro/cena/visualFolhas'
+import { montarConves } from './conves'
 /** os nossos (de costas) ou os deles (de frente) */
 type Lado = 'nossos' | 'deles'
 
@@ -135,6 +136,8 @@ export class CenaTurnos {
   private readonly camPosAlvo = this.camPos.clone()
   private readonly camOlhaAlvo = this.camOlha.clone()
   private tremorTela = 0
+  private conves!: ReturnType<typeof montarConves>
+  private relogio = 0
   private ultimo = performance.now()
   private vivo = true
   private readonly tela: HTMLCanvasElement
@@ -146,7 +149,9 @@ export class CenaTurnos {
     this.camada = camada
     this.renderizador = new THREE.WebGLRenderer({ canvas: tela, antialias: true })
     this.renderizador.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    this.cenario()
+    this.renderizador.shadowMap.enabled = true
+    this.renderizador.shadowMap.type = THREE.PCFSoftShadowMap
+    this.conves = montarConves(this.cena)
     this.anel = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.74, 40), new THREE.MeshBasicMaterial({ color: 0xf0c76a, transparent: true, opacity: 0.85, depthWrite: false }))
     this.anel.rotation.x = -Math.PI / 2
     this.anel.scale.y = 0.45
@@ -161,113 +166,6 @@ export class CenaTurnos {
     this.vivo = false
     window.removeEventListener('resize', this.redimensionar)
     this.renderizador.dispose()
-  }
-
-  /** Céu, mar, convés, mastros, amurada e barris. */
-  private cenario() {
-    const ceu = document.createElement('canvas')
-    ceu.width = 2
-    ceu.height = 256
-    const c = ceu.getContext('2d')!
-    const gr = c.createLinearGradient(0, 0, 0, 256)
-    gr.addColorStop(0, '#3f7fc4')
-    gr.addColorStop(0.55, '#9cc7e6')
-    gr.addColorStop(1, '#e8f1f4')
-    c.fillStyle = gr
-    c.fillRect(0, 0, 2, 256)
-    const tc = new THREE.CanvasTexture(ceu)
-    tc.colorSpace = THREE.SRGBColorSpace
-    this.cena.background = tc
-    this.cena.fog = new THREE.Fog(0xcfe2ee, 16, 60)
-
-    this.cena.add(new THREE.HemisphereLight(0xeaf4ff, 0x6b5136, 1.6))
-    const sol = new THREE.DirectionalLight(0xfff1d6, 1.6)
-    sol.position.set(-4, 8, 3)
-    this.cena.add(sol)
-
-    // mar
-    const mar = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({ color: 0x1f6fa8 }))
-    mar.rotation.x = -Math.PI / 2
-    mar.position.y = -1.6
-    this.cena.add(mar)
-
-    // convés: tábuas correndo para o fundo (dá a leitura de profundidade)
-    const tab = document.createElement('canvas')
-    tab.width = 256
-    tab.height = 256
-    const t = tab.getContext('2d')!
-    const larg = 32
-    for (let i = 0; i < 8; i++) {
-      const tom = 120 + Math.floor(Math.random() * 30)
-      t.fillStyle = `rgb(${tom + 40},${tom},${tom - 45})`
-      t.fillRect(i * larg, 0, larg, 256)
-      t.fillStyle = 'rgba(60,35,15,0.55)'
-      t.fillRect(i * larg, 0, 2, 256)
-      const corte = Math.floor(Math.random() * 256)
-      t.fillRect(i * larg, corte, larg, 2)
-      t.fillStyle = 'rgba(255,240,210,0.08)'
-      for (let k = 0; k < 6; k++) t.fillRect(i * larg + 4 + Math.random() * 24, Math.random() * 256, 1, 30 + Math.random() * 40)
-    }
-    const tt = new THREE.CanvasTexture(tab)
-    tt.wrapS = tt.wrapT = THREE.RepeatWrapping
-    tt.repeat.set(4, 6)
-    tt.colorSpace = THREE.SRGBColorSpace
-    tt.anisotropy = 8
-    const conves = new THREE.Mesh(new THREE.PlaneGeometry(16, 30), new THREE.MeshLambertMaterial({ map: tt }))
-    conves.rotation.x = -Math.PI / 2
-    conves.position.z = -6
-    this.cena.add(conves)
-
-    const madeira = new THREE.MeshLambertMaterial({ color: 0x6b4426 })
-    const escura = new THREE.MeshLambertMaterial({ color: 0x4a2e19 })
-    // amurada dos dois lados
-    for (const x of [-8, 8]) {
-      const a = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.1, 30), madeira)
-      a.position.set(x, 0.55, -6)
-      this.cena.add(a)
-      for (let z = 8; z > -21; z -= 1.6) {
-        const p = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.3, 0.25), escura)
-        p.position.set(x, 0.65, z)
-        this.cena.add(p)
-      }
-    }
-    // mastros e velas
-    const vela = new THREE.MeshLambertMaterial({ color: 0xf2ead6, side: THREE.DoubleSide })
-    for (const [x, z, h] of [
-      [-5.2, -8, 14],
-      [5.6, -13, 16],
-    ]) {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, h, 10), escura)
-      m.position.set(x, h / 2, z)
-      this.cena.add(m)
-      const v = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 4.2, 8, 4), vela)
-      const pos = v.geometry.attributes.position
-      for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.cos(pos.getX(i) / 2.75) * 0.6)
-      v.position.set(x, h * 0.62, z + 0.35)
-      this.cena.add(v)
-    }
-    // barris e caixotes nas bordas
-    const barril = new THREE.MeshLambertMaterial({ color: 0x8a5a2e })
-    for (const [x, z] of [
-      [-6.8, 1.5],
-      [-6.6, 0.4],
-      [6.7, -1],
-      [6.4, -6.5],
-      [-6.9, -11],
-    ]) {
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.95, 14), barril)
-      b.position.set(x, 0.48, z)
-      this.cena.add(b)
-    }
-    for (const [x, z] of [
-      [6.6, 2.2],
-      [-6.5, -4.2],
-    ]) {
-      const cx = new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 1), madeira)
-      cx.position.set(x, 0.45, z)
-      cx.rotation.y = 0.3
-      this.cena.add(cx)
-    }
   }
 
   async carregar(lista: { id: string; sprite: string; lado: Lado; chefe?: boolean }[]) {
@@ -610,6 +508,8 @@ export class CenaTurnos {
       }
     }
     for (const b of this.bonecos.values()) b.atualizar(dt)
+    this.relogio += dt
+    this.conves.atualizar(this.relogio)
     for (let i = this.efeitos.length - 1; i >= 0; i--) {
       const ef = this.efeitos[i]
       ef.atualizar(dt)
