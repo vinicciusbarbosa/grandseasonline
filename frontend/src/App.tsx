@@ -16,6 +16,7 @@ import { Carregando } from './componentes/ui/controles'
 const TelaNavegacao = lazy(() => import('./navegacao/TelaNavegacao'))
 const TelaTabuleiro = lazy(() => import('./tabuleiro/TelaTabuleiro'))
 const TelaBoneco = lazy(() => import('./tabuleiro/TelaBoneco'))
+const TelaEditor = lazy(() => import('./editor/TelaEditor'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,6 +65,16 @@ export function App() {
               element={
                 <Suspense fallback={<Carregando texto="Preparando o convés…" />}>
                   <TelaTabuleiro />
+                </Suspense>
+              }
+            />
+
+            {/* Editor de animação recortada (estilo Wakfu), sem login. */}
+            <Route
+              path="/editor-animacao"
+              element={
+                <Suspense fallback={<Carregando texto="Abrindo o ateliê…" />}>
+                  <TelaEditor />
                 </Suspense>
               }
             />

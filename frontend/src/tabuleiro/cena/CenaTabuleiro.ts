@@ -10,6 +10,7 @@ import { TRIPULACOES } from '../batalha/elenco'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { VisualRecorte } from './visualRecorte'
+import { VisualAnimado } from './visualAnimado'
 import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
@@ -21,7 +22,11 @@ import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
 
-/** teste do boneco recortado em partes (estilo Wakfu): quem usa qual */
+/**
+ * teste do boneco recortado em partes (estilo Wakfu): quem usa qual. Com
+ * public/sprites/<boneco>/animacao.json (feito no /editor-animacao) usa as
+ * animações do editor; sem ele, o recorte automático.
+ */
 const RECORTADOS: Record<string, { boneco: string; arma?: string }> = { 'pirata-lutador': { boneco: 'base', arma: 'machado' } }
 
 /**
@@ -215,7 +220,7 @@ export class CenaTabuleiro {
       TRIPULACOES.map(async (t) => {
         const c = batalha.combatentes.find((x) => x.id === t.id)!
         const recorte = RECORTADOS[t.id]
-        return new Personagem(t.id, t.nome, t.casa, c.hpMax, recorte ? await VisualRecorte.carregar(recorte.boneco, recorte.arma) : await VisualFolhas.carregar(t.id), t.dir)
+        return new Personagem(t.id, t.nome, t.casa, c.hpMax, recorte ? ((await VisualAnimado.carregar(recorte.boneco)) ?? (await VisualRecorte.carregar(recorte.boneco, recorte.arma))) : await VisualFolhas.carregar(t.id), t.dir)
       }),
     )
       .then((ps) => {

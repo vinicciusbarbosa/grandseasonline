@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { multiplayer } from './servidor/multiplayer.ts'
+import { editorAnimacao } from './servidor/editor.ts'
 
 // A API C# roda em http://localhost:5047 (backend/src/SugoiGame.Api).
 const API = process.env.SUGOI_API ?? 'http://localhost:5047'
@@ -9,7 +10,7 @@ const API = process.env.SUGOI_API ?? 'http://localhost:5047'
 // `npm run dev:mp` (modo "mp") abre o servidor para a rede: é assim que o
 // segundo jogador do multiplayer beta entra (LAN, VPN tipo Radmin ou túnel).
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), multiplayer()],
+  plugins: [react(), tailwindcss(), multiplayer(), editorAnimacao()],
   preview: {
     port: 5173,
     host: mode === 'mp' ? true : undefined,
