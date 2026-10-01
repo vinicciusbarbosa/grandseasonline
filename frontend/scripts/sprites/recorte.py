@@ -6,18 +6,19 @@ o seu pivô (a junta onde gira). O jogo monta e anima as peças por código.
 
     python3 recorte.py <personagem>
 
-Lê scripts/modelos/<personagem>/folha-*.png e as juntas marcadas em ESQUELETOS
+Lê scripts/modelos/<personagem>/folha-*.png (fundo magenta) e as juntas marcadas em ESQUELETOS
 (px da folha); grava public/sprites/<personagem>/recorte/ (PNG por peça e o
 esqueleto.json).
 
 Como sai cada peça:
-1. silhueta da vista (o branco ligado à borda é fundo);
+1. silhueta da vista (fundo magenta = chave de cor; a borda rosada é limpa);
 2. cada pixel vai para a peça cujo osso está mais perto (cápsula: distância
    ao segmento menos a espessura do membro); a cabeça é o que fica acima do
    queixo;
 3. nas juntas as peças se sobrepõem (um disco em volta da junta entra nas
    duas), para não abrir buraco quando dobram;
-4. a cor do tronco (a roupa) que caiu num braço volta para o tronco.
+4. pela cor (pele, roupa, short): o pixel de um material que a peça não tem
+   vai para a vizinha que tem; o contorno preto fica com a peça mais perto.
 """
 import json, os, sys
 import cv2, numpy as np
@@ -32,23 +33,23 @@ nome = sys.argv[1] if len(sys.argv) > 1 else 'base'
 ESQUELETOS = {
     'base': {
         'frente': {
-            'folha': 'folha-cabelo.png', 'caixa': (195, 0, 365, 505), 'olha': -1, 'queixo': 108,
+            'folha': 'folha-magenta.png', 'caixa': (180, 0, 350, 490), 'olha': -1, 'queixo': 106,
             'juntas': {
-                'pescoco': (80, 116), 'cintura': (82, 236), 'quadril': (82, 252),
-                'ombro_longe': (50, 136), 'cotovelo_longe': (36, 200), 'pulso_longe': (26, 252), 'mao_longe': (22, 280),
-                'ombro_perto': (118, 136), 'cotovelo_perto': (138, 202), 'pulso_perto': (140, 258), 'mao_perto': (140, 285),
-                'anca_longe': (62, 268), 'joelho_longe': (64, 355), 'tornozelo_longe': (60, 440), 'pe_longe': (40, 470),
-                'anca_perto': (102, 268), 'joelho_perto': (110, 350), 'tornozelo_perto': (128, 462), 'pe_perto': (136, 490),
+                'pescoco': (85, 116), 'cintura': (88, 230), 'quadril': (88, 248),
+                'ombro_longe': (58, 132), 'cotovelo_longe': (42, 200), 'pulso_longe': (30, 262), 'mao_longe': (26, 280),
+                'ombro_perto': (122, 134), 'cotovelo_perto': (142, 200), 'pulso_perto': (145, 262), 'mao_perto': (147, 284),
+                'anca_longe': (68, 262), 'joelho_longe': (65, 348), 'tornozelo_longe': (68, 430), 'pe_longe': (46, 452),
+                'anca_perto': (108, 262), 'joelho_perto': (112, 345), 'tornozelo_perto': (128, 452), 'pe_perto': (134, 474),
             },
         },
         'costas': {
-            'folha': 'folha-cabelo.png', 'caixa': (515, 0, 670, 505), 'olha': 1, 'queixo': 110,
+            'folha': 'folha-magenta.png', 'caixa': (505, 0, 665, 490), 'olha': 1, 'queixo': 108,
             'juntas': {
-                'pescoco': (86, 116), 'cintura': (76, 236), 'quadril': (76, 252),
-                'ombro_perto': (42, 140), 'cotovelo_perto': (26, 204), 'pulso_perto': (24, 256), 'mao_perto': (24, 282),
-                'ombro_longe': (110, 136), 'cotovelo_longe': (116, 202), 'pulso_longe': (120, 276), 'mao_longe': (126, 292),
-                'anca_longe': (56, 272), 'joelho_longe': (54, 350), 'tornozelo_longe': (42, 444), 'pe_longe': (34, 468),
-                'anca_perto': (96, 272), 'joelho_perto': (90, 348), 'tornozelo_perto': (86, 460), 'pe_perto': (100, 488),
+                'pescoco': (90, 116), 'cintura': (80, 230), 'quadril': (80, 248),
+                'ombro_perto': (45, 140), 'cotovelo_perto': (28, 205), 'pulso_perto': (22, 262), 'mao_perto': (25, 282),
+                'ombro_longe': (115, 140), 'cotovelo_longe': (122, 205), 'pulso_longe': (128, 268), 'mao_longe': (130, 284),
+                'anca_longe': (58, 262), 'joelho_longe': (52, 345), 'tornozelo_longe': (42, 430), 'pe_longe': (40, 454),
+                'anca_perto': (100, 262), 'joelho_perto': (92, 345), 'tornozelo_perto': (88, 450), 'pe_perto': (100, 474),
             },
         },
     },
@@ -79,29 +80,26 @@ JUNTAS = [('braco_longe', 'antebraco_longe', 'cotovelo_longe', 11), ('braco_pert
 
 
 def silhueta(img):
-    # fundo: claro e sem cor, ligado à borda — o contorno escuro do desenho
-    # segura o preenchimento (assim o branco "sujo" dos vãos entre braço e
-    # tronco também sai, e a regata branca fica)
-    branco = (img.min(axis=2) > 200) & (img.max(axis=2).astype(int) - img.min(axis=2) < 22)
-    lab, _ = ndimage.label(branco)
-    borda = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
-    corpo = ~np.isin(lab, list(borda))
-    # vão fechado entre braço e corpo (fundo preso): branco puro cercado
-    # pelo contorno escuro; o branco da roupa tem sombra em volta, não contorno
-    puro = (img.min(axis=2) >= 244) & (img.max(axis=2).astype(int) - img.min(axis=2) < 10) & corpo
-    vaos, k = ndimage.label(puro)
-    escuro = img.max(axis=2) < 130
-    for i in range(1, k + 1):
-        m = vaos == i
-        if m.sum() < 15:
-            continue
-        anel = ndimage.binary_dilation(m, iterations=2) & ~m
-        if escuro[anel].mean() > 0.35:
-            corpo &= ~m
-    corpo = ndimage.binary_opening(corpo, iterations=1) | (corpo & ~ndimage.binary_dilation(~corpo, iterations=1))
+    """Fundo magenta (chave de cor): tudo que é magenta é fundo, inclusive os
+    vãos entre braço e corpo."""
+    b, g, r = (img[..., k].astype(int) for k in range(3))
+    magenta = (r - g > 90) & (b - g > 90)
+    corpo = ~magenta
     lab2, n2 = ndimage.label(corpo)
     tam = ndimage.sum(corpo, lab2, range(1, n2 + 1))
     return lab2 == (np.argmax(tam) + 1)
+
+
+def sem_rosa(img, s):
+    """Tira o rosado da borda (mistura com o magenta do fundo): a cor da borda
+    vira a do pixel de dentro mais perto."""
+    dentro = ndimage.binary_erosion(s, iterations=2)
+    _, (iy, ix) = ndimage.distance_transform_edt(~dentro, return_indices=True)
+    b, g, r = (img[..., k].astype(int) for k in range(3))
+    rosado = s & ~dentro & ((r - g > 25) & (b - g > 25))
+    out = img.copy()
+    out[rosado] = img[iy[rosado], ix[rosado]]
+    return out
 
 
 def dist_segmento(X, Y, a, b):
@@ -115,6 +113,7 @@ def vista(cfg, saida):
     x0, y0, x1, y1 = cfg['caixa']
     img = cv2.imread(os.path.join(RAIZ, 'scripts', 'modelos', nome, cfg['folha']))[y0:y1, x0:x1]
     s = silhueta(img)
+    img = sem_rosa(img, s)
     J = cfg['juntas']
     A, L = s.shape
     Y, X = np.mgrid[0:A, 0:L].astype(float)
@@ -126,57 +125,57 @@ def vista(cfg, saida):
     for i, n in enumerate(nomes):
         rotulo[n] = s & (dono == i) & ~cabeca
     rotulo['cabeca'] = cabeca
-    # pela cor: na borda de uma peça (longe do osso), o pixel vai para a peça
-    # vizinha de cor mais parecida — a regata que caiu no braço volta para o
-    # tronco, o short que caiu no antebraço volta para a coxa
-    lab_img = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(float)
-    nucleo = {}
-    for i, (n, (a, b, e, _, _)) in enumerate(PECAS.items()):
+    # pela cor: cada pixel é de um "material" (pele, roupa, short...; k-means
+    # nas cores) e cada peça tem os materiais do seu miolo. Pixel de um
+    # material que a peça não tem vai para a peça vizinha que tem (a regata
+    # que caiu no braço volta para o tronco, o short no antebraço vai para a coxa)
+    lab_img = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
+    colorido = s & (lab_img[..., 0] > 50)
+    amostra = lab_img[colorido]
+    crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.5)
+    _, rot_k, centros = cv2.kmeans(amostra, 6, None, crit, 3, cv2.KMEANS_PP_CENTERS)
+    material = np.full(s.shape, -1)
+    material[colorido] = rot_k.ravel()
+    todas = list(PECAS)
+    tem = {}
+    dists = {}
+    for n, (a, b, e, _, _) in PECAS.items():
         d = dist_segmento(X, Y, J[a], J[b])
+        dists[n] = (d, e)
         # miolo longe da junta de cima (no ombro o braço encosta na roupa)
         a2 = np.array(J[a], float) + 0.5 * (np.array(J[b], float) - np.array(J[a], float))
-        miolo = rotulo[n] & (dist_segmento(X, Y, a2, J[b]) < e * 0.35)
+        miolo = rotulo[n] & colorido & (dist_segmento(X, Y, a2, J[b]) < e * 0.45)
         if miolo.sum() < 10:
-            miolo = rotulo[n]
-        # as cores do miolo (pele, roupa): até 3 tons
-        amostra = lab_img[miolo]
-        # sem o contorno preto (está em todas as peças, não diz de quem é)
-        if (amostra[:, 0] > 50).sum() > 10:
-            amostra = amostra[amostra[:, 0] > 50]
-        nucleo[n] = (d, e, amostra[:: max(1, len(amostra) // 400)])
-    def dist_cor(n, px):
-        am = nucleo[n][2]
-        return np.min(np.linalg.norm(px[:, None, :] - am[None, :, :], axis=2), axis=1)
-    for n in PECAS:
-        d, e, _ = nucleo[n]
-        borda_p = rotulo[n] & (lab_img[..., 0] > 50)
-        ys, xs = np.nonzero(borda_p)
+            miolo = rotulo[n] & colorido
+        cont = np.bincount(material[miolo], minlength=6) / max(1, miolo.sum())
+        tem[n] = set(np.nonzero(cont >= 0.12)[0].tolist())
+    for n in todas:
+        fora = rotulo[n] & colorido & ~np.isin(material, list(tem[n]))
+        # a mão (sombra, dedos) é do antebraço, seja qual for a cor
+        fim = PECAS[n][1]
+        if fim.startswith('mao'):
+            fora &= np.hypot(X - J[fim][0], Y - J[fim][1]) > 16
+        ys, xs = np.nonzero(fora)
         if not len(xs):
             continue
-        px = lab_img[ys, xs]
-        melhor = dist_cor(n, px)
+        melhor = np.full(len(xs), np.inf)
         destino = np.full(len(xs), -1)
-        for j, o in enumerate(PECAS):
+        for j, o in enumerate(todas):
             if o == n:
                 continue
-            do, eo, _ = nucleo[o]
-            perto = do[ys, xs] < eo * 1.5 + 12
-            if not perto.any():
-                continue
-            dc = np.full(len(xs), np.inf)
-            dc[perto] = dist_cor(o, px[perto])
-            ganha = dc < melhor - 12
-            melhor = np.where(ganha, dc, melhor)
+            do, eo = dists[o]
+            ok = np.isin(material[ys, xs], list(tem[o])) & (do[ys, xs] < eo * 1.6 + 12)
+            dd = np.where(ok, do[ys, xs] - eo, np.inf)
+            ganha = dd < melhor
+            melhor = np.where(ganha, dd, melhor)
             destino = np.where(ganha, j, destino)
-        nomes_p = list(PECAS)
         for j in set(destino.tolist()) - {-1}:
             sel = destino == j
             rotulo[n][ys[sel], xs[sel]] = False
-            rotulo[nomes_p[j]][ys[sel], xs[sel]] = True
+            rotulo[todas[j]][ys[sel], xs[sel]] = True
     # contorno preto: fica com a peça do pixel colorido mais perto
     contorno = s & ~cabeca & (lab_img[..., 0] <= 50)
     mapa = np.full(s.shape, -1)
-    todas = list(PECAS)
     for j, n in enumerate(todas):
         mapa[rotulo[n] & ~contorno] = j
     _, (iy, ix) = ndimage.distance_transform_edt(mapa < 0, return_indices=True)
