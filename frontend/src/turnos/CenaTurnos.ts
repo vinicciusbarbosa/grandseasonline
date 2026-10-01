@@ -71,9 +71,8 @@ class Boneco {
 
   /** costas para a câmera (N) nos nossos; de frente (S) na Marinha */
   private get dir() {
-    // na diagonal: os nossos embaixo à esquerda olhando para a direita; eles
-    // em cima à direita olhando para a esquerda
-    return this.lado === 'nossos' ? 'E' : 'W'
+    // como no Honkai: os nossos de costas para a câmera, eles de frente
+    return this.lado === 'nossos' ? 'N' : 'S'
   }
 
   atualizar(dt: number) {
@@ -112,12 +111,13 @@ class Boneco {
 }
 
 /** eixo da batalha (dos nossos para eles) e a fileira de cada lado, no chão */
-const EIXO = new THREE.Vector3(1, 0, -0.75).normalize()
-const FILEIRA = new THREE.Vector3(0.75, 0, 1).normalize()
-const CENTRO_NOSSOS = new THREE.Vector3(-2.7, 0, 1.4)
-const CENTRO_DELES = new THREE.Vector3(2.7, 0, -2.6)
-const CAM_POS = new THREE.Vector3(-0.6, 5.4, 9.6)
-const CAM_OLHA = new THREE.Vector3(0.2, 0.9, -0.6)
+const EIXO = new THREE.Vector3(0, 0, -1)
+const FILEIRA = new THREE.Vector3(1, 0, 0)
+const CENTRO_NOSSOS = new THREE.Vector3(0, 0, 2.4)
+const CENTRO_DELES = new THREE.Vector3(0.4, 0, -3.4)
+/** câmera atrás da tripulação, deslocada para a esquerda: a cena fica em diagonal */
+const CAM_POS = new THREE.Vector3(-3.4, 4.4, 10.2)
+const CAM_OLHA = new THREE.Vector3(0.9, 0.35, -2.4)
 
 type Tween = { t: number; dur: number; fn: (k: number) => void; fim: () => void }
 const suave = (k: number) => k * k * (3 - 2 * k)
@@ -283,7 +283,7 @@ export class CenaTurnos {
         // cada formação é uma fileira na diagonal; os dois lados se encaram ao longo do eixo da batalha
         const i = nosso ? nossos.indexOf(u) : eles.indexOf(u)
         const n = nosso ? nossos.length : eles.length
-        const casa = (nosso ? CENTRO_NOSSOS : CENTRO_DELES).clone().addScaledVector(FILEIRA, (i - (n - 1) / 2) * 1.55)
+        const casa = (nosso ? CENTRO_NOSSOS : CENTRO_DELES).clone().addScaledVector(FILEIRA, (i - (n - 1) / 2) * (nosso ? 1.5 : 1.85))
         if (u.chefe) casa.addScaledVector(EIXO, 0.6)
         const b = new Boneco(base, man, u.lado, casa, u.chefe ? 1.3 : 1)
         this.bonecos.set(u.id, b)
@@ -553,7 +553,7 @@ export class CenaTurnos {
     a.t = 0
     await this.esperar((IMPACTO * 1000) / this.velocidade)
     if (op.efeito === 'hiken-perto') {
-      for (const b of bs) void this.folha('hiken-perto', nosso ? 'NE' : 'SW', b.casa.clone().setY(0.9), { largura: 2.4 })
+      for (const b of bs) void this.folha('hiken-perto', nosso ? 'N' : 'S', b.casa.clone().setY(0.9), { largura: 2.4 })
       await this.esperar(120 / this.velocidade)
     }
     for (const b of bs) {
