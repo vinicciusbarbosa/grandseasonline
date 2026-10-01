@@ -22,7 +22,7 @@ import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
 
 /** teste do boneco recortado em partes (estilo Wakfu): quem usa qual */
-const RECORTADOS: Record<string, string> = { 'pirata-lutador': 'base' }
+const RECORTADOS: Record<string, { boneco: string; arma?: string }> = { 'pirata-lutador': { boneco: 'base', arma: 'machado' } }
 
 /**
  * Cena do teste de tabuleiro: os dois navios, o mar e os personagens em
@@ -215,7 +215,7 @@ export class CenaTabuleiro {
       TRIPULACOES.map(async (t) => {
         const c = batalha.combatentes.find((x) => x.id === t.id)!
         const recorte = RECORTADOS[t.id]
-        return new Personagem(t.id, t.nome, t.casa, c.hpMax, recorte ? await VisualRecorte.carregar(recorte) : await VisualFolhas.carregar(t.id), t.dir)
+        return new Personagem(t.id, t.nome, t.casa, c.hpMax, recorte ? await VisualRecorte.carregar(recorte.boneco, recorte.arma) : await VisualFolhas.carregar(t.id), t.dir)
       }),
     )
       .then((ps) => {

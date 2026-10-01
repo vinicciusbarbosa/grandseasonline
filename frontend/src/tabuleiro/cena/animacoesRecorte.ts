@@ -86,6 +86,23 @@ export const ANIMACOES: Record<NomeAnim, Chave[]> = {
   ],
 }
 
+/**
+ * Golpes com arma na mão (a arma gira com o antebraço; `arma_perto`/`arma_longe`
+ * dobra o pulso). Machado: golpe de cima para baixo com o braço da frente —
+ * leva o machado para trás da cabeça (braço passa de 180°, por cima), desce
+ * em arco até a frente (impacto em t 0,5) e volta; o outro machado na guarda.
+ */
+export const ATAQUES: Record<string, Chave[]> = {
+  machado: [
+    { t: 0, pose: NEUTRO },
+    { t: 0.18, pose: { tronco: -6, cabeca: 3, braco_perto: 120, 'braco_perto.e': 0.9, antebraco_perto: 50, arma_perto: 30, braco_longe: 20, antebraco_longe: 60, arma_longe: -20, dx: -2, dy: 1, sy: 0.99 } },
+    { t: 0.38, pose: { tronco: -14, cabeca: 6, braco_perto: 205, 'braco_perto.e': 0.92, antebraco_perto: 70, arma_perto: 50, braco_longe: 30, antebraco_longe: 75, arma_longe: -30, coxa_perto: 10, coxa_longe: -12, canela_longe: -14, dx: -5, dy: 3, sx: 1.02, sy: 0.96 } },
+    { t: 0.5, pose: { tronco: 20, cabeca: -6, braco_perto: 70, 'braco_perto.e': 0.95, antebraco_perto: 10, arma_perto: -55, braco_longe: -10, antebraco_longe: 80, arma_longe: -30, coxa_perto: 28, canela_perto: -8, coxa_longe: -22, canela_longe: -20, dx: 15, dy: 4, sx: 1.04, sy: 0.96 } },
+    { t: 0.66, pose: { tronco: 16, cabeca: -5, braco_perto: 60, antebraco_perto: 12, arma_perto: -55, braco_longe: -6, antebraco_longe: 75, arma_longe: -25, coxa_perto: 25, canela_perto: -8, coxa_longe: -20, canela_longe: -18, dx: 13, dy: 3 } },
+    { t: 1, pose: NEUTRO },
+  ],
+}
+
 const suave = (k: number) => k * k * (3 - 2 * k)
 
 /** Pose no instante `fase` (0 a 1); em laço, a última chave emenda na primeira. */

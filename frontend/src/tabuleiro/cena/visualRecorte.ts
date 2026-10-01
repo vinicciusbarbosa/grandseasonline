@@ -4,7 +4,7 @@ import { atualizarLuz, materialIluminado } from './luzSprite'
 import { PX_CASA, escalaPixel, posicionarPixel } from './pixel'
 import { texturaSombra } from './texturas'
 import { recurso } from './visualFolhas'
-import { ANIMACOES, poseEm, type Pose } from './animacoesRecorte'
+import { ANIMACOES, ATAQUES, poseEm, type Pose } from './animacoesRecorte'
 
 /**
  * Personagem recortado em partes (como no Wakfu): cada vista (3/4 de frente
@@ -19,7 +19,10 @@ import { ANIMACOES, poseEm, type Pose } from './animacoesRecorte'
  */
 
 type Peca = { x: number; y: number; l: number; a: number; pai: string | null; pivo: [number, number] }
-type Vista = { olha: 1 | -1; altura: number; pe: [number, number]; tamanho: [number, number]; ordem: string[]; pecas: Record<string, Peca> }
+type Vista = { olha: 1 | -1; altura: number; pe: [number, number]; tamanho: [number, number]; ordem: string[]; pecas: Record<string, Peca>; juntas: Record<string, [number, number]> }
+/** arma solta (lâmina para cima, fio para a direita); `pega` = onde a mão segura */
+type Arma = { l: number; a: number; pega: [number, number] }
+type Esqueleto = { vistas: Record<NomeVista, Vista>; armas: Record<string, Arma> }
 type NomeVista = 'frente' | 'costas'
 
 /**
@@ -62,10 +65,13 @@ export class VisualRecorte implements Visual {
   private readonly ctx: CanvasRenderingContext2D
   private readonly textura: THREE.CanvasTexture
   private densidade = 0
+  /** arma nas duas mãos (machados) — null: mãos vazias */
+  private readonly arma: { info: Arma; img: HTMLImageElement; tipo: string } | null
 
-  private constructor(vistas: Record<NomeVista, Vista>, imagens: Record<NomeVista, Record<string, HTMLImageElement>>) {
+  private constructor(vistas: Record<NomeVista, Vista>, imagens: Record<NomeVista, Record<string, HTMLImageElement>>, arma: VisualRecorte['arma']) {
     this.vistas = vistas
     this.imagens = imagens
+    this.arma = arma
     this.ctx = this.canvas.getContext('2d')!
     this.textura = new THREE.CanvasTexture(this.canvas)
     this.textura.colorSpace = THREE.SRGBColorSpace
@@ -78,26 +84,23 @@ export class VisualRecorte implements Visual {
     this.objetos = [this.sprite, this.sombra]
   }
 
-  static async carregar(personagem: string) {
+  static async carregar(personagem: string, nomeArma?: string) {
     const base = `${import.meta.env.BASE_URL}sprites/${personagem}/recorte/`
     const url = recurso(`${base}esqueleto.json`)
-    const vistas = (url.startsWith('data:') ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0)))) : await (await fetch(url)).json()) as Record<NomeVista, Vista>
+    const esq = (url.startsWith('data:') ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0)))) : await (await fetch(url)).json()) as Esqueleto
+    const vistas = esq.vistas
+    const carregarImg = (arquivo: string) =>
+      new Promise<HTMLImageElement>((ok, erro) => {
+        const img = new Image()
+        img.onload = () => ok(img)
+        img.onerror = () => erro(new Error(`recorte ${arquivo}`))
+        img.src = recurso(`${base}${arquivo}`)
+      })
     const imagens = { frente: {}, costas: {} } as Record<NomeVista, Record<string, HTMLImageElement>>
-    await Promise.all(
-      (Object.keys(vistas) as NomeVista[]).flatMap((v) =>
-        Object.keys(vistas[v].pecas).map(
-          (p) =>
-            new Promise<void>((ok, erro) => {
-              const img = new Image()
-              img.onload = () => ok()
-              img.onerror = () => erro(new Error(`peça ${v}/${p}`))
-              img.src = recurso(`${base}${v}/${p}.png`)
-              imagens[v][p] = img
-            }),
-        ),
-      ),
-    )
-    return new VisualRecorte(vistas, imagens)
+    await Promise.all((Object.keys(vistas) as NomeVista[]).flatMap((v) => Object.keys(vistas[v].pecas).map(async (p) => (imagens[v][p] = await carregarImg(`${v}/${p}.png`)))))
+    const info = nomeArma ? esq.armas[nomeArma] : undefined
+    const arma = info && nomeArma ? { info, img: await carregarImg(`armas/${nomeArma}.png`), tipo: nomeArma } : null
+    return new VisualRecorte(vistas, imagens, arma)
   }
 
   tem() {
@@ -134,6 +137,16 @@ export class VisualRecorte implements Visual {
       if (!p) continue
       c.setTransform(matriz(n))
       c.drawImage(this.imagens[nomeVista][n], p.x, p.y)
+      // arma: filha do antebraço, presa na mão; de repouso aponta para baixo
+      // e um pouco para a frente, com o fio para a frente
+      const lado = n === 'antebraco_perto' ? 'perto' : n === 'antebraco_longe' ? 'longe' : null
+      if (lado && this.arma) {
+        const a = this.arma.info
+        const mao = v.juntas[`mao_${lado}`]
+        const ang = 180 + (30 + (pose[`arma_${lado}`] ?? 0)) * sinal
+        c.setTransform(matriz(n).translate(mao[0], mao[1]).rotate(ang).scale(sinal, 1).translate(-a.pega[0], -a.pega[1]))
+        c.drawImage(this.arma.img, 0, 0)
+      }
     }
   }
 
@@ -150,7 +163,8 @@ export class VisualRecorte implements Visual {
     const dur = info.quadros / info.fps
     const fase = info.laco ? (e.tAnim / dur) % 1 : Math.min(1, e.tAnim / dur)
     const [vista, lado] = VISTA_DIR[e.dir]
-    this.desenhar(vista, lado, poseEm(ANIMACOES[e.anim], fase, info.laco), dens)
+    const chaves = e.anim === 'atacar' && this.arma ? (ATAQUES[this.arma.tipo] ?? ANIMACOES.atacar) : ANIMACOES[e.anim]
+    this.desenhar(vista, lado, poseEm(chaves, fase, info.laco), dens)
     this.textura.needsUpdate = true
     const mat = this.sprite.material
     this.sprite.center.set(PE[0] / QUADRO[0], 1 - PE[1] / QUADRO[1])

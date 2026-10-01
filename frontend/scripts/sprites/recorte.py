@@ -224,9 +224,32 @@ def vista(cfg, saida):
     return {'olha': cfg['olha'], 'altura': int(ys.max() - ys.min()), 'pe': pe, 'tamanho': [L, A], 'ordem': ORDEM, 'pecas': info, 'juntas': {k: list(v) for k, v in J.items()}}
 
 
+# Armas: recortadas soltas da folha; `pega` = onde a mão segura (px no recorte),
+# com a cabeça/lâmina para cima e o fio para a direita
+ARMAS = {
+    'base': {
+        'machado': {'folha': 'folha-machados.png', 'caixa': (1172, 828, 1282, 1006), 'pega': (30, 128)},
+    },
+}
+
+
+def arma(cfg, saida, nome_arma):
+    x0, y0, x1, y1 = cfg['caixa']
+    img = cv2.imread(os.path.join(RAIZ, 'scripts', 'modelos', nome, cfg['folha']))[y0:y1, x0:x1]
+    s = silhueta(img)
+    img = sem_rosa(img, s)
+    alfa = cv2.GaussianBlur(ndimage.binary_erosion(s).astype(np.float32), (3, 3), 0.7)
+    ys, xs = np.nonzero(s)
+    bx0, by0, bx1, by1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+    os.makedirs(saida, exist_ok=True)
+    cv2.imwrite(os.path.join(saida, f'{nome_arma}.png'), np.dstack([img, (alfa * 255).astype(np.uint8)])[by0:by1, bx0:bx1])
+    return {'l': int(bx1 - bx0), 'a': int(by1 - by0), 'pega': [int(cfg['pega'][0] - bx0), int(cfg['pega'][1] - by0)]}
+
+
 if __name__ == '__main__':
     destino = os.path.join(RAIZ, 'public', 'sprites', nome, 'recorte')
     esq = {v: vista(cfg, os.path.join(destino, v)) for v, cfg in ESQUELETOS[nome].items()}
+    armas = {a: arma(cfg, os.path.join(destino, 'armas'), a) for a, cfg in ARMAS.get(nome, {}).items()}
     with open(os.path.join(destino, 'esqueleto.json'), 'w') as f:
-        json.dump(esq, f)
+        json.dump({'vistas': esq, 'armas': armas}, f)
     print('ok', {v: len(e['pecas']) for v, e in esq.items()})
