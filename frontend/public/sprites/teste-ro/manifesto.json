@@ -1,0 +1,81 @@
+{
+ "quadro": [
+  96,
+  112
+ ],
+ "pe": [
+  48,
+  106
+ ],
+ "altura": 92,
+ "densidade": 1,
+ "fonte": "TESTE \u2014 sprites do Ragnarok Online (Gravity), n\u00e3o distribuir",
+ "anims": {
+  "parado": {
+   "S": {
+    "arquivo": "parado_S.png",
+    "quadros": 1
+   },
+   "SE": {
+    "arquivo": "parado_SE.png",
+    "quadros": 1
+   },
+   "E": {
+    "arquivo": "parado_E.png",
+    "quadros": 1
+   },
+   "NE": {
+    "arquivo": "parado_NE.png",
+    "quadros": 1
+   },
+   "N": {
+    "arquivo": "parado_N.png",
+    "quadros": 1
+   }
+  },
+  "andar": {
+   "S": {
+    "arquivo": "andar_S.png",
+    "quadros": 8
+   },
+   "SE": {
+    "arquivo": "andar_SE.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "andar_E.png",
+    "quadros": 8
+   },
+   "NE": {
+    "arquivo": "andar_NE.png",
+    "quadros": 8
+   },
+   "N": {
+    "arquivo": "andar_N.png",
+    "quadros": 8
+   }
+  },
+  "correr": {
+   "S": {
+    "arquivo": "andar_S.png",
+    "quadros": 8
+   },
+   "SE": {
+    "arquivo": "andar_SE.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "andar_E.png",
+    "quadros": 8
+   },
+   "NE": {
+    "arquivo": "andar_NE.png",
+    "quadros": 8
+   },
+   "N": {
+    "arquivo": "andar_N.png",
+    "quadros": 8
+   }
+  }
+ }
+}

@@ -23,6 +23,12 @@ import { texturaMoldura } from './texturas'
 
 
 /**
+ * teste do esquema do Ragnarok (corpo + cabeça em camadas, scripts/sprites/teste_ro.py):
+ * quem usa a folha de teste no lugar da própria. Arte do Ragnarok: só teste, não publicar.
+ */
+const SPRITE_TESTE: Record<string, string> = { 'pirata-lutador': 'teste-ro' }
+
+/**
  * Cena do teste de tabuleiro: os dois navios, o mar e os personagens em
  * pixel art. A imagem é renderizada numa resolução baixa e ampliada sem
  * filtro (cada pixel da cena vira um bloco nítido na tela).
@@ -222,7 +228,7 @@ export class CenaTabuleiro {
     void Promise.all(
       TRIPULACOES.map(async (t) => {
         const c = batalha.combatentes.find((x) => x.id === t.id)!
-        return new Personagem(t.id, t.nome, t.casa, c.hpMax, await VisualFolhas.carregar(t.id), t.dir)
+        return new Personagem(t.id, t.nome, t.casa, c.hpMax, await VisualFolhas.carregar(SPRITE_TESTE[t.id] ?? t.id), t.dir)
       }),
     )
       .then((ps) => {
