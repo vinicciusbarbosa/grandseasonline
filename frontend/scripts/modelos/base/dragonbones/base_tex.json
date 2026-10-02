@@ -2,161 +2,231 @@
  "name": "base",
  "imagePath": "base_tex.png",
  "width": 1024,
- "height": 256,
+ "height": 1024,
  "SubTexture": [
   {
-   "name": "frente/canela_perto",
+   "name": "frente/tronco",
    "x": 0,
    "y": 0,
-   "width": 58,
-   "height": 150
-  },
-  {
-   "name": "costas/canela_perto",
-   "x": 60,
-   "y": 0,
-   "width": 65,
-   "height": 146
-  },
-  {
-   "name": "frente/tronco",
-   "x": 127,
-   "y": 0,
-   "width": 79,
-   "height": 139
-  },
-  {
-   "name": "frente/coxa_longe",
-   "x": 208,
-   "y": 0,
-   "width": 55,
-   "height": 139
+   "width": 133,
+   "height": 200
   },
   {
    "name": "costas/tronco",
-   "x": 265,
+   "x": 135,
    "y": 0,
-   "width": 75,
-   "height": 139
-  },
-  {
-   "name": "costas/canela_longe",
-   "x": 342,
-   "y": 0,
-   "width": 54,
-   "height": 130
-  },
-  {
-   "name": "frente/canela_longe",
-   "x": 398,
-   "y": 0,
-   "width": 67,
-   "height": 126
-  },
-  {
-   "name": "costas/coxa_perto",
-   "x": 467,
-   "y": 0,
-   "width": 44,
-   "height": 115
-  },
-  {
-   "name": "frente/cabeca",
-   "x": 513,
-   "y": 0,
-   "width": 111,
-   "height": 114
+   "width": 142,
+   "height": 196
   },
   {
    "name": "costas/coxa_longe",
-   "x": 626,
+   "x": 279,
    "y": 0,
-   "width": 60,
-   "height": 113
+   "width": 75,
+   "height": 170
   },
   {
-   "name": "costas/antebraco_longe",
-   "x": 688,
+   "name": "costas/coxa_perto",
+   "x": 356,
    "y": 0,
-   "width": 48,
-   "height": 112
+   "width": 77,
+   "height": 169
   },
   {
-   "name": "costas/cabeca",
-   "x": 738,
+   "name": "costas/canela_longe",
+   "x": 435,
    "y": 0,
-   "width": 108,
-   "height": 112
+   "width": 80,
+   "height": 168
   },
   {
    "name": "frente/coxa_perto",
-   "x": 848,
+   "x": 517,
    "y": 0,
-   "width": 51,
-   "height": 111
+   "width": 80,
+   "height": 164
   },
   {
-   "name": "frente/antebraco_perto",
-   "x": 901,
+   "name": "frente/coxa_longe",
+   "x": 599,
    "y": 0,
-   "width": 31,
-   "height": 106
+   "width": 75,
+   "height": 163
   },
   {
-   "name": "frente/antebraco_longe",
-   "x": 934,
+   "name": "costas/canela_perto",
+   "x": 676,
    "y": 0,
-   "width": 44,
-   "height": 100
+   "width": 81,
+   "height": 163
   },
   {
-   "name": "costas/antebraco_perto",
-   "x": 980,
+   "name": "frente/canela_longe",
+   "x": 759,
    "y": 0,
-   "width": 30,
-   "height": 95
+   "width": 76,
+   "height": 162
   },
   {
-   "name": "costas/braco_longe",
+   "name": "costas/cabeca",
+   "x": 837,
+   "y": 0,
+   "width": 139,
+   "height": 154
+  },
+  {
+   "name": "frente/cabeca",
    "x": 0,
-   "y": 152,
-   "width": 48,
-   "height": 92
+   "y": 202,
+   "width": 139,
+   "height": 147
   },
   {
-   "name": "costas/braco_perto",
-   "x": 50,
-   "y": 152,
-   "width": 33,
-   "height": 91
+   "name": "frente/canela_perto",
+   "x": 141,
+   "y": 202,
+   "width": 70,
+   "height": 147
   },
   {
    "name": "frente/braco_perto",
-   "x": 85,
-   "y": 152,
-   "width": 48,
-   "height": 89
+   "x": 213,
+   "y": 202,
+   "width": 61,
+   "height": 133
+  },
+  {
+   "name": "costas/antebraco_longe",
+   "x": 276,
+   "y": 202,
+   "width": 59,
+   "height": 130
+  },
+  {
+   "name": "costas/antebraco_perto",
+   "x": 337,
+   "y": 202,
+   "width": 59,
+   "height": 127
   },
   {
    "name": "frente/braco_longe",
-   "x": 135,
-   "y": 152,
-   "width": 33,
-   "height": 86
+   "x": 398,
+   "y": 202,
+   "width": 60,
+   "height": 124
   },
   {
-   "name": "frente/quadril",
-   "x": 170,
-   "y": 152,
-   "width": 88,
-   "height": 81
+   "name": "costas/braco_perto",
+   "x": 460,
+   "y": 202,
+   "width": 58,
+   "height": 121
+  },
+  {
+   "name": "costas/mao_longe",
+   "x": 520,
+   "y": 202,
+   "width": 95,
+   "height": 119
+  },
+  {
+   "name": "costas/braco_longe",
+   "x": 617,
+   "y": 202,
+   "width": 55,
+   "height": 118
+  },
+  {
+   "name": "frente/antebraco_longe",
+   "x": 674,
+   "y": 202,
+   "width": 64,
+   "height": 116
+  },
+  {
+   "name": "costas/mao_perto",
+   "x": 740,
+   "y": 202,
+   "width": 93,
+   "height": 115
+  },
+  {
+   "name": "frente/antebraco_perto",
+   "x": 835,
+   "y": 202,
+   "width": 63,
+   "height": 114
+  },
+  {
+   "name": "frente/pe_longe",
+   "x": 0,
+   "y": 351,
+   "width": 135,
+   "height": 114
+  },
+  {
+   "name": "frente/mao_perto",
+   "x": 137,
+   "y": 351,
+   "width": 94,
+   "height": 112
+  },
+  {
+   "name": "frente/mao_longe",
+   "x": 233,
+   "y": 351,
+   "width": 100,
+   "height": 112
+  },
+  {
+   "name": "costas/pe_longe",
+   "x": 335,
+   "y": 351,
+   "width": 140,
+   "height": 108
+  },
+  {
+   "name": "frente/pe_perto",
+   "x": 477,
+   "y": 351,
+   "width": 132,
+   "height": 102
   },
   {
    "name": "costas/quadril",
-   "x": 260,
-   "y": 152,
-   "width": 81,
-   "height": 74
+   "x": 611,
+   "y": 351,
+   "width": 141,
+   "height": 99
+  },
+  {
+   "name": "costas/pe_perto",
+   "x": 754,
+   "y": 351,
+   "width": 128,
+   "height": 98
+  },
+  {
+   "name": "frente/quadril",
+   "x": 0,
+   "y": 467,
+   "width": 142,
+   "height": 96
+  },
+  {
+   "name": "frente/pescoco",
+   "x": 144,
+   "y": 467,
+   "width": 45,
+   "height": 50
+  },
+  {
+   "name": "costas/pescoco",
+   "x": 191,
+   "y": 467,
+   "width": 45,
+   "height": 49
   }
  ]
 }
