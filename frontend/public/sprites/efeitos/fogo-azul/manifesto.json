@@ -1,0 +1,18 @@
+{
+ "quadro": [
+  183,
+  188
+ ],
+ "quadros": 11,
+ "fps": 12,
+ "direcoes": [
+  "S"
+ ],
+ "modo": "unico",
+ "largura": 1.6,
+ "centro": [
+  0.5,
+  0.03
+ ],
+ "fonte": "TESTE \u2014 arte do Ragnarok Online (Gravity); n\u00e3o vai para a vers\u00e3o final"
+}

@@ -1,243 +1,134 @@
 {
  "quadro": [
-  128,
-  128
+  150,
+  132
  ],
  "pe": [
-  64,
+  75,
   124
  ],
- "densidade": 1,
- "apelidos": {
-  "SE": "E",
-  "NE": "E",
-  "SW": "W",
-  "NW": "W"
- },
+ "altura": 96,
+ "densidade": 0.82,
  "tempos": {
   "atacar": {
-   "fps": 12,
+   "fps": 9,
    "impacto": 3
+  },
+  "dano": {
+   "fps": 7
   }
  },
- "fonte": "LPC (Universal LPC Spritesheet Character Generator) — ver creditos.csv",
+ "fonte": "TESTE \u2014 arte do Ragnarok Online (Gravity); n\u00e3o vai para a vers\u00e3o final",
  "anims": {
   "parado": {
-   "N": {
-    "arquivo": "parado_N.png",
-    "quadros": 1,
-    "variantes": {
-     "haki": {
-      "arquivo": "parado-haki_N.png",
-      "quadros": 1
-     }
-    }
-   },
-   "W": {
-    "arquivo": "parado_W.png",
-    "quadros": 1,
-    "variantes": {
-     "haki": {
-      "arquivo": "parado-haki_W.png",
-      "quadros": 1
-     }
-    }
-   },
    "S": {
     "arquivo": "parado_S.png",
-    "quadros": 1,
-    "variantes": {
-     "haki": {
-      "arquivo": "parado-haki_S.png",
-      "quadros": 1
-     }
-    }
+    "quadros": 1
+   },
+   "SE": {
+    "arquivo": "parado_SE.png",
+    "quadros": 1
    },
    "E": {
     "arquivo": "parado_E.png",
-    "quadros": 1,
-    "variantes": {
-     "haki": {
-      "arquivo": "parado-haki_E.png",
-      "quadros": 1
-     }
-    }
+    "quadros": 1
+   },
+   "NE": {
+    "arquivo": "parado_NE.png",
+    "quadros": 1
+   },
+   "N": {
+    "arquivo": "parado_N.png",
+    "quadros": 1
    }
   },
   "andar": {
-   "N": {
-    "arquivo": "andar_N.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_N.png",
-      "quadros": 8
-     }
-    }
-   },
-   "W": {
-    "arquivo": "andar_W.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_W.png",
-      "quadros": 8
-     }
-    }
-   },
    "S": {
     "arquivo": "andar_S.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_S.png",
-      "quadros": 8
-     }
-    }
+    "quadros": 8
+   },
+   "SE": {
+    "arquivo": "andar_SE.png",
+    "quadros": 8
    },
    "E": {
     "arquivo": "andar_E.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_E.png",
-      "quadros": 8
-     }
-    }
-   }
-  },
-  "atacar": {
+    "quadros": 8
+   },
+   "NE": {
+    "arquivo": "andar_NE.png",
+    "quadros": 8
+   },
    "N": {
-    "arquivo": "atacar_N.png",
-    "quadros": 6,
-    "variantes": {
-     "haki": {
-      "arquivo": "atacar-haki_N.png",
-      "quadros": 6
-     },
-     "rei": {
-      "arquivo": "atacar-rei_N.png",
-      "quadros": 6
-     }
-    },
-    "quadro": [
-     384,
-     384
-    ],
-    "pe": [
-     192,
-     252
-    ]
-   },
-   "W": {
-    "arquivo": "atacar_W.png",
-    "quadros": 6,
-    "variantes": {
-     "haki": {
-      "arquivo": "atacar-haki_W.png",
-      "quadros": 6
-     },
-     "rei": {
-      "arquivo": "atacar-rei_W.png",
-      "quadros": 6
-     }
-    },
-    "quadro": [
-     384,
-     384
-    ],
-    "pe": [
-     192,
-     252
-    ]
-   },
-   "S": {
-    "arquivo": "atacar_S.png",
-    "quadros": 6,
-    "variantes": {
-     "haki": {
-      "arquivo": "atacar-haki_S.png",
-      "quadros": 6
-     },
-     "rei": {
-      "arquivo": "atacar-rei_S.png",
-      "quadros": 6
-     }
-    },
-    "quadro": [
-     384,
-     384
-    ],
-    "pe": [
-     192,
-     252
-    ]
-   },
-   "E": {
-    "arquivo": "atacar_E.png",
-    "quadros": 6,
-    "variantes": {
-     "haki": {
-      "arquivo": "atacar-haki_E.png",
-      "quadros": 6
-     },
-     "rei": {
-      "arquivo": "atacar-rei_E.png",
-      "quadros": 6
-     }
-    },
-    "quadro": [
-     384,
-     384
-    ],
-    "pe": [
-     192,
-     252
-    ]
+    "arquivo": "andar_N.png",
+    "quadros": 8
    }
   },
   "correr": {
-   "N": {
-    "arquivo": "andar_N.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_N.png",
-      "quadros": 8
-     }
-    }
-   },
-   "W": {
-    "arquivo": "andar_W.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_W.png",
-      "quadros": 8
-     }
-    }
-   },
    "S": {
-    "arquivo": "andar_S.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_S.png",
-      "quadros": 8
-     }
-    }
+    "arquivo": "correr_S.png",
+    "quadros": 8
+   },
+   "SE": {
+    "arquivo": "correr_SE.png",
+    "quadros": 8
    },
    "E": {
-    "arquivo": "andar_E.png",
-    "quadros": 8,
-    "variantes": {
-     "haki": {
-      "arquivo": "andar-haki_E.png",
-      "quadros": 8
-     }
-    }
+    "arquivo": "correr_E.png",
+    "quadros": 8
+   },
+   "NE": {
+    "arquivo": "correr_NE.png",
+    "quadros": 8
+   },
+   "N": {
+    "arquivo": "correr_N.png",
+    "quadros": 8
+   }
+  },
+  "dano": {
+   "S": {
+    "arquivo": "dano_S.png",
+    "quadros": 2
+   },
+   "SE": {
+    "arquivo": "dano_SE.png",
+    "quadros": 2
+   },
+   "E": {
+    "arquivo": "dano_E.png",
+    "quadros": 2
+   },
+   "NE": {
+    "arquivo": "dano_NE.png",
+    "quadros": 2
+   },
+   "N": {
+    "arquivo": "dano_N.png",
+    "quadros": 2
+   }
+  },
+  "atacar": {
+   "S": {
+    "arquivo": "atacar_S.png",
+    "quadros": 7
+   },
+   "SE": {
+    "arquivo": "atacar_SE.png",
+    "quadros": 7
+   },
+   "E": {
+    "arquivo": "atacar_E.png",
+    "quadros": 7
+   },
+   "NE": {
+    "arquivo": "atacar_NE.png",
+    "quadros": 6
+   },
+   "N": {
+    "arquivo": "atacar_N.png",
+    "quadros": 6
    }
   }
- },
- "altura": 106
+ }
 }

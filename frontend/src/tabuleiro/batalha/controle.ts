@@ -128,6 +128,10 @@ const VISUAL: Record<string, Visual> = {
   gatling: { efeito: 'punho', modo: 'especial', escala: 0.7 },
   'gear-second': { efeito: 'vapor', modo: 'si', escala: 2 },
   'forma-hibrida': { efeito: 'poeira', modo: 'si', escala: 2 },
+  'forma-lobisomem': { efeito: 'poeira', modo: 'si', escala: 2 },
+  'corpo-chamas': { efeito: 'fogo', modo: 'si', escala: 2 },
+  garras: { efeito: 'impacto', modo: 'perto' },
+  uivo: { efeito: 'poeira', modo: 'si', escala: 2.4 },
 }
 /** tamanho dos efeitos de Akuma no Mi (os desenhados por código) */
 const ESCALA_FRUTA = 1
@@ -137,7 +141,31 @@ const ULTIMATES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca'])
 /** segundos de preparação (ligar o Haki) antes da batalha */
 const PREPARO = 10
 /** aparência de cada transformação/buff */
-const FORMAS: Record<string, 'zoan' | 'gear' | 'sabre'> = { bisao: 'zoan', borracha: 'gear', luz: 'sabre' }
+const FORMAS: Record<string, 'zoan' | 'gear' | 'sabre' | 'lobo' | 'agni'> = { bisao: 'zoan', borracha: 'gear', luz: 'sabre', lobo: 'lobo', fogo: 'agni' }
+/**
+ * Efeitos desenhados (folhas do Ragnarok, só teste) por skill: onde tocam —
+ * em quem usa ('si'), no alvo ('alvo') ou em cada casa atingida ('casas');
+ * `chao`: preso no chão (senão na altura do peito).
+ */
+type FxFolha = { folha: string; onde: 'si' | 'alvo' | 'casas'; chao?: boolean; largura?: number }
+const FOLHA_SKILL: Record<string, FxFolha[]> = {
+  corte: [{ folha: 'corte-arco', onde: 'alvo' }],
+  'corte-duplo': [{ folha: 'corte-arco', onde: 'alvo' }],
+  'estocada-perfurante': [{ folha: 'corte-arco', onde: 'casas' }],
+  garras: [{ folha: 'garra', onde: 'alvo', largura: 1.1 }],
+  esmagar: [{ folha: 'explosao-terra', onde: 'alvo', chao: true }],
+  'martelada-titanica': [{ folha: 'explosao-terra', onde: 'alvo', chao: true, largura: 2.2 }, { folha: 'tremor', onde: 'alvo', chao: true }],
+  'onda-choque': [{ folha: 'tremor', onde: 'si', chao: true, largura: 3 }, { folha: 'anel-poeira', onde: 'si', chao: true, largura: 3.2 }],
+  tremor: [{ folha: 'tremor', onde: 'casas', chao: true, largura: 1.6 }],
+  uivo: [{ folha: 'anel-poeira', onde: 'si', chao: true, largura: 3.2 }, { folha: 'tremor', onde: 'si', chao: true, largura: 2.6 }],
+  'nuvem-fumaca': [{ folha: 'nuvem-veneno', onde: 'casas', largura: 1.5 }],
+  'prisao-fumaca': [{ folha: 'nuvem-veneno', onde: 'casas', largura: 1.7 }],
+  'lanca-gelo': [{ folha: 'estrela-gelo', onde: 'alvo' }],
+  'ice-saber': [{ folha: 'estrela-gelo', onde: 'alvo' }],
+  'ice-time': [{ folha: 'estrela-gelo', onde: 'alvo', largura: 1.3 }],
+  'corpo-chamas': [{ folha: 'pilar-fogo', onde: 'si', chao: true, largura: 1.8 }],
+  'forma-lobisomem': [{ folha: 'anel-poeira', onde: 'si', chao: true, largura: 2.6 }],
+}
 /** Efeitos de fruta não mudam de cor com o Haki; os de arma sim. */
 const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura', 'chama', 'bolaFogo', 'explosaoFogo', 'pilarFogo', 'vagalume', 'orbeLuz', 'feixeLuz', 'sabreLuz', 'espinhoGelo', 'vapor', 'poeira'])
 
@@ -734,7 +762,7 @@ export class ControleBatalha {
           if (p) {
             const fr = porId(antes, e.id)?.akuma?.fruta ?? ''
             p.forma = FORMAS[fr] ?? null
-            this.palco.flutuar(p, fr === 'borracha' ? 'Gear Second!' : fr === 'luz' ? 'Espada de Luz!' : 'Forma Híbrida!', fr === 'borracha' ? '#ff6a5a' : '#ffcf6a', 1)
+            this.palco.flutuar(p, fr === 'borracha' ? 'Gear Second!' : fr === 'luz' ? 'Espada de Luz!' : fr === 'fogo' ? 'Corpo de Chamas!' : fr === 'lobo' ? 'Lobisomem!' : 'Forma Híbrida!', fr === 'borracha' || fr === 'fogo' ? '#ff6a5a' : '#ffcf6a', 1)
             await this.palco.efeito('aura', 'normal', this.palco.peito(p), { dur: 0.8, escala: 1.8 })
           }
           this.registrar(`${nome(e.id)} se transforma (${e.vezes} vezes).`)
@@ -814,6 +842,15 @@ export class ControleBatalha {
     const origem = this.palco.peito(a)
     const fim = e.casas.length ? e.casas[e.casas.length - 1] : alvoCasa
     const ate = pAlvo ? this.palco.peito(pAlvo) : this.palco.centro(v.modo === 'projetil' && s.area === 'linha' ? fim : alvoCasa)
+    for (const fx of FOLHA_SKILL[s.id] ?? []) {
+      const pts =
+        fx.onde === 'si' ? [fx.chao ? a.pos.clone() : this.palco.peito(a)]
+        : fx.onde === 'casas' ? e.casas.map((x) => this.palco.centro(x))
+        : [pAlvo ? (fx.chao ? pAlvo.pos.clone() : this.palco.peito(pAlvo)) : this.palco.centro(alvoCasa)]
+      for (const pt of pts) void this.palco.efeitoFolha(fx.folha, 'S', fx.chao ? pt.clone().setY(0.02) : pt, { largura: fx.largura })
+    }
+    // Haki do Rei imbuído: chama roxa no alvo
+    if (e.rei && pAlvo) void this.palco.efeitoFolha('fogo-roxo', 'S', pAlvo.pos.clone().setY(0.02), { largura: 1.4 })
     if (v.modo === 'especial') {
       const hits = resto.filter((x) => x.t === 'golpe').map((x) => this.palco.personagem((x as { alvo: string }).alvo)).filter((p): p is Personagem => !!p)
       await this.especial(s.id, a, origem, ate, e.casas.map((x) => this.palco.centro(x)), hits, direcaoEfeito(alvoCasa.l - c.casa.l, alvoCasa.c - c.casa.c))
@@ -897,7 +934,10 @@ export class ControleBatalha {
         const h = 2.4 * 1.5
         const base = ate.clone().setY(0)
         void P.efeito('explosaoFogo', 'normal', base.clone().setY(0.3), { dur: 0.6, escala: 1.2 })
-        void P.efeito('pilarFogo', 'normal', base.clone().setY(h * 0.45), { dur: 1.1, escala: 2.4 })
+        // coluna desenhada (folha); sem ela, a de código
+        void P.efeitoFolha('pilar-fogo', 'S', base.clone().setY(0.02), { largura: 1.9 }).then((tem) => {
+          if (!tem) void P.efeito('pilarFogo', 'normal', base.clone().setY(h * 0.45), { dur: 1.1, escala: 2.4 })
+        })
         P.tremer(0.4)
         await esperar(550)
         break

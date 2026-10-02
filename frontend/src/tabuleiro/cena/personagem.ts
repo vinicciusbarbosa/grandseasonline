@@ -84,7 +84,7 @@ export class Personagem {
   oculto = false
   /** transformação/buff visível: Zoan (maior, tom de bisão), Gear Second
    * (vermelho, vapor), espada de luz (brilho dourado) */
-  forma: 'zoan' | 'gear' | 'sabre' | null = null
+  forma: 'zoan' | 'gear' | 'sabre' | 'lobo' | 'agni' | null = null
   /** tamanho do sprite (a Zoan cresce) */
   escala = 1
 

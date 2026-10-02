@@ -9,6 +9,7 @@ import { ControleBatalha, type Marca, type RetratoBatalha } from '../batalha/con
 import { TRIPULACOES } from '../batalha/elenco'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
+import { VisualComForma } from './visualForma'
 import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
@@ -21,12 +22,6 @@ import type { LuzPersonagem } from './luzSprite'
 import { ESCALA_ARTE_ANTIGA, PX_CASA, escalaPixel } from './pixel'
 import { texturaMoldura } from './texturas'
 
-
-/**
- * teste do esquema do Ragnarok (corpo + cabeça em camadas, scripts/sprites/teste_ro.py):
- * quem usa a folha de teste no lugar da própria. Arte do Ragnarok: só teste, não publicar.
- */
-const SPRITE_TESTE: Record<string, string> = { 'pirata-lutador': 'teste-ro' }
 
 /**
  * Cena do teste de tabuleiro: os dois navios, o mar e os personagens em
@@ -228,7 +223,7 @@ export class CenaTabuleiro {
     void Promise.all(
       TRIPULACOES.map(async (t) => {
         const c = batalha.combatentes.find((x) => x.id === t.id)!
-        return new Personagem(t.id, t.nome, t.casa, c.hpMax, await VisualFolhas.carregar(SPRITE_TESTE[t.id] ?? t.id), t.dir)
+        return new Personagem(t.id, t.nome, t.casa, c.hpMax, await this.visualCom(t.id, c.akuma?.fruta), t.dir)
       }),
     )
       .then((ps) => {
@@ -433,13 +428,38 @@ export class CenaTabuleiro {
     }
   }
 
+  /** visual do personagem, com os corpos transformados (lobisomem da Zoan do Lobo, espírito de fogo do Corpo de Chamas) */
+  private async visualCom(id: string, fruta?: string) {
+    const base = await VisualFolhas.carregar(id)
+    const formas: Record<string, VisualFolhas> = {}
+    // a fruta pode mudar na preparação: todos já carregam as duas formas
+    void fruta
+    for (const [forma, folha] of [['lobo', 'ro-lobisomem'], ['agni', 'ro-agni']] as const) {
+      try {
+        formas[forma] = await VisualFolhas.carregar(folha)
+      } catch {
+        /* sem a folha: transforma só com a cor */
+      }
+    }
+    return Object.keys(formas).length ? new VisualComForma(base, formas) : base
+  }
+
   private atualizarFormas(dt: number) {
     this.atualizarHakiLigado(dt)
     this.tForma += dt
     const soltar = this.tForma > 0.2
     if (soltar) this.tForma = 0
     for (const p of this.personagens) {
-      if (p.forma === 'zoan') {
+      if (p.visual instanceof VisualComForma) p.visual.forma = p.forma
+      if (p.forma === 'lobo') {
+        p.escala = 1
+        p.tinta = null
+        if (soltar && Math.random() < 0.25) void this.palco.efeito('poeira', 'normal', p.pos.clone().setY(0.25), { dur: 0.7, escala: 0.7 })
+      } else if (p.forma === 'agni') {
+        p.escala = 1
+        p.tinta = null
+        if (soltar) void this.palco.efeito('chama', 'normal', p.pos.clone().setY(p.visual.altura * (0.2 + Math.random() * 0.7)).add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0, 0)), { dur: 0.6, escala: 0.5 })
+      } else if (p.forma === 'zoan') {
         p.escala = 1.3
         p.tinta = TINTA.zoan
         if (soltar && Math.random() < 0.35) void this.palco.efeito('poeira', 'normal', p.pos.clone().setY(0.25), { dur: 0.7, escala: 0.7 })

@@ -125,6 +125,7 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
       { id: 'hiken', nome: 'Punho de Fogo (Hiken)', descricao: 'Punho de fogo gigante a até 4 casas; queima. De perto, explode à queima-roupa; de longe, é arremessado.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1.15, elemento: 'fogo', queima: { dano: 6, vezes: 2 } },
       { id: 'hotarubi', nome: 'Vaga-lumes (Hotarubi)', descricao: 'Bolinhas verdes flutuam até a área 3×3 (até 4 casas) e explodem; queima.', energia: 30, recarga: 2, alcance: 4, area: 'explosao', mult: 0.7, elemento: 'fogo', queima: { dano: 5, vezes: 2 } },
       { id: 'enjomo', nome: 'Pilar de Chamas (Enjōmō)', descricao: 'Coluna de fogo sobe do chão no alvo (até 3 casas); dano alto e queima.', energia: 30, recarga: 2, alcance: 3, area: 'alvo', mult: 1.5, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },
+      { id: 'corpo-chamas', nome: 'Corpo de Chamas (Agni)', descricao: 'Vira um espírito de fogo por 3 vezes: +30% de ataque (não gasta a vez).', energia: 25, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
       { id: 'entei', nome: 'Entei', descricao: 'Sol de fogo gigante sobre a cabeça, arremessado: explode 5×5 a até 5 casas; queima.', energia: 55, recarga: 4, alcance: 5, area: 'explosao', raio: 2, mult: 1, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },
     ],
   },
@@ -167,6 +168,16 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     tipo: 'zoan',
     passiva: 'Forma híbrida: mais força e defesa enquanto transformado.',
     skills: [{ id: 'forma-hibrida', nome: 'Forma Híbrida', descricao: 'Transforma por 3 vezes: +30% de ataque, +10 de defesa (não gasta a vez).', energia: 30, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true }],
+  },
+  lobo: {
+    nome: 'Fruta do Lobo (Inu Inu, modelo Lobo)',
+    tipo: 'zoan',
+    passiva: 'Forma híbrida: vira lobisomem, mais força e defesa enquanto transformado.',
+    skills: [
+      { id: 'forma-lobisomem', nome: 'Forma Híbrida (Lobisomem)', descricao: 'Vira lobisomem por 3 vezes: +30% de ataque, +10 de defesa (não gasta a vez).', energia: 30, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
+      { id: 'garras', nome: 'Garras', descricao: 'Dois rasgos de garra de perto (×0,7 cada).', energia: 15, recarga: 1, alcance: 1, area: 'alvo', mult: 0.7, golpes: 2 },
+      { id: 'uivo', nome: 'Uivo Selvagem', descricao: 'Salta e bate no chão: acerta as 8 casas em volta (×0,8).', energia: 30, recarga: 3, alcance: 0, area: 'volta', mult: 0.8 },
+    ],
   },
 }
 
