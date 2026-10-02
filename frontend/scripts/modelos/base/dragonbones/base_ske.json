@@ -9,10 +9,10 @@
    "frameRate": 24,
    "name": "base_frente",
    "aabb": {
-    "x": -172,
-    "y": -692,
-    "width": 353,
-    "height": 692
+    "x": -199,
+    "y": -579,
+    "width": 362,
+    "height": 579
    },
    "bone": [
     {
@@ -21,10 +21,10 @@
     {
      "name": "quadril",
      "parent": "root",
-     "length": 57,
+     "length": 37,
      "transform": {
       "x": 0.0,
-      "y": -337.6,
+      "y": -292.08,
       "skX": -90.0,
       "skY": -90.0
      }
@@ -32,10 +32,10 @@
     {
      "name": "tronco",
      "parent": "quadril",
-     "length": 120,
+     "length": 85,
      "transform": {
-      "x": 38.42,
-      "y": 3.23,
+      "x": 28.07,
+      "y": 1.21,
       "skX": 0.0,
       "skY": 0.0
      }
@@ -43,21 +43,21 @@
     {
      "name": "pescoco",
      "parent": "tronco",
-     "length": 30,
+     "length": 17,
      "transform": {
-      "x": 184.0,
-      "y": -10.49,
-      "skX": 0.0,
-      "skY": 0.0
+      "x": 119.45,
+      "y": -3.81,
+      "skX": -0.0,
+      "skY": -0.0
      }
     },
     {
      "name": "cabeca",
      "parent": "pescoco",
-     "length": 88,
+     "length": 75,
      "transform": {
-      "x": -12.5,
-      "y": 0.0,
+      "x": 17.7,
+      "y": 4.5,
       "skX": 0.0,
       "skY": 0.0
      }
@@ -65,133 +65,133 @@
     {
      "name": "braco_perto",
      "parent": "tronco",
-     "length": 96,
+     "length": 84,
      "transform": {
-      "x": 126.62,
-      "y": -64.95,
-      "skX": -156.0,
-      "skY": -156.0
+      "x": 94.15,
+      "y": -48.31,
+      "skX": -148.58,
+      "skY": -148.58
      }
     },
     {
      "name": "antebraco_perto",
      "parent": "braco_perto",
-     "length": 76,
+     "length": 80,
      "transform": {
-      "x": 96.07,
-      "y": -0.16,
-      "skX": -10.0,
-      "skY": -10.0
+      "x": 78.55,
+      "y": 0.07,
+      "skX": -2.64,
+      "skY": -2.64
      }
     },
     {
      "name": "mao_perto",
      "parent": "antebraco_perto",
-     "length": 67,
+     "length": 52,
      "transform": {
-      "x": 76.44,
-      "y": -1.73,
-      "skX": 0.0,
-      "skY": 0.0
+      "x": 71.59,
+      "y": -0.53,
+      "skX": 20.42,
+      "skY": 20.42
      }
     },
     {
      "name": "braco_longe",
      "parent": "tronco",
-     "length": 88,
+     "length": 70,
      "transform": {
-      "x": 132.75,
-      "y": 48.35,
-      "skX": 160.0,
-      "skY": 160.0
+      "x": 93.15,
+      "y": 30.69,
+      "skX": 153.66,
+      "skY": 153.66
      }
     },
     {
      "name": "antebraco_longe",
      "parent": "braco_longe",
-     "length": 78,
+     "length": 84,
      "transform": {
-      "x": 88.72,
-      "y": -2.12,
-      "skX": 8.0,
-      "skY": 8.0
+      "x": 71.1,
+      "y": -1.62,
+      "skX": -2.49,
+      "skY": -2.49
      }
     },
     {
      "name": "mao_longe",
      "parent": "antebraco_longe",
-     "length": 67,
+     "length": 51,
      "transform": {
-      "x": 78.33,
-      "y": -0.32,
-      "skX": -0.0,
-      "skY": -0.0
+      "x": 74.3,
+      "y": -0.19,
+      "skX": 16.48,
+      "skY": 16.48
      }
     },
     {
      "name": "coxa_perto",
      "parent": "quadril",
-     "length": 118,
+     "length": 140,
      "transform": {
-      "x": 3.27,
-      "y": -53.12,
-      "skX": -176.0,
-      "skY": -176.0
+      "x": 14.22,
+      "y": -18.1,
+      "skX": -164.83,
+      "skY": -164.83
      }
     },
     {
      "name": "canela_perto",
      "parent": "coxa_perto",
-     "length": 107,
+     "length": 128,
      "transform": {
-      "x": 118.45,
-      "y": 1.27,
-      "skX": -3.0,
-      "skY": -3.0
+      "x": 132.96,
+      "y": 1.26,
+      "skX": 3.95,
+      "skY": 3.95
      }
     },
     {
      "name": "pe_perto",
      "parent": "canela_perto",
-     "length": 61,
+     "length": 45,
      "transform": {
-      "x": 107.79,
-      "y": 0.9,
-      "skX": 0.0,
-      "skY": 0.0
+      "x": 119.87,
+      "y": 0.8,
+      "skX": -19.11,
+      "skY": -19.11
      }
     },
     {
      "name": "coxa_longe",
      "parent": "quadril",
-     "length": 123,
+     "length": 113,
      "transform": {
-      "x": 3.74,
-      "y": 60.51,
-      "skX": 176.0,
-      "skY": 176.0
+      "x": 3.22,
+      "y": 39.9,
+      "skX": 177.81,
+      "skY": 177.81
      }
     },
     {
      "name": "canela_longe",
      "parent": "coxa_longe",
-     "length": 120,
+     "length": 117,
      "transform": {
-      "x": 123.15,
-      "y": 0.49,
-      "skX": 3.0,
-      "skY": 3.0
+      "x": 112.07,
+      "y": 0.29,
+      "skX": -1.34,
+      "skY": -1.34
      }
     },
     {
      "name": "pe_longe",
      "parent": "canela_longe",
-     "length": 68,
+     "length": 50,
      "transform": {
-      "x": 120.55,
-      "y": -0.17,
-      "skX": -0.0,
-      "skY": -0.0
+      "x": 111.22,
+      "y": -0.15,
+      "skX": 3.53,
+      "skY": 3.53
      }
     },
     {
@@ -199,7 +199,7 @@
      "parent": "cabeca",
      "length": 60,
      "transform": {
-      "x": 80.85,
+      "x": 68.75,
       "y": 0,
       "skX": 180,
       "skY": 180
@@ -210,7 +210,7 @@
      "parent": "tronco",
      "length": 120,
      "transform": {
-      "x": 168.0,
+      "x": 118.99999999999999,
       "y": 0,
       "skX": 180,
       "skY": 180
@@ -261,20 +261,6 @@
      "displayIndex": -1
     },
     {
-     "name": "quadril",
-     "parent": "quadril"
-    },
-    {
-     "name": "roupa_quadril",
-     "parent": "quadril",
-     "displayIndex": -1
-    },
-    {
-     "name": "cinto",
-     "parent": "quadril",
-     "displayIndex": -1
-    },
-    {
      "name": "coxa_longe",
      "parent": "coxa_longe"
     },
@@ -299,6 +285,20 @@
     {
      "name": "bota_longe",
      "parent": "pe_longe",
+     "displayIndex": -1
+    },
+    {
+     "name": "quadril",
+     "parent": "quadril"
+    },
+    {
+     "name": "roupa_quadril",
+     "parent": "quadril",
+     "displayIndex": -1
+    },
+    {
+     "name": "cinto",
+     "parent": "quadril",
      "displayIndex": -1
     },
     {
@@ -412,8 +412,8 @@
         {
          "name": "frente/braco_longe",
          "transform": {
-          "x": 36.8,
-          "y": -5.09,
+          "x": 29.34,
+          "y": -4.0,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -426,8 +426,8 @@
         {
          "name": "frente/antebraco_longe",
          "transform": {
-          "x": 31.12,
-          "y": -0.82,
+          "x": 39.88,
+          "y": -0.7,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -440,8 +440,50 @@
         {
          "name": "frente/mao_longe",
          "transform": {
-          "x": 49.11,
-          "y": -10.65,
+          "x": 37.46,
+          "y": -8.21,
+          "skX": -90.0,
+          "skY": -90.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "coxa_longe",
+       "display": [
+        {
+         "name": "frente/coxa_longe",
+         "transform": {
+          "x": 46.7,
+          "y": 2.52,
+          "skX": -90.0,
+          "skY": -90.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "canela_longe",
+       "display": [
+        {
+         "name": "frente/canela_longe",
+         "transform": {
+          "x": 51.82,
+          "y": -0.0,
+          "skX": -90.0,
+          "skY": -90.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "pe_longe",
+       "display": [
+        {
+         "name": "frente/pe_longe",
+         "transform": {
+          "x": 30.3,
+          "y": -20.92,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -455,51 +497,9 @@
          "name": "frente/quadril",
          "transform": {
           "x": 0.0,
-          "y": -0.0,
+          "y": 0.0,
           "skX": 90.0,
           "skY": 90.0
-         }
-        }
-       ]
-      },
-      {
-       "name": "coxa_longe",
-       "display": [
-        {
-         "name": "frente/coxa_longe",
-         "transform": {
-          "x": 50.0,
-          "y": 2.84,
-          "skX": -90.0,
-          "skY": -90.0
-         }
-        }
-       ]
-      },
-      {
-       "name": "canela_longe",
-       "display": [
-        {
-         "name": "frente/canela_longe",
-         "transform": {
-          "x": 49.08,
-          "y": 0.12,
-          "skX": -90.0,
-          "skY": -90.0
-         }
-        }
-       ]
-      },
-      {
-       "name": "pe_longe",
-       "display": [
-        {
-         "name": "frente/pe_longe",
-         "transform": {
-          "x": 40.25,
-          "y": -28.0,
-          "skX": -90.0,
-          "skY": -90.0
          }
         }
        ]
@@ -510,8 +510,8 @@
         {
          "name": "frente/coxa_perto",
          "transform": {
-          "x": 48.4,
-          "y": 1.11,
+          "x": 62.18,
+          "y": 1.08,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -524,8 +524,8 @@
         {
          "name": "frente/canela_perto",
          "transform": {
-          "x": 44.1,
-          "y": -1.46,
+          "x": 57.98,
+          "y": -1.16,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -538,8 +538,8 @@
         {
          "name": "frente/pe_perto",
          "transform": {
-          "x": 36.29,
-          "y": -26.61,
+          "x": 26.89,
+          "y": -20.01,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -552,8 +552,8 @@
         {
          "name": "frente/tronco",
          "transform": {
-          "x": 90.09,
-          "y": -12.93,
+          "x": 61.86,
+          "y": -10.19,
           "skX": 90.0,
           "skY": 90.0
          }
@@ -566,8 +566,8 @@
         {
          "name": "frente/pescoco",
          "transform": {
-          "x": -17.5,
-          "y": 0.71,
+          "x": 8.7,
+          "y": -0.0,
           "skX": 90.0,
           "skY": 90.0
          }
@@ -580,8 +580,8 @@
         {
          "name": "frente/cabeca",
          "transform": {
-          "x": 70.56,
-          "y": -13.94,
+          "x": 58.75,
+          "y": -12.0,
           "skX": 90.0,
           "skY": 90.0
          }
@@ -594,8 +594,8 @@
         {
          "name": "frente/braco_perto",
          "transform": {
-          "x": 40.88,
-          "y": 2.68,
+          "x": 38.96,
+          "y": 1.5,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -608,8 +608,8 @@
         {
          "name": "frente/antebraco_perto",
          "transform": {
-          "x": 30.54,
-          "y": -1.24,
+          "x": 37.12,
+          "y": -0.5,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -622,8 +622,8 @@
         {
          "name": "frente/mao_perto",
          "transform": {
-          "x": 48.89,
-          "y": -17.38,
+          "x": 38.33,
+          "y": -13.51,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -676,10 +676,10 @@
    "frameRate": 24,
    "name": "base_costas",
    "aabb": {
-    "x": -172,
-    "y": -708,
-    "width": 358,
-    "height": 708
+    "x": -187,
+    "y": -599,
+    "width": 354,
+    "height": 599
    },
    "bone": [
     {
@@ -688,10 +688,10 @@
     {
      "name": "quadril",
      "parent": "root",
-     "length": 59,
+     "length": 39,
      "transform": {
       "x": 0.0,
-      "y": -348.93,
+      "y": -309.33,
       "skX": -90.0,
       "skY": -90.0
      }
@@ -699,21 +699,21 @@
     {
      "name": "tronco",
      "parent": "quadril",
-     "length": 117,
+     "length": 85,
      "transform": {
-      "x": 40.36,
-      "y": 2.81,
-      "skX": 0.0,
-      "skY": 0.0
+      "x": 31.24,
+      "y": 4.09,
+      "skX": -0.0,
+      "skY": -0.0
      }
     },
     {
      "name": "pescoco",
      "parent": "tronco",
-     "length": 29,
+     "length": 18,
      "transform": {
-      "x": 180.37,
-      "y": -3.87,
+      "x": 113.72,
+      "y": -0.32,
       "skX": 0.0,
       "skY": 0.0
      }
@@ -721,10 +721,10 @@
     {
      "name": "cabeca",
      "parent": "pescoco",
-     "length": 92,
+     "length": 79,
      "transform": {
-      "x": -12.25,
-      "y": 0.0,
+      "x": 16.5,
+      "y": -3.0,
       "skX": 0.0,
       "skY": 0.0
      }
@@ -732,133 +732,133 @@
     {
      "name": "braco_perto",
      "parent": "tronco",
-     "length": 83,
+     "length": 89,
      "transform": {
-      "x": 118.4,
-      "y": -65.47,
-      "skX": -156.0,
-      "skY": -156.0
+      "x": 90.22,
+      "y": -37.32,
+      "skX": -156.33,
+      "skY": -156.33
      }
     },
     {
      "name": "antebraco_perto",
      "parent": "braco_perto",
-     "length": 91,
+     "length": 77,
      "transform": {
-      "x": 83.15,
-      "y": -2.22,
-      "skX": -10.0,
-      "skY": -10.0
+      "x": 80.22,
+      "y": -1.32,
+      "skX": 12.23,
+      "skY": 12.23
      }
     },
     {
      "name": "mao_perto",
      "parent": "antebraco_perto",
-     "length": 69,
+     "length": 51,
      "transform": {
-      "x": 91.61,
-      "y": -0.12,
-      "skX": 0.0,
-      "skY": 0.0
+      "x": 74.4,
+      "y": 0.46,
+      "skX": 18.31,
+      "skY": 18.31
      }
     },
     {
      "name": "braco_longe",
      "parent": "tronco",
-     "length": 83,
+     "length": 84,
      "transform": {
-      "x": 127.02,
-      "y": 48.66,
-      "skX": 160.0,
-      "skY": 160.0
+      "x": 90.22,
+      "y": 46.68,
+      "skX": 157.99,
+      "skY": 157.99
      }
     },
     {
      "name": "antebraco_longe",
      "parent": "braco_longe",
-     "length": 94,
+     "length": 71,
      "transform": {
-      "x": 83.56,
-      "y": -1.69,
-      "skX": 8.0,
-      "skY": 8.0
+      "x": 76.69,
+      "y": -0.27,
+      "skX": -6.03,
+      "skY": -6.03
      }
     },
     {
      "name": "mao_longe",
      "parent": "antebraco_longe",
-     "length": 71,
+     "length": 48,
      "transform": {
-      "x": 94.33,
-      "y": 0.34,
-      "skX": -0.0,
-      "skY": -0.0
+      "x": 68.88,
+      "y": 0.44,
+      "skX": 18.7,
+      "skY": 18.7
      }
     },
     {
      "name": "coxa_perto",
      "parent": "quadril",
-     "length": 123,
+     "length": 103,
      "transform": {
-      "x": -3.01,
-      "y": -52.76,
-      "skX": -176.0,
-      "skY": -176.0
+      "x": -12.54,
+      "y": -19.22,
+      "skX": -172.04,
+      "skY": -172.04
      }
     },
     {
      "name": "canela_perto",
      "parent": "coxa_perto",
-     "length": 125,
+     "length": 140,
      "transform": {
-      "x": 123.68,
-      "y": -3.89,
-      "skX": -3.0,
-      "skY": -3.0
+      "x": 103.53,
+      "y": -3.36,
+      "skX": -6.01,
+      "skY": -6.01
      }
     },
     {
      "name": "pe_perto",
      "parent": "canela_perto",
-     "length": 58,
+     "length": 43,
      "transform": {
-      "x": 125.94,
-      "y": 2.04,
-      "skX": 0.0,
-      "skY": 0.0
+      "x": 131.13,
+      "y": 1.54,
+      "skX": -1.95,
+      "skY": -1.95
      }
     },
     {
      "name": "coxa_longe",
      "parent": "quadril",
-     "length": 126,
+     "length": 97,
      "transform": {
-      "x": 1.95,
-      "y": 62.35,
-      "skX": 176.0,
-      "skY": 176.0
+      "x": -14.54,
+      "y": 36.78,
+      "skX": 159.58,
+      "skY": 159.58
      }
     },
     {
      "name": "canela_longe",
      "parent": "coxa_longe",
-     "length": 130,
+     "length": 131,
      "transform": {
-      "x": 126.91,
-      "y": 1.78,
-      "skX": 3.0,
-      "skY": 3.0
+      "x": 97.73,
+      "y": 1.16,
+      "skX": 6.27,
+      "skY": 6.27
      }
     },
     {
      "name": "pe_longe",
      "parent": "canela_longe",
-     "length": 64,
+     "length": 48,
      "transform": {
-      "x": 130.71,
-      "y": -0.21,
-      "skX": -0.0,
-      "skY": -0.0
+      "x": 125.63,
+      "y": 0.73,
+      "skX": 14.15,
+      "skY": 14.15
      }
     },
     {
@@ -866,7 +866,7 @@
      "parent": "cabeca",
      "length": 60,
      "transform": {
-      "x": 84.7,
+      "x": 72.6,
       "y": 0,
       "skX": 180,
       "skY": 180
@@ -877,7 +877,7 @@
      "parent": "tronco",
      "length": 120,
      "transform": {
-      "x": 163.79999999999998,
+      "x": 118.99999999999999,
       "y": 0,
       "skX": 180,
       "skY": 180
@@ -928,20 +928,6 @@
      "displayIndex": -1
     },
     {
-     "name": "quadril",
-     "parent": "quadril"
-    },
-    {
-     "name": "roupa_quadril",
-     "parent": "quadril",
-     "displayIndex": -1
-    },
-    {
-     "name": "cinto",
-     "parent": "quadril",
-     "displayIndex": -1
-    },
-    {
      "name": "coxa_longe",
      "parent": "coxa_longe"
     },
@@ -966,6 +952,20 @@
     {
      "name": "bota_longe",
      "parent": "pe_longe",
+     "displayIndex": -1
+    },
+    {
+     "name": "quadril",
+     "parent": "quadril"
+    },
+    {
+     "name": "roupa_quadril",
+     "parent": "quadril",
+     "displayIndex": -1
+    },
+    {
+     "name": "cinto",
+     "parent": "quadril",
      "displayIndex": -1
     },
     {
@@ -1079,8 +1079,8 @@
         {
          "name": "costas/braco_longe",
          "transform": {
-          "x": 35.9,
-          "y": -2.7,
+          "x": 40.56,
+          "y": -1.0,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1093,8 +1093,8 @@
         {
          "name": "costas/antebraco_longe",
          "transform": {
-          "x": 40.22,
-          "y": 0.58,
+          "x": 32.38,
+          "y": 0.5,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1107,8 +1107,50 @@
         {
          "name": "costas/mao_longe",
          "transform": {
-          "x": 51.49,
-          "y": -16.89,
+          "x": 35.26,
+          "y": -11.62,
+          "skX": -90.0,
+          "skY": -90.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "coxa_longe",
+       "display": [
+        {
+         "name": "costas/coxa_longe",
+         "transform": {
+          "x": 41.14,
+          "y": 2.26,
+          "skX": -90.0,
+          "skY": -90.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "canela_longe",
+       "display": [
+        {
+         "name": "costas/canela_longe",
+         "transform": {
+          "x": 54.46,
+          "y": 0.07,
+          "skX": -90.0,
+          "skY": -90.0
+         }
+        }
+       ]
+      },
+      {
+       "name": "pe_longe",
+       "display": [
+        {
+         "name": "costas/pe_longe",
+         "transform": {
+          "x": 28.88,
+          "y": 21.09,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1130,55 +1172,13 @@
        ]
       },
       {
-       "name": "coxa_longe",
-       "display": [
-        {
-         "name": "costas/coxa_longe",
-         "transform": {
-          "x": 53.5,
-          "y": 3.26,
-          "skX": -90.0,
-          "skY": -90.0
-         }
-        }
-       ]
-      },
-      {
-       "name": "canela_longe",
-       "display": [
-        {
-         "name": "costas/canela_longe",
-         "transform": {
-          "x": 50.4,
-          "y": 0.08,
-          "skX": -90.0,
-          "skY": -90.0
-         }
-        }
-       ]
-      },
-      {
-       "name": "pe_longe",
-       "display": [
-        {
-         "name": "costas/pe_longe",
-         "transform": {
-          "x": 38.78,
-          "y": -29.66,
-          "skX": -90.0,
-          "skY": -90.0
-         }
-        }
-       ]
-      },
-      {
        "name": "coxa_perto",
        "display": [
         {
          "name": "costas/coxa_perto",
          "transform": {
-          "x": 52.16,
-          "y": 2.07,
+          "x": 43.62,
+          "y": 2.17,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1191,8 +1191,8 @@
         {
          "name": "costas/canela_perto",
          "transform": {
-          "x": 47.48,
-          "y": 1.19,
+          "x": 58.96,
+          "y": 0.88,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1205,8 +1205,8 @@
         {
          "name": "costas/pe_perto",
          "transform": {
-          "x": 35.25,
-          "y": -27.07,
+          "x": 26.3,
+          "y": 19.18,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1219,8 +1219,8 @@
         {
          "name": "costas/tronco",
          "transform": {
-          "x": 87.82,
-          "y": -5.3,
+          "x": 60.06,
+          "y": 1.58,
           "skX": 90.0,
           "skY": 90.0
          }
@@ -1233,8 +1233,8 @@
         {
          "name": "costas/pescoco",
          "transform": {
-          "x": -17.15,
-          "y": 0.33,
+          "x": 9.0,
+          "y": 0.0,
           "skX": 90.0,
           "skY": 90.0
          }
@@ -1247,8 +1247,8 @@
         {
          "name": "costas/cabeca",
          "transform": {
-          "x": 73.92,
-          "y": -3.51,
+          "x": 62.04,
+          "y": 4.32,
           "skX": 90.0,
           "skY": 90.0
          }
@@ -1261,8 +1261,8 @@
         {
          "name": "costas/braco_perto",
          "transform": {
-          "x": 36.14,
-          "y": -2.0,
+          "x": 44.22,
+          "y": -1.2,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1275,8 +1275,8 @@
         {
          "name": "costas/antebraco_perto",
          "transform": {
-          "x": 38.72,
-          "y": 0.44,
+          "x": 34.7,
+          "y": 0.5,
           "skX": -90.0,
           "skY": -90.0
          }
@@ -1289,8 +1289,8 @@
         {
          "name": "costas/mao_perto",
          "transform": {
-          "x": 50.16,
-          "y": -16.65,
+          "x": 37.64,
+          "y": -12.45,
           "skX": -90.0,
           "skY": -90.0
          }

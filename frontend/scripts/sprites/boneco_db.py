@@ -135,8 +135,8 @@ def juntas(nome, r):
         x, _ = centro_faixa(r, 0, 1)
         return {'em': (x, h * 0.15), 'cabeca': (x, h * 0.4)}
     if nome == 'cabeca':
-        x, _ = centro_faixa(r, 0.93, 1.0)
-        return {'em': (x, h * 0.98)}
+        x, _ = centro_faixa(r, 0.9, 1.0)
+        return {'em': (x, h * 0.97)}
     if nome.startswith('mao'):
         return {'em': centro_faixa(r, 0, 0.12)}
     if nome.startswith('pe'):
@@ -174,7 +174,7 @@ for lado in ('perto', 'longe'):
                   f'canela_{lado}': [f'calca_baixo_{lado}'], f'pe_{lado}': [f'bota_{lado}']})
 ORDEM = ['capa_tras', 'cabelo_tras',
          'braco_longe', 'antebraco_longe', 'arma_longe', 'mao_longe',
-         'quadril', 'coxa_longe', 'canela_longe', 'pe_longe',
+         'coxa_longe', 'canela_longe', 'pe_longe', 'quadril',
          'coxa_perto', 'canela_perto', 'pe_perto',
          'tronco', 'pescoco', 'cabeca',
          'braco_perto', 'antebraco_perto', 'arma_perto', 'mao_perto']
@@ -203,21 +203,161 @@ def decompor(M):
     return float(M[0, 2]), float(M[1, 2]), float(np.degrees(np.arctan2(M[1, 0], M[0, 0])))
 
 
+# juntas do boneco montado no topo da folha (coordenadas da folha): cada peça
+# é escalada e girada para cair nelas — as peças soltas saíram mais grossas
+# que o boneco de referência, então só encaixar pelos buracos dá errado
+REF = {
+    'frente': {
+        'cabeca_base': (536, 152), 'pescoco_base': (527, 170), 'cintura': (536, 292), 'quadril_c': (542, 306),
+        'ombro_perto': (487, 195), 'cotovelo_perto': (446, 262), 'pulso_perto': (412, 325),
+        'ombro_longe': (566, 196), 'cotovelo_longe': (599, 259), 'pulso_longe': (635, 324),
+        'anca_perto': (516, 303), 'joelho_perto': (480, 431), 'tornozelo_perto': (440, 544),
+        'anca_longe': (574, 314), 'joelho_longe': (578, 426), 'tornozelo_longe': (585, 537),
+        'cabeca_l': 128, 'pescoco_l': 26, 'quadril_l': 92, 'pe': 0.74,
+    },
+    'costas': {
+        'cabeca_base': (507, 148), 'pescoco_base': (513, 163), 'cintura': (508, 282), 'quadril_c': (520, 300),
+        'ombro_perto': (473, 188), 'cotovelo_perto': (442, 262), 'pulso_perto': (398, 322),
+        'ombro_longe': (557, 188), 'cotovelo_longe': (586, 259), 'pulso_longe': (618, 320),
+        'anca_perto': (487, 322), 'joelho_perto': (476, 425), 'tornozelo_perto': (470, 556),
+        'anca_longe': (543, 324), 'joelho_longe': (576, 416), 'tornozelo_longe': (606, 538),
+        'cabeca_l': 125, 'pescoco_l': 28, 'quadril_l': 94, 'pe': 0.74,
+    },
+}
+# membro -> (junta de cima, junta de baixo) na referência
+SEGMENTO = {'braco': ('ombro', 'cotovelo'), 'antebraco': ('cotovelo', 'pulso'),
+            'coxa': ('anca', 'joelho'), 'canela': ('joelho', 'tornozelo')}
+# nas costas o boneco olha para cima-esquerda: os pés apontam para a esquerda
+ESPELHAR = {'costas': ('pe_perto', 'pe_longe')}
+
+
+def mascara_ref(vista):
+    img = cv2.imread(os.path.join(PASTA, 'fonte', f'{vista}.png'))
+    s = alfa(img)
+    s[630:] = False
+    return s
+
+
+def largura_ref(m, a, b):
+    """largura do membro na referência, no meio do segmento a-b"""
+    a, b = np.array(a, float), np.array(b, float)
+    d = (b - a) / np.linalg.norm(b - a)
+    n = np.array([-d[1], d[0]])
+    c = (a + b) / 2
+    lados = []
+    for sinal in (1, -1):
+        k = 0
+        while k < 80:
+            x, y = (c + sinal * n * (k + 1)).round().astype(int)
+            if not m[y, x]:
+                break
+            k += 1
+        lados.append(k)
+    return sum(lados)
+
+
+def escalar(r, sx, sy):
+    h, l = r.shape[:2]
+    return cv2.resize(r, (max(1, round(l * sx)), max(1, round(h * sy))), interpolation=cv2.INTER_AREA)
+
+
+def afim(src, dst):
+    """afim (3x3) por mínimos quadrados levando os pontos src em dst"""
+    A = np.hstack([np.array(src, float), np.ones((len(src), 1))])
+    X, *_ = np.linalg.lstsq(A, np.array(dst, float), rcond=None)
+    M = np.eye(3)
+    M[:2] = X.T
+    return M
+
+
 def montar(vista):
     pecas = recortar(vista)
     for n in pecas:
         if n.split('_')[0] in MEMBROS:
             pecas[n] = endireitar(pecas[n])
-    js = {n: juntas(n, r) for n, r in pecas.items()}
-    W = {}  # quadro da imagem -> mundo
-    for n, (pai, j) in ARVORE.items():
-        em = js[n]['em']
-        M = T(0, 0) if pai is None else W[pai] @ T(*js[pai][j])
-        W[n] = M @ R(POSE.get(n, 0)) @ T(-em[0], -em[1])
-    # chão em y = 0, centro do quadril em x = 0
+    for n in ESPELHAR.get(vista, ()):
+        pecas[n] = pecas[n][:, ::-1].copy()
+    ref = REF[vista]
+    m = mascara_ref(vista)
+    W = {}
+    js = {}
+    escala = {}
+    for n in ARVORE:
+        r = pecas[n]
+        tipo, *lado = n.split('_')
+        lado = lado[0] if lado else ''
+        j = juntas(n, r)
+        if tipo in MEMBROS:
+            a, b = (ref[f'{k}_{lado}'] for k in SEGMENTO[tipo])
+            comp_ref = np.hypot(b[0] - a[0], b[1] - a[1])
+            comp = np.hypot(j['fim'][0] - j['em'][0], j['fim'][1] - j['em'][1])
+            sy = comp_ref / comp
+            larg = largura_ref(m, a, b) / (r.shape[1] * 0.8)
+            sx = float(np.clip(larg, 0.55 * sy, 1.0 * sy))
+            escala[n] = (sx, sy)
+            r = escalar(r, sx, sy)
+            j = juntas(n, r)
+            ang = np.degrees(np.arctan2(b[1] - a[1], b[0] - a[0]) - np.arctan2(j['fim'][1] - j['em'][1], j['fim'][0] - j['em'][0]))
+            W[n] = T(*a) @ R(ang) @ T(-j['em'][0], -j['em'][1])
+        elif tipo in ('mao', 'pe'):
+            if tipo == 'mao':
+                ant = W[f'antebraco_{lado}']
+                ang = np.degrees(np.arctan2(ant[1, 0], ant[0, 0]))
+                s_ = sum(escala[f'antebraco_{lado}']) / 2
+                ponto = ref[f'pulso_{lado}']
+            else:
+                ang, s_, ponto = 0, ref['pe'], ref[f'tornozelo_{lado}']
+            r = escalar(r, s_, s_)
+            j = juntas(n, r)
+            if tipo == 'mao':
+                # a mão veio desenhada torta: gira para os dedos seguirem o antebraço
+                ys, xs = np.nonzero(r[..., 3] > 0)
+                eixo = np.degrees(np.arctan2(ys.mean() - j['em'][1], xs.mean() - j['em'][0]))
+                ang += 90 - eixo
+            W[n] = T(*ponto) @ R(ang) @ T(-j['em'][0], -j['em'][1])
+        elif n == 'cabeca':
+            # tira o toco de baixo (fica só o pescoço separado)
+            larg = (r[..., 3] > 0).sum(1)
+            fim = len(larg) - 1
+            while larg[fim] < larg.max() * 0.45:
+                fim -= 1
+            r = r[:fim + 2]
+            s_ = ref['cabeca_l'] / r.shape[1]
+            r = escalar(r, s_, s_)
+            j = juntas(n, r)
+            W[n] = T(*ref['cabeca_base']) @ T(-j['em'][0], -j['em'][1])
+        elif n == 'pescoco':
+            s_ = ref['pescoco_l'] / r.shape[1]
+            r = escalar(r, s_, s_)
+            a, b = np.array(ref['cabeca_base']), np.array(ref['pescoco_base'])
+            c = (a + b) / 2
+            W[n] = T(*c) @ T(-r.shape[1] / 2, -r.shape[0] / 2)
+            j = {'em': (r.shape[1] / 2, r.shape[0] * 0.8), 'cabeca': (r.shape[1] / 2, r.shape[0] * 0.2)}
+        elif n == 'quadril':
+            s_ = ref['quadril_l'] / r.shape[1]
+            r = escalar(r, s_, s_)
+            j = juntas(n, r)
+            W[n] = T(*ref['cintura']) @ T(-j['cintura'][0], -j['cintura'][1])
+        elif n == 'tronco':
+            src = [j['pescoco'], j['ombro_perto'], j['ombro_longe'], j['em']]
+            dst = [ref['pescoco_base'], ref['ombro_perto'], ref['ombro_longe'], ref['cintura']]
+            M = afim(src, dst)
+            # assa a parte linear na imagem (sem girar o osso)
+            L = M.copy(); L[:2, 2] = 0
+            h, l = r.shape[:2]
+            cantos = np.array([L @ [x, y, 1] for x in (0, l) for y in (0, h)])[:, :2]
+            lo, hi = cantos.min(0), cantos.max(0)
+            Lt = T(-lo[0], -lo[1]) @ L
+            r = cv2.warpAffine(r, Lt[:2], (int(np.ceil(hi[0] - lo[0])), int(np.ceil(hi[1] - lo[1]))), flags=cv2.INTER_AREA, borderValue=(0, 0, 0, 0))
+            j = {k: tuple((Lt @ [x, y, 1])[:2]) for k, (x, y) in j.items()}
+            W[n] = M @ np.linalg.inv(Lt)
+        pecas[n] = r
+        js[n] = j
+    # chão em y = 0, quadril em x = 0
     fundo = max((W[n] @ [x, y, 1])[1] for n, r in pecas.items() for x, y in ((0, r.shape[0]), (r.shape[1], r.shape[0])))
+    meio = (W['quadril'] @ [*js['quadril']['em'], 1])[0]
     for n in W:
-        W[n] = T(0, -fundo) @ W[n]
+        W[n] = T(-meio, -fundo) @ W[n]
     return pecas, js, W
 
 
