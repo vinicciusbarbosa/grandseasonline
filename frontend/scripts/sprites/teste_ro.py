@@ -91,7 +91,7 @@ for i, d in enumerate(DIRS):
     cv2.imwrite(os.path.join(DEST, f'andar_{d}.png'), tira)
     anims['andar'][d] = {'arquivo': f'andar_{d}.png', 'quadros': len(ANDAR[i])}
     anims['correr'][d] = {'arquivo': f'andar_{d}.png', 'quadros': len(ANDAR[i])}
-json.dump({'quadro': [L, A], 'pe': list(PE), 'altura': 92, 'densidade': 1,
+json.dump({'quadro': [L, A], 'pe': list(PE), 'altura': 90, 'densidade': 0.78,
            'fonte': 'TESTE — sprites do Ragnarok Online (Gravity), não distribuir', 'anims': anims},
           open(os.path.join(DEST, 'manifesto.json'), 'w'), indent=1)
 print('ok', [len(r) for r in ANDAR], len(CABECAS))
