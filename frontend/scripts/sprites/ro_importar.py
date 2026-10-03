@@ -151,7 +151,7 @@ def cintura_x(cp):
     return float(cols.mean())
 
 
-def topo_tronco(cp, dx_cintura=None, raio=4, banda=6):
+def topo_tronco(cp, dx_cintura=None, raio=4, banda=6, perc=50):
     """pescoço = topo do tronco numa faixa acima da cintura, depois de apagar o
     que é fino (braço e punho erguidos não contam). dx_cintura: distância
     pescoço-cintura da pose parada (None = a própria pose parada)"""
@@ -171,7 +171,7 @@ def topo_tronco(cp, dx_cintura=None, raio=4, banda=6):
     topos = [int(np.argmax(faixa[:, c])) for c in range(faixa.shape[1]) if faixa[:, c].any()]
     if not topos:
         return xc, 0
-    y = int(np.median(topos))
+    y = int(np.percentile(topos, perc))
     # corpo inclinado: o pescoço vai junto com o topo do tronco (até 8 px)
     x0, x1 = int(round(xc - 8)), int(round(xc + 8)) + 1
     cols = np.nonzero(t[y:y + 5, max(0, x0):x1].any(0))[0]
@@ -217,7 +217,7 @@ def montar(corpo, cabeca, ref, ancora='pescoco'):
     q = np.zeros((A, L, 4), np.uint8)
     cp = aparar(corpo)
     h = cp.shape[0]
-    nx, ny = topo_tronco(cp, ref['dxc'])
+    nx, ny = topo_tronco(cp, ref['dxc'], banda=ref.get('banda', 6), perc=ref.get('perc', 50))
     if ancora == 'pe':
         ox = int(round(PE[0] - pe_x(cp)))
     else:
@@ -283,8 +283,8 @@ CORPOS = {
 
 # personagem: corpo, cabeça (folha, linha), Marinha tingida de azul, ataque
 TRIPULACAO = {
-    'pirata-capitao': ('bandana', ('cabecas-6.png', 10), False, 'atacar'),
-    # pirata-espadachim: corpo gerado por IA (ia_importar.py)
+    # pirata-capitao: corpo gerado por IA (ia_importar.py)
+    'pirata-espadachim': ('samurai', ('cabecas-4.png', 1), False, 'atacar'),
     'pirata-lutador': ('monge', ('cabecas-1.png', 8), False, 'atacar'),
     'pirata-atiradora': ('pistoleiro', ('cabecas-6.png', 7), False, 'tiro'),
     'pirata-medico': ('verao', ('cabecas-3.png', 4), False, 'atacar'),
