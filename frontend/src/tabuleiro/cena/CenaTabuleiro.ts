@@ -10,6 +10,10 @@ import { TRIPULACOES } from '../batalha/elenco'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
 import { VisualComForma } from './visualForma'
+import { EfeitoEfk, carregarEfk, type DadosEfk } from './efk'
+
+/** altura de quem lança no efeito do Effekseer (unidades do editor): o efeito escala por ela */
+const ALTURA_EFK = 5
 import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
@@ -87,7 +91,7 @@ export class CenaTabuleiro {
   /** tremor curto da câmera no impacto de um golpe com Haki (s) */
   private tremorGolpe = 0
   private hakis: HakiRei[] = []
-  private efeitos: (Efeito | EfeitoFolha | Entei)[] = []
+  private efeitos: (Efeito | EfeitoFolha | Entei | EfeitoEfk)[] = []
   /**
    * silhuetas invisíveis dos personagens na camada de efeitos: só escrevem
    * profundidade, para o efeito que passa por trás de alguém ficar escondido
@@ -311,18 +315,16 @@ export class CenaTabuleiro {
       })
       return true
     },
-    /** Entei em fases (círculo, espiral, bola crescendo, voo, explosão); resolve no impacto */
+    /**
+     * Entei: o efeito feito no Effekseer (public/sprites/efk/entei); sem ele,
+     * a cena em código (cena/entei.ts). Resolve no impacto.
+     */
     entei: (p: Personagem, ate: THREE.Vector3, k: number) =>
       new Promise<void>((r) => {
-        const ef = new Entei(p.pos, ate, p.visual.alturaPx / (PX_CASA * 0.88), k, {
-          tremer: (f) => (this.tremorGolpe = Math.max(this.tremorGolpe, f)),
-          lampejo: (tipo, dur) => (this.lampejoAtual = { tipo, t: 0, dur }),
-          focar: (pts, z) => this.focar(pts, z),
-          congelar: (dur) => (this.congelado = Math.max(this.congelado, dur)),
-          pose: (q) => (q === null ? p.soltarPose() : p.posar('conjurar', q)),
-        }, r)
-        this.efeitos.push(ef)
-        this.cenaFx.add(ef.sprite)
+        void carregarEfk('entei').then((dados) => {
+          if (dados) this.enteiEfk(p, ate, k, dados, r)
+          else this.enteiCodigo(p, ate, k, r)
+        })
       }),
     deslizar: (p: Personagem, para: THREE.Vector3 | null, dur: number) => {
       const de = p.deslize.clone()
@@ -427,6 +429,50 @@ export class CenaTabuleiro {
         this.tremorGolpe = Math.max(this.tremorGolpe, 0.06)
       }
     }
+  }
+
+  /** Entei feito no Effekseer: o corpo de quem lança segue as fases do efeito */
+  private enteiEfk(p: Personagem, ate: THREE.Vector3, k: number, dados: DadosEfk, aoImpacto: () => void) {
+    let feito = false
+    let poseAnt: number | null | undefined
+    const ef: EfeitoEfk = new EfeitoEfk('entei', dados, {
+      origem: p.pos.clone().setY(0),
+      alvo: ate,
+      escala: (p.visual.altura / ALTURA_EFK) * Math.sqrt(k),
+      camera: this.camera,
+      aoQuadro: (q) => {
+        // prepara nos anéis, ergue o braço na espiral, mão no alto enquanto a
+        // bola cresce, arremessa no lançamento e volta
+        const imp = ef.quadroImpacto
+        const pose = q < 30 ? 0 : q < 60 ? 1 : q < 90 ? 2 : q < imp - 48 ? 3 : q < imp ? 4 : q < imp + 24 ? 5 : null
+        if (pose !== poseAnt) {
+          poseAnt = pose
+          if (pose === null) p.soltarPose()
+          else p.posar('conjurar', pose)
+        }
+        if (!feito && q >= imp) {
+          feito = true
+          this.tremorGolpe = Math.max(this.tremorGolpe, 0.6)
+          this.lampejoAtual = { tipo: 'branco', t: 0, dur: 0.25 }
+          aoImpacto()
+        }
+      },
+    })
+    this.efeitos.push(ef)
+    this.cenaFx.add(ef.sprite)
+  }
+
+  /** Entei em código (fases em cena/entei.ts) */
+  private enteiCodigo(p: Personagem, ate: THREE.Vector3, k: number, aoImpacto: () => void) {
+    const ef = new Entei(p.pos, ate, p.visual.alturaPx / (PX_CASA * 0.88), k, {
+      tremer: (f) => (this.tremorGolpe = Math.max(this.tremorGolpe, f)),
+      lampejo: (tipo, dur) => (this.lampejoAtual = { tipo, t: 0, dur }),
+      focar: (pts, z) => this.focar(pts, z),
+      congelar: (dur) => (this.congelado = Math.max(this.congelado, dur)),
+      pose: (q) => (q === null ? p.soltarPose() : p.posar('conjurar', q)),
+    }, aoImpacto)
+    this.efeitos.push(ef)
+    this.cenaFx.add(ef.sprite)
   }
 
   /** visual do personagem, com os corpos transformados (lobisomem da Zoan do Lobo, espírito de fogo do Corpo de Chamas) */
@@ -884,7 +930,7 @@ export class CenaTabuleiro {
     this.golpes = this.golpes.filter((g) => g.vivo)
     for (const ef of this.efeitos) {
       // as cenas cinemáticas (Entei) não aceleram no 2×
-      ef.atualizar(ef instanceof Entei ? (parado ? 0 : dtReal) : dt)
+      ef.atualizar(ef instanceof Entei || ef instanceof EfeitoEfk ? (parado ? 0 : dtReal) : dt)
       if (!ef.vivo) {
         this.cenaFx.remove(ef.sprite)
         ef.descartar()
