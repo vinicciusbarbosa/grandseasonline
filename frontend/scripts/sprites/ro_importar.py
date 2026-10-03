@@ -139,7 +139,45 @@ def pescoco_parado(corpo):
     cols = np.nonzero((cp[y:y + 12, :, 3] > 20).any(0))[0]
     x = float(cols.mean())
     molde = cp[y:y + 18, max(0, int(x) - 10):int(x) + 11]
-    return {'x': x, 'y': y, 'molde': molde, 'dx': x - max(0, int(x) - 10), 'pe': pe_x(cp), 'h': cp.shape[0]}
+    return {'x': x, 'y': y, 'molde': molde, 'dx': x - max(0, int(x) - 10), 'pe': pe_x(cp), 'h': cp.shape[0],
+            'dxc': x - cintura_x(cp)}
+
+
+def cintura_x(cp):
+    """x do meio do corpo na altura da cintura (o quadril quase não sai do lugar)"""
+    a = cp[..., 3] > 20
+    h = a.shape[0]
+    cols = np.nonzero(a[int(h * 0.5):int(h * 0.62)].any(0))[0]
+    return float(cols.mean())
+
+
+def topo_tronco(cp, dx_cintura=None, raio=4, banda=6):
+    """pescoço = topo do tronco numa faixa acima da cintura, depois de apagar o
+    que é fino (braço e punho erguidos não contam). dx_cintura: distância
+    pescoço-cintura da pose parada (None = a própria pose parada)"""
+    a = cp[..., 3] > 20
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * raio + 1, 2 * raio + 1))
+    t = cv2.morphologyEx(a.astype(np.uint8), cv2.MORPH_OPEN, k) > 0
+    if dx_cintura is None:
+        ys = np.nonzero(t.any(1))[0]
+        y = int(ys.min())
+        cols = np.nonzero(t[y:y + 6].any(0))[0]
+        return float(cols.mean()), y
+    xc = cintura_x(cp) + dx_cintura
+    x0, x1 = int(round(xc - banda)), int(round(xc + banda)) + 1
+    faixa = t[:, max(0, x0):x1]
+    # topo de cada coluna da faixa; o pescoço é o mais baixo dos topos do
+    # meio (punho/ombro erguido fica mais alto e é ignorado pela mediana)
+    topos = [int(np.argmax(faixa[:, c])) for c in range(faixa.shape[1]) if faixa[:, c].any()]
+    if not topos:
+        return xc, 0
+    y = int(np.median(topos))
+    # corpo inclinado: o pescoço vai junto com o topo do tronco (até 8 px)
+    x0, x1 = int(round(xc - 8)), int(round(xc + 8)) + 1
+    cols = np.nonzero(t[y:y + 5, max(0, x0):x1].any(0))[0]
+    if len(cols):
+        xc = float(cols.mean() + max(0, x0))
+    return xc, y
 
 
 def pe_x(cp):
@@ -179,7 +217,7 @@ def montar(corpo, cabeca, ref, ancora='pescoco'):
     q = np.zeros((A, L, 4), np.uint8)
     cp = aparar(corpo)
     h = cp.shape[0]
-    nx, ny = achar_pescoco(cp, ref)
+    nx, ny = topo_tronco(cp, ref['dxc'])
     if ancora == 'pe':
         ox = int(round(PE[0] - pe_x(cp)))
     else:
