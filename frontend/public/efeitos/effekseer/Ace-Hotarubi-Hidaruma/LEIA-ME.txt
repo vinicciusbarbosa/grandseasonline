@@ -1,0 +1,13 @@
+ACE - HOTARUBI: HIDARUMA, EFEITOS LOCAIS SEM DESLOCAMENTO EMBUTIDO
+
+Ace_Hotarubi_Bolinha.efkefc: uma bolinha verde fixa em (0,0,0), dura 3s. Instanciar varias na mao e movimentar pelo codigo ate o alvo. Encerrar cada instancia ao chegar.
+
+Ace_Hotarubi_Hidaruma.efkefc: 38 bolinhas flutuam lentamente ao redor da origem, com movimento local continuo e ciclos desencontrados de cerca de 2 segundos; detonam apos 2.5s e envolvem o alvo em chamas. Posicionar a origem nos pes do inimigo e acompanhar sua posicao pelo codigo se ele andar. Nao ha voo nem deslocamento ate um alvo predefinido.
+
+Ace_Hidaruma_Detonacao.efkefc: somente explosao e fogo ao redor da origem, inicia imediatamente. Usar para acionar a detonacao separadamente pelo codigo.
+
+As animacoes internas de brilho, chamas, brasas e dissipacao permanecem. Nenhum efeito transporta a skill de um personagem ate outro.
+Todos os arquivos usam 60 FPS. Copiar os .efkefc e a pasta Texture, mantendo os caminhos relativos.
+Personagens e suas animacoes nao incluidos. Glow por camadas aditivas.
+Texturas: exemplos do Effekseer, Sample/01_Pierre02.
+Conversao e exportacao verificadas; visual ainda nao conferido em reproducao.

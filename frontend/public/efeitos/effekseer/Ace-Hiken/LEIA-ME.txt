@@ -1,14 +1,12 @@
-ACE - HIKEN (SOCO DE FOGO)
+ACE - HIKEN, RAJADA ANIME
 Abra Ace_Hiken.efkefc no Effekseer 1.80.7.
-60 FPS, 120 quadros (2 segundos).
-0-12: ignicao; 12-48: punho avanca com rastro; 48-118: impacto, brasas e fumaca.
-O punho e formado por camadas de fogo: palma, quatro articulacoes e polegar.
-Origem do efeito: pes do personagem. Mao em X=0.6,Y=1.4,Z=0.
-Direcao: +Z. Alvo em X=0.6,Y=1.4,Z=18.
-Para integrar: copiar Ace_Hiken.efkefc e toda a pasta Texture mantendo os caminhos relativos.
-Girar o efeito no jogo para apontar ao alvo. Impacto visual acontece em 0.8 segundos.
-Para alvos com distancia variavel, ajustar a trajetoria e o ponto de impacto ou separar o impacto no jogo.
-O personagem e sua animacao de soco nao estao incluidos.
-Sem fogo residual no chao.
+Rajada de fogo sem formato de mao; nucleo amarelo claro, glow aditivo laranja, rastros conectados, chamas curvas e linhas de velocidade.
+60 FPS; 120 quadros (2 segundos).
+0-10: ignicao; 10-40: rajada; 40-106: impacto e dissipacao. Impacto visual em 0.667 segundos.
+Origem do efeito: pes do personagem. Mao em X=0.6,Y=1.4,Z=0. Direcao +Z; alvo X=0.6,Y=1.4,Z=18.
+Copiar Ace_Hiken.efkefc e pasta Texture mantendo os caminhos relativos.
+Girar o efeito no jogo em direcao ao alvo. Para distancia variavel, ajustar trajetoria/ponto de impacto ou separar o impacto no jogo.
+Glow feito com camadas aditivas: bloom da camera pode ampliar o brilho, se disponivel no jogo.
+Personagem e animacao de soco nao incluidos. Sem fogo residual no chao.
 Texturas: exemplos do Effekseer, Sample/01_Pierre02.
 Conversao e exportacao verificadas; aparencia ainda nao conferida em reproducao.
