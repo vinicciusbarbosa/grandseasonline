@@ -144,18 +144,49 @@ def no(n):
         o['anel'] = {'vertices': int(num(s.find('VertexCount'), 16)), 'fora': loc('Outer_Fixed', 2, 0), 'dentro': loc('Inner_Fixed', 1, 0),
                      'meio': num(s.find('CenterRatio_Fixed'), 0.5),
                      'corFora': cor(s.find('OuterColor_Fixed')), 'corMeio': cor(s.find('CenterColor_Fixed')), 'corDentro': cor(s.find('InnerColor_Fixed'))}
+    elif o['tipo'] == 5:
+        s = dv.find('Model')
+        o['modelo'] = {'arq': s.findtext('Model') or '', 'cor': cor(s.find('Color_Fixed')), 'culling': int(num(s.find('Culling'), 0))}
     o['filhos'] = [no(c) for c in n.findall('Children/Node')]
     return o
+
+
+def modelo(de, para):
+    """.efkmodel (versão 5, com poses) -> JSON com base64: índices (u16),
+    UV (f32), cor por vértice (u8, da 1ª pose) e posições de cada pose (f32)"""
+    import base64, struct
+    import numpy as np
+    d = open(de, 'rb').read()
+    versao, escala, _, poses = struct.unpack_from('<ifii', d, 0)
+    o = 16
+    out = {'poses': []}
+    for k in range(poses):
+        nv, = struct.unpack_from('<i', d, o)
+        o += 4
+        v = np.frombuffer(d, np.uint8, nv * 60, o).reshape(nv, 60)
+        o += nv * 60
+        nf, = struct.unpack_from('<i', d, o)
+        o += 4
+        f = np.frombuffer(d, '<i4', nf * 3, o)
+        o += nf * 12
+        b64 = lambda a: base64.b64encode(np.ascontiguousarray(a).tobytes()).decode()
+        out['poses'].append(b64(v[:, :12].copy().view('<f4').reshape(nv, 3) * escala))
+        if k == 0:
+            out.update(nv=nv, nf=nf, idx=b64(f.astype('<u2')), uv=b64(v[:, 48:56].copy().view('<f4')), cor=b64(v[:, 56:60]))
+    json.dump(out, open(para, 'w'), separators=(',', ':'))
 
 
 def converter(proj, nome):
     raiz = ET.parse(proj).getroot()
     ef = {'fim': num(raiz.find('EndFrame'), 120), 'filhos': [no(c) for c in raiz.findall('Root/Children/Node')]}
     texs = set()
+    mods = set()
 
     def junta(n):
         if n.get('render', {}).get('tex'):
             texs.add(n['render']['tex'])
+        if n.get('modelo', {}).get('arq'):
+            mods.add(n['modelo']['arq'])
         for f in n['filhos']:
             junta(f)
     for f in ef['filhos']:
@@ -166,7 +197,11 @@ def converter(proj, nome):
         de = os.path.join(os.path.dirname(proj), t)
         os.makedirs(os.path.join(dest, os.path.dirname(t)), exist_ok=True)
         shutil.copy(de, os.path.join(dest, t))
+    for m in mods:
+        os.makedirs(os.path.join(dest, os.path.dirname(m)), exist_ok=True)
+        modelo(os.path.join(os.path.dirname(proj), m), os.path.join(dest, m + '.json'))
     ef['texturas'] = sorted(texs)
+    ef['modelos'] = sorted(mods)
     json.dump(ef, open(os.path.join(dest, 'efeito.json'), 'w'), separators=(',', ':'))
     print(nome, os.path.getsize(os.path.join(dest, 'efeito.json')), 'bytes,', len(texs), 'texturas')
 

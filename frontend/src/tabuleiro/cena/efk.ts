@@ -37,10 +37,15 @@ type No = {
   }
   sprite?: { billboard: number; cor: number[] }
   fita?: { l: number; r: number; cor: number[]; olho: number; uvTipo: number; tile: number }
+  modelo?: { arq: string; cor: number[]; culling: number }
   anel?: { vertices: number; fora: [number, number]; dentro: [number, number]; meio: number; corFora: number[]; corMeio: number[]; corDentro: number[] }
   filhos: No[]
 }
-export type DadosEfk = { fim: number; filhos: No[]; texturas: string[] }
+/** modelo 3D do Effekseer (.efkmodel convertido): poses animadas, mesma topologia */
+type Modelo = { nv: number; idx: Uint16Array; uv: Float32Array; cor: Uint8Array; poses: Float32Array[] }
+export type DadosEfk = { fim: number; filhos: No[]; texturas: string[]; modelos?: string[]; mods?: Record<string, Modelo> }
+
+const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
 
 const sorteio = (f: Faixa) => f[0] + Math.random() * (f[1] - f[0])
 const vet = (v: Vet) => new THREE.Vector3(sorteio(v[0]), sorteio(v[1]), sorteio(v[2]))
@@ -211,6 +216,12 @@ class Malha {
     this.cor.push(c[0], c[1], c[2], c[3] * a)
     return this.pos.length / 3 - 1
   }
+  contagem() {
+    return this.pos.length / 3
+  }
+  triangulos(idx: Uint16Array, base: number) {
+    for (let k = 0; k < idx.length; k++) this.idx.push(base + idx[k])
+  }
   quad(a: number, b: number, c: number, d: number) {
     this.idx.push(a, b, c, a, c, d)
   }
@@ -243,10 +254,38 @@ export function carregarEfk(nome: string) {
     d = (url.startsWith('data:')
       ? Promise.resolve(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0)))) as DadosEfk)
       : fetch(url).then((r) => (r.ok ? (r.json() as Promise<DadosEfk>) : null))
-    ).catch(() => null)
+    )
+      .then(async (dd) => {
+        if (!dd?.modelos?.length) return dd
+        // modelos 3D (base64 dentro de um JSON por modelo)
+        dd.mods = {}
+        for (const arq of dd.modelos) {
+          const u = recurso(`${base(nome)}${arq}.json`)
+          const j = (u.startsWith('data:') ? JSON.parse(new TextDecoder().decode(bytes(u.split(',')[1]))) : await (await fetch(u)).json()) as {
+            nv: number; idx: string; uv: string; cor: string; poses: string[]
+          }
+          dd.mods[arq] = {
+            nv: j.nv,
+            idx: new Uint16Array(bytes(j.idx).buffer),
+            uv: new Float32Array(bytes(j.uv).buffer),
+            cor: bytes(j.cor),
+            poses: j.poses.map((p) => new Float32Array(bytes(p).buffer)),
+          }
+        }
+        return dd
+      })
+      .catch(() => null)
     dadosCache.set(nome, d)
   }
   return d
+}
+
+let texBranca: THREE.Texture | null = null
+/** sem textura (modelos com cor por vértice): branco */
+function branca() {
+  texBranca ??= new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
+  texBranca.needsUpdate = true
+  return texBranca
 }
 
 function textura(nome: string, arq: string) {
@@ -313,7 +352,7 @@ export class EfeitoEfk {
     let ordem = 0
     const criar = (n: No) => {
       if (n.render && n.tipo >= 2) {
-        const tex = n.render.tex ? textura(nome, n.render.tex) : null
+        const tex = n.render.tex ? textura(nome, n.render.tex) : branca()
         const m = new Malha(tex, n.render.mistura, ordem++)
         this.malhas.set(n, m)
         this.sprite.add(m.mesh)
@@ -371,7 +410,7 @@ export class EfeitoEfk {
     const cam = this.op.camera
     const olho = new THREE.Vector3().setFromMatrixPosition(cam.matrixWorld).applyMatrix4(inv)
     const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(cam.matrixWorld))
-    const giroInv = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -this.sprite.rotation.y)
+    const giroInv = this.sprite.quaternion.clone().invert()
     const direita = new THREE.Vector3(1, 0, 0).applyQuaternion(q).applyQuaternion(giroInv)
     const cima = new THREE.Vector3(0, 1, 0).applyQuaternion(q).applyQuaternion(giroInv)
     const visita = (i: Inst) => {
@@ -383,6 +422,7 @@ export class EfeitoEfk {
           if (f.vivo && m) {
             if (fn.tipo === 2) this.spriteQuad(m, f, direita, cima, olho)
             else if (fn.tipo === 4) this.anel(m, f)
+            else if (fn.tipo === 5) this.modelo(m, f)
           }
           visita(f)
         }
@@ -462,6 +502,23 @@ export class EfeitoEfk {
       if (ant >= 0) m.quad(ant, ant + 1, iR, iL)
       ant = iL
     }
+  }
+
+  /** modelo 3D: a pose avança um quadro por quadro do efeito (em laço) */
+  private modelo(m: Malha, f: Inst) {
+    const md = this.dados.mods?.[f.no.modelo!.arq]
+    if (!md) return
+    const pose = md.poses[Math.floor(f.idade) % md.poses.length]
+    const a = f.fade()
+    const c0 = f.no.modelo!.cor
+    const p = new THREE.Vector3()
+    const base0 = m.contagem()
+    for (let k = 0; k < md.nv; k++) {
+      p.set(pose[k * 3], pose[k * 3 + 1], pose[k * 3 + 2]).applyMatrix4(f.mundo)
+      const c = [(md.cor[k * 4] / 255) * c0[0], (md.cor[k * 4 + 1] / 255) * c0[1], (md.cor[k * 4 + 2] / 255) * c0[2], (md.cor[k * 4 + 3] / 255) * c0[3]]
+      m.vertice(p, md.uv[k * 2], 1 - md.uv[k * 2 + 1], c, a)
+    }
+    m.triangulos(md.idx, base0)
   }
 
   private anel(m: Malha, f: Inst) {

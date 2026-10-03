@@ -71,6 +71,10 @@ export interface Palco {
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
   /** Hotarubi do Effekseer: bolinhas voam até o alvo e detonam (Hidaruma); resolve na detonação, false sem o efeito */
   hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Hiken do Effekseer: o punho de fogo vai até o alvo e explode; resolve no impacto, false sem o efeito */
+  hiken(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Higan do Effekseer: rajada de balas do dedo até o alvo; resolve quando metade acerta, false sem o efeito */
+  higan(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
   deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
   /** Ice Age: o tabuleiro inteiro congela por um tempo */
@@ -113,7 +117,7 @@ const VISUAL: Record<string, Visual> = {
   // Mera Mera (Ace)
   hiken: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
   hotarubi: { efeito: 'explosaoFogo', modo: 'especial', escala: 1 },
-  enjomo: { efeito: 'pilarFogo', modo: 'especial', escala: 2.4 },
+  higan: { efeito: 'chama', modo: 'especial', escala: 1 },
   entei: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.6 },
   // Pika Pika (Kizaru)
   'sabre-luz': { efeito: 'orbeLuz', modo: 'si', escala: 1.4 },
@@ -888,6 +892,11 @@ export class ControleBatalha {
     const dir = ate.clone().sub(origem)
     switch (id) {
       case 'hiken': {
+        // efeito do Effekseer (punho de fogo + impacto); sem ele, as folhas desenhadas
+        if (await P.hiken(a, casas.length ? casas[casas.length - 1] : ate)) {
+          P.tremer(0.45)
+          break
+        }
         // uma skill só: a 1 casa, o punho explode à queima-roupa; mais longe, é arremessado
         if (origem.distanceTo(ate) > 1.6) return this.especial('hiken-distancia', a, origem, ate, casas, hits, dirF)
         // Hiken de perto: só a arte desenhada (sem efeito a mais)
@@ -955,17 +964,22 @@ export class ControleBatalha {
         }, 260)
         break
       }
-      case 'enjomo': {
-        // coluna de fogo subindo do chão no alvo
-        const h = 2.4 * 1.5
-        const base = ate.clone().setY(0)
-        void P.efeito('explosaoFogo', 'normal', base.clone().setY(0.3), { dur: 0.6, escala: 1.2 })
-        // coluna desenhada (folha); sem ela, a de código
-        void P.efeitoFolha('pilar-fogo', 'S', base.clone().setY(0.02), { largura: 1.9 }).then((tem) => {
-          if (!tem) void P.efeito('pilarFogo', 'normal', base.clone().setY(h * 0.45), { dur: 1.1, escala: 2.4 })
-        })
-        P.tremer(0.4)
-        await esperar(550)
+      case 'higan': {
+        // rajada de balas de fogo do dedo (efeitos do Effekseer); sem eles,
+        // chamas voando em linha. O dano entra quando a rajada chega.
+        const pose = (q: number) => a.posar('empurrar', q)
+        pose(2)
+        if (!(await P.higan(a, ate))) {
+          for (let i = 0; i < 6; i++) {
+            void P.efeito('chama', 'normal', origem, { para: ate.clone().setY(0.6), dur: 0.15, escala: 0.4 })
+            await esperar(70)
+          }
+        }
+        P.tremer(0.25)
+        setTimeout(() => {
+          pose(5)
+          setTimeout(() => a.soltarPose(), 200)
+        }, 300)
         break
       }
       case 'entei': {

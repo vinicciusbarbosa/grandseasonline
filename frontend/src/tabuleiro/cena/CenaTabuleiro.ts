@@ -319,6 +319,10 @@ export class CenaTabuleiro {
      * Entei: o efeito feito no Effekseer (public/sprites/efk/entei); sem ele,
      * a cena em código (cena/entei.ts). Resolve no impacto.
      */
+    hiken: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all([carregarEfk('hiken'), carregarEfk('hiken-impacto')]).then(([c, i]) => (c && i ? this.hikenEfk(p, ate, c, i) : false)),
+    higan: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all([carregarEfk('higan'), carregarEfk('higan-disparo'), carregarEfk('higan-impacto')]).then(([b, d, i]) => (b && d && i ? this.higanEfk(p, ate, b, d, i) : false)),
     hotarubi: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('hotarubi-bolinha'), carregarEfk('hidaruma')]).then(([bol, hid]) => (bol && hid ? this.hotarubiEfk(p, ate, bol, hid) : false)),
     entei: (p: Personagem, ate: THREE.Vector3, k: number) =>
@@ -462,6 +466,76 @@ export class CenaTabuleiro {
     })
     this.efeitos.push(ef)
     this.cenaFx.add(ef.sprite)
+  }
+
+  /**
+   * Hiken (efeitos do Effekseer): o corpo de fogo (~11 unidades no editor,
+   * eixo +Z) sai do punho e voa até o alvo; lá some e toca o impacto.
+   */
+  private hikenEfk(p: Personagem, ate: THREE.Vector3, corpo: DadosEfk, impacto: DadosEfk) {
+    const escala = 0.16
+    const VELOCIDADE = 9 // mundo/s
+    const alto = p.visual.altura * 0.55
+    const dir = ate.clone().setY(0).sub(p.pos.clone().setY(0)).normalize()
+    const de = p.pos.clone().setY(alto).addScaledVector(dir, 0.5)
+    const para = ate.clone().setY(alto)
+    const toca = (dados: DadosEfk, nome: string, onde: THREE.Vector3, esc: number, alvo?: THREE.Vector3) => {
+      const ef = new EfeitoEfk(nome, dados, { origem: onde.clone(), alvo, escala: esc, camera: this.camera })
+      ef.sprite.position.copy(onde)
+      this.efeitos.push(ef)
+      this.cenaFx.add(ef.sprite)
+      return ef
+    }
+    const c = toca(corpo, 'hiken', de, escala, para)
+    c.sprite.lookAt(para)
+    return new Promise<boolean>((r) => {
+      void this.animarPor(Math.max(0.15, de.distanceTo(para) / VELOCIDADE), (f) => c.sprite.position.lerpVectors(de, para, f)).then(() => {
+        c.encerrar()
+        toca(impacto, 'hiken-impacto', para, escala * 1.4)
+        r(true)
+      })
+    })
+  }
+
+  /**
+   * Higan (efeitos do Effekseer): rajada de balas pequenas e rápidas saindo
+   * do dedo; clarão no dedo a cada tiro e impacto pequeno onde cada bala bate.
+   * Resolve true quando metade da rajada acertou.
+   */
+  private higanEfk(p: Personagem, ate: THREE.Vector3, bala: DadosEfk, disparo: DadosEfk, impacto: DadosEfk) {
+    const TIROS = 8
+    const INTERVALO = 70 // ms entre tiros
+    const VELOCIDADE = 22 // mundo/s
+    // a bala tem ~3 unidades no editor: fica com ~0,35 do mundo
+    const escala = 0.12
+    const dedo = p.pos.clone().setY(p.visual.altura * 0.62)
+    const dir = ate.clone().setY(0).sub(p.pos.clone().setY(0)).normalize()
+    dedo.addScaledVector(dir, 0.3)
+    let acertos = 0
+    const toca = (dados: DadosEfk, nome: string, onde: THREE.Vector3, esc: number, alvo?: THREE.Vector3) => {
+      const ef = new EfeitoEfk(nome, dados, { origem: onde.clone(), alvo, escala: esc, camera: this.camera })
+      ef.sprite.position.copy(onde)
+      this.efeitos.push(ef)
+      this.cenaFx.add(ef.sprite)
+      return ef
+    }
+    return new Promise<boolean>((r) => {
+      for (let i = 0; i < TIROS; i++) {
+        setTimeout(() => {
+          const alvo = ate.clone().setY(p.visual.altura * (0.35 + Math.random() * 0.4)).add(new THREE.Vector3((Math.random() - 0.5) * 0.35, 0, (Math.random() - 0.5) * 0.35))
+          toca(disparo, 'higan-disparo', dedo, escala * 1.5)
+          const b = toca(bala, 'higan', dedo, escala, alvo)
+          // aponta a bala (+Z) para o alvo, inclusive na altura
+          b.sprite.lookAt(alvo)
+          const de = dedo.clone()
+          void this.animarPor(de.distanceTo(alvo) / VELOCIDADE, (f) => b.sprite.position.lerpVectors(de, alvo, f)).then(() => {
+            b.encerrar()
+            toca(impacto, 'higan-impacto', alvo, escala * 1.6)
+            if (++acertos === Math.ceil(TIROS / 2)) r(true)
+          })
+        }, i * INTERVALO)
+      }
+    })
   }
 
   /**
