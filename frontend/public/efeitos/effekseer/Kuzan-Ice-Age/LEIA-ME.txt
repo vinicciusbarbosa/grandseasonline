@@ -1,0 +1,8 @@
+KUZAN - ICE AGE
+Kuzan_Ice_Age.efkefc: congelamento radial com placas irregulares, cristais facetados, fissuras luminosas, ondas horizontais, nevoa e particulas frias.
+Plano do chao XZ; eixo Y para cima. Origem no centro da area, ao nivel do chao. Raio visual aproximado 10 unidades. Ajuste a escala uniformemente para a area do jogo.
+A origem permanece parada. A expansao interna faz parte da animacao.
+Duracao total: 300 quadros / 5 segundos a 60 fps. Expansao inicial em cerca de 0,8 s, campo congelado permanece e desaparece no final.
+Este pacote e visual. Congelamento de inimigos, colisao, dano, alteracao do terreno e duracao do status devem ser controlados pelo codigo do jogo.
+Use .efkefc com as pastas Model e Texture preservando os caminhos relativos. .efkproj e a fonte editavel; .efk e a exportacao adicional.
+Validacao: conversao e exportacao pelo Effekseer 1.80.7; renderizacao pelo runtime oficial WebGL em 3 angulos e 50 quadros do ciclo completo.
