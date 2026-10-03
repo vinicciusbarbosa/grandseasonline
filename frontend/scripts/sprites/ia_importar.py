@@ -88,10 +88,15 @@ def pescoco_pele(cp, ref):
         ys, xs = np.nonzero(lab == k)
         if len(ys) < 6:
             continue
-        x, y = float(xs.mean()), int(ys.min())
+        y = int(ys.min())
+        topo = xs[ys < y + 4]
+        x = float(topo.mean())
         larg, alt = xs.max() - xs.min() + 1, ys.max() - ys.min() + 1
-        # o toco do pescoço é mais largo que alto (braço e mão são compridos)
-        if alt > larg * 1.1:
+        larg_topo = topo.max() - topo.min() + 1
+        # o toco do pescoço é largo (de frente ele emenda com o peito aberto da
+        # camisa e fica comprido, mas o topo continua largo); braço e mão são
+        # compridos e finos
+        if alt > larg * 1.1 and larg_topo < 9:
             continue
         dist = np.hypot(x - ex, (y - ey) * 0.8)
         if dist < 16 and (melhor is None or dist < melhor[0]):
