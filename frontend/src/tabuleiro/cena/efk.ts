@@ -488,6 +488,11 @@ export class EfeitoEfk {
     for (let j = 0; j < 2; j++) for (let k = 0; k < n; k++) m.quad(ids[j][k], ids[j][k + 1], ids[j + 1][k + 1], ids[j + 1][k])
   }
 
+  /** termina já (some no próximo quadro) */
+  encerrar() {
+    this.vivo = false
+  }
+
   descartar() {
     for (const m of this.malhas.values()) m.descartar()
     this.vivo = false

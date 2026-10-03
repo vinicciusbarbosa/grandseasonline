@@ -319,6 +319,8 @@ export class CenaTabuleiro {
      * Entei: o efeito feito no Effekseer (public/sprites/efk/entei); sem ele,
      * a cena em código (cena/entei.ts). Resolve no impacto.
      */
+    hotarubi: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all([carregarEfk('hotarubi-bolinha'), carregarEfk('hidaruma')]).then(([bol, hid]) => (bol && hid ? this.hotarubiEfk(p, ate, bol, hid) : false)),
     entei: (p: Personagem, ate: THREE.Vector3, k: number) =>
       new Promise<void>((r) => {
         void carregarEfk('entei').then((dados) => {
@@ -460,6 +462,53 @@ export class CenaTabuleiro {
     })
     this.efeitos.push(ef)
     this.cenaFx.add(ef.sprite)
+  }
+
+  /**
+   * Hotarubi (efeitos do Effekseer): bolinhas verdes saem da mão de quem lança
+   * e voam até o alvo; lá o Hidaruma deixa 38 bolinhas pairando em volta e
+   * detona no quadro 150. Resolve true na detonação.
+   */
+  private hotarubiEfk(p: Personagem, ate: THREE.Vector3, bol: DadosEfk, hid: DadosEfk) {
+    const escala = p.visual.altura / ALTURA_EFK
+    const mao = p.pos.clone().setY(p.visual.altura * 0.6)
+    const voo = 0.75
+    const n = 12
+    for (let i = 0; i < n; i++) {
+      setTimeout(() => {
+        const ef = new EfeitoEfk('hotarubi-bolinha', bol, { origem: mao.clone(), escala: escala * (0.7 + Math.random() * 0.5), camera: this.camera })
+        ef.sprite.position.copy(mao).add(new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.3, 0))
+        const de = ef.sprite.position.clone()
+        const para = ate.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0.5 + Math.random() * 1.2, (Math.random() - 0.5) * 1.2))
+        // arco suave até perto do alvo; no fim some (o Hidaruma assume)
+        const alto = 0.4 + Math.random() * 0.6
+        void this.animarPor(voo * (0.85 + Math.random() * 0.3), (f) => {
+          const k = 1 - (1 - f) ** 2
+          ef.sprite.position.lerpVectors(de, para, k)
+          ef.sprite.position.y += Math.sin(Math.PI * k) * alto
+        }).then(() => ef.encerrar())
+        this.efeitos.push(ef)
+        this.cenaFx.add(ef.sprite)
+      }, i * 50)
+    }
+    return new Promise<boolean>((r) => {
+      setTimeout(() => {
+        let feito = false
+        const ef = new EfeitoEfk('hidaruma', hid, {
+          origem: ate.clone(),
+          escala,
+          camera: this.camera,
+          aoQuadro: (q) => {
+            if (!feito && q >= 150) {
+              feito = true
+              r(true)
+            }
+          },
+        })
+        this.efeitos.push(ef)
+        this.cenaFx.add(ef.sprite)
+      }, voo * 1000 * 0.8)
+    })
   }
 
   /** Entei em código (fases em cena/entei.ts) */

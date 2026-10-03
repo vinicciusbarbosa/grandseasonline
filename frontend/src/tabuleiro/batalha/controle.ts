@@ -69,6 +69,8 @@ export interface Palco {
   efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoQuadro?: [number, () => void] }): Promise<boolean>
   /** Entei em fases (cena longa); resolve no impacto, a explosão continua sozinha */
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
+  /** Hotarubi do Effekseer: bolinhas voam até o alvo e detonam (Hidaruma); resolve na detonação, false sem o efeito */
+  hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
   deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
   /** Ice Age: o tabuleiro inteiro congela por um tempo */
@@ -922,6 +924,16 @@ export class ControleBatalha {
           pose(2)
           await esperar(120)
           pose(3)
+        }
+        // efeito feito no Effekseer (bolinhas + Hidaruma); sem ele, a folha antiga
+        if (await P.hotarubi(a, centro.clone().setY(0))) {
+          P.tremer(0.5)
+          pose(4)
+          setTimeout(() => {
+            pose(5)
+            setTimeout(() => a.soltarPose(), 220)
+          }, 260)
+          break
         }
         const voos = Array.from({ length: 10 }, () => centro.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0.5 + Math.random() * 0.6, (Math.random() - 0.5) * 1.2)))
         await Promise.all(voos.map((c, i) => new Promise<void>((r) => setTimeout(() => void P.efeito('vagalume', 'normal', origem.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.5, 0)), { para: c, dur: 0.75 + Math.random() * 0.25, escala: 0.3 }).then(r), i * 45))))
