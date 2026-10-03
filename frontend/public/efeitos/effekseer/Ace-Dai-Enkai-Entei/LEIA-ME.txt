@@ -1,0 +1,9 @@
+ACE - DAI ENKAI: ENTEI
+Abra Ace_Dai_Enkai_Entei.efkefc no Effekseer 1.80.7.
+60 FPS; 480 quadros (8 segundos).
+Inicio: seis aneis fixos em XZ: formacao inicial de rastros conectados, seguida de fogo vivo distribuido por toda a circunferencia; sem giro orbital.
+60-170: espiral; 90-270: esfera; 270-318: lancamento; 318-478: explosao, brasas e fumaca.
+Nao ha circulo de fogo residual depois da explosao.
+Origem: pes do personagem. Esfera em Y=7. Alvo em Z=18.
+Personagem e animacoes do Ace nao incluidos.
+Texturas: exemplos do Effekseer, Sample/01_Pierre02.
