@@ -125,6 +125,7 @@ def no(n):
             'mistura': int(num(rc.find('AlphaBlend'), 1)),  # 0 opaco, 1 mistura, 2 soma, 3 subtrai, 4 multiplica
             'fadeIn': num(rc.find('FadeIn/Frame'), 0) if int(num(rc.find('FadeInType'), 0)) else 0,
             'fadeOut': num(rc.find('FadeOut/Frame'), 0) if int(num(rc.find('FadeOutType'), 0)) else 0,
+            'zwrite': rc.findtext('ZWrite') == 'True',
         }
         if uvt == 1:
             u = rc.find('UVFixed')
@@ -156,15 +157,23 @@ def no(n):
     return o
 
 
+# modelos grandes ficam leves: posições em 16 bits (escala pela caixa do
+# modelo) e, acima de MAX_POSES, só uma pose a cada `passo` (o jogo avança as
+# poses na mesma proporção, então o ciclo dura o mesmo tempo)
+MAX_POSES = 48
+
+
 def modelo(de, para):
-    """.efkmodel (versão 5, com poses) -> JSON com base64: índices (u16),
-    UV (f32), cor por vértice (u8, da 1ª pose) e posições de cada pose (f32)"""
+    """.efkmodel (versão 5, com poses) -> JSON com base64: índices (u16 ou u32),
+    UV (f32), cor por vértice (u8, da 1ª pose) e posições de cada pose (i16)"""
     import base64, struct
     import numpy as np
     d = open(de, 'rb').read()
     versao, escala, _, poses = struct.unpack_from('<ifii', d, 0)
     o = 16
-    out = {'poses': []}
+    todas = []
+    b64 = lambda a: base64.b64encode(np.ascontiguousarray(a).tobytes()).decode()
+    out = {}
     for k in range(poses):
         nv, = struct.unpack_from('<i', d, o)
         o += 4
@@ -174,10 +183,17 @@ def modelo(de, para):
         o += 4
         f = np.frombuffer(d, '<i4', nf * 3, o)
         o += nf * 12
-        b64 = lambda a: base64.b64encode(np.ascontiguousarray(a).tobytes()).decode()
-        out['poses'].append(b64(v[:, :12].copy().view('<f4').reshape(nv, 3) * escala))
+        todas.append(v[:, :12].copy().view('<f4').reshape(nv, 3) * escala)
         if k == 0:
-            out.update(nv=nv, nf=nf, idx=b64(f.astype('<u2')), uv=b64(v[:, 48:56].copy().view('<f4')), cor=b64(v[:, 56:60]))
+            grande = nv > 65535
+            out.update(nv=nv, nf=nf, idx32=grande, idx=b64(f.astype('<u4' if grande else '<u2')),
+                       uv=b64(v[:, 48:56].copy().view('<f4')), cor=b64(v[:, 56:60]))
+    passo = max(1, -(-poses // MAX_POSES))
+    todas = todas[::passo]
+    tudo = np.stack(todas)
+    lo, hi = tudo.min((0, 1)), tudo.max((0, 1))
+    q = np.round((tudo - lo) / np.maximum(hi - lo, 1e-9) * 65535 - 32768).astype('<i2')
+    out.update(passo=passo, min=lo.tolist(), max=hi.tolist(), poses=[b64(p) for p in q])
     json.dump(out, open(para, 'w'), separators=(',', ':'))
 
 

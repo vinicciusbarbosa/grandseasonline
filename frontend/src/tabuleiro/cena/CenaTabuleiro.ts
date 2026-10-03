@@ -319,6 +319,8 @@ export class CenaTabuleiro {
      * Entei: o efeito feito no Effekseer (public/sprites/efk/entei); sem ele,
      * a cena em código (cena/entei.ts). Resolve no impacto.
      */
+    pheasant: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all([carregarEfk('pheasant-beak'), carregarEfk('pheasant-beak-impacto')]).then(([ave, imp]) => (ave && imp ? this.pheasantEfk(p, ate, ave, imp) : false)),
     iceAge: (p: Personagem) =>
       carregarEfk('ice-age').then((d) => {
         if (!d) return false
@@ -475,6 +477,38 @@ export class CenaTabuleiro {
     })
     this.efeitos.push(ef)
     this.cenaFx.add(ef.sprite)
+  }
+
+  /**
+   * Pheasant Beak (efeitos do Effekseer): a ave de gelo (~8,8 de envergadura
+   * no editor, bico em +Z) sai de quem lança e voa até o alvo; lá some e toca
+   * a explosão de cristais.
+   */
+  private pheasantEfk(p: Personagem, ate: THREE.Vector3, ave: DadosEfk, impacto: DadosEfk) {
+    const escala = 0.2
+    const VELOCIDADE = 7 // mundo/s
+    const alto = p.visual.altura * 0.6
+    const dir = ate.clone().setY(0).sub(p.pos.clone().setY(0)).normalize()
+    const de = p.pos.clone().setY(alto).addScaledVector(dir, 0.4)
+    const para = ate.clone().setY(alto)
+    const a = new EfeitoEfk('pheasant-beak', ave, { origem: de.clone(), alvo: para, escala, camera: this.camera })
+    a.sprite.position.copy(de)
+    a.sprite.lookAt(para)
+    this.efeitos.push(a)
+    this.cenaFx.add(a.sprite)
+    return new Promise<boolean>((r) => {
+      void this.animarPor(Math.max(0.3, de.distanceTo(para) / VELOCIDADE), (f) => {
+        a.sprite.position.lerpVectors(de, para, f)
+        a.sprite.position.y += Math.sin(Math.PI * f) * 0.4 // sobe um pouco no meio do voo
+      }).then(() => {
+        a.encerrar()
+        const i = new EfeitoEfk('pheasant-beak-impacto', impacto, { origem: para.clone(), escala: escala * 1.3, camera: this.camera })
+        i.sprite.position.copy(para)
+        this.efeitos.push(i)
+        this.cenaFx.add(i.sprite)
+        r(true)
+      })
+    })
   }
 
   /**

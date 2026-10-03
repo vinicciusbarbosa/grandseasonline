@@ -33,6 +33,8 @@ type No = {
     mistura: number
     fadeIn: number
     fadeOut: number
+    /** escreve profundidade (modelos opacos que se sobrepõem, como a ave) */
+    zwrite?: boolean
     uv?: { t: 'fixo' | 'rolar'; x: number; y: number; w: number; h: number; vx?: number; vy?: number }
   }
   sprite?: { billboard: number; cor: number[] }
@@ -42,7 +44,7 @@ type No = {
   filhos: No[]
 }
 /** modelo 3D do Effekseer (.efkmodel convertido): poses animadas, mesma topologia */
-type Modelo = { nv: number; idx: Uint16Array; uv: Float32Array; cor: Uint8Array; poses: Float32Array[] }
+type Modelo = { nv: number; idx: Uint16Array | Uint32Array; uv: Float32Array; cor: Uint8Array; poses: Float32Array[]; passo: number }
 export type DadosEfk = { fim: number; filhos: No[]; texturas: string[]; modelos?: string[]; mods?: Record<string, Modelo> }
 
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
@@ -189,7 +191,7 @@ class Malha {
   private cor: number[] = []
   private uv: number[] = []
   private idx: number[] = []
-  constructor(tex: THREE.Texture | null, mistura: number, ordem: number) {
+  constructor(tex: THREE.Texture | null, mistura: number, ordem: number, zwrite = false) {
     const blending = mistura === 2 ? THREE.AdditiveBlending : mistura === 3 ? THREE.SubtractiveBlending : mistura === 4 ? THREE.MultiplyBlending : THREE.NormalBlending
     const mat = new THREE.ShaderMaterial({
       uniforms: { map: { value: tex } },
@@ -198,7 +200,7 @@ class Malha {
       fragmentShader: `uniform sampler2D map; varying vec4 vCor; varying vec2 vUv;
         void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(t.rgb * vCor.rgb, t.a * vCor.a); }`,
       transparent: true,
-      depthWrite: false,
+      depthWrite: zwrite,
       depthTest: true,
       side: THREE.DoubleSide,
       blending,
@@ -219,7 +221,7 @@ class Malha {
   contagem() {
     return this.pos.length / 3
   }
-  triangulos(idx: Uint16Array, base: number) {
+  triangulos(idx: Uint16Array | Uint32Array, base: number) {
     for (let k = 0; k < idx.length; k++) this.idx.push(base + idx[k])
   }
   quad(a: number, b: number, c: number, d: number) {
@@ -262,14 +264,28 @@ export function carregarEfk(nome: string) {
         for (const arq of dd.modelos) {
           const u = recurso(`${base(nome)}${arq}.json`)
           const j = (u.startsWith('data:') ? JSON.parse(new TextDecoder().decode(bytes(u.split(',')[1]))) : await (await fetch(u)).json()) as {
-            nv: number; idx: string; uv: string; cor: string; poses: string[]
+            nv: number; idx: string; idx32?: boolean; uv: string; cor: string; poses: string[]; passo?: number; min?: number[]; max?: number[]
+          }
+          // posições em 16 bits (escala pela caixa) ou, nos convertidos antigos, em f32
+          const lo = j.min
+          const hi = j.max
+          const pose = (b: string) => {
+            if (!lo || !hi) return new Float32Array(bytes(b).buffer)
+            const q = new Int16Array(bytes(b).buffer)
+            const out = new Float32Array(q.length)
+            for (let k = 0; k < q.length; k++) {
+              const e = k % 3
+              out[k] = lo[e] + ((q[k] + 32768) / 65535) * (hi[e] - lo[e])
+            }
+            return out
           }
           dd.mods[arq] = {
             nv: j.nv,
-            idx: new Uint16Array(bytes(j.idx).buffer),
+            idx: j.idx32 ? new Uint32Array(bytes(j.idx).buffer) : new Uint16Array(bytes(j.idx).buffer),
             uv: new Float32Array(bytes(j.uv).buffer),
             cor: bytes(j.cor),
-            poses: j.poses.map((p) => new Float32Array(bytes(p).buffer)),
+            poses: j.poses.map(pose),
+            passo: j.passo ?? 1,
           }
         }
         return dd
@@ -353,7 +369,7 @@ export class EfeitoEfk {
     const criar = (n: No) => {
       if (n.render && n.tipo >= 2) {
         const tex = n.render.tex ? textura(nome, n.render.tex) : branca()
-        const m = new Malha(tex, n.render.mistura, ordem++)
+        const m = new Malha(tex, n.render.mistura, ordem++, !!n.render.zwrite)
         this.malhas.set(n, m)
         this.sprite.add(m.mesh)
         if (tex && n.render.tex) this.texs.set(n.render.tex, tex)
@@ -508,7 +524,7 @@ export class EfeitoEfk {
   private modelo(m: Malha, f: Inst) {
     const md = this.dados.mods?.[f.no.modelo!.arq]
     if (!md) return
-    const pose = md.poses[Math.floor(f.idade) % md.poses.length]
+    const pose = md.poses[Math.floor(f.idade / md.passo) % md.poses.length]
     const a = f.fade()
     const c0 = f.no.modelo!.cor
     const p = new THREE.Vector3()

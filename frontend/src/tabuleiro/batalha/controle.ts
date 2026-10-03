@@ -71,6 +71,8 @@ export interface Palco {
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
   /** Hotarubi do Effekseer: bolinhas voam até o alvo e detonam (Hidaruma); resolve na detonação, false sem o efeito */
   hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Pheasant Beak do Effekseer: a ave voa até o alvo e explode; resolve no impacto, false sem o efeito */
+  pheasant(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Ice Age do Effekseer em volta de quem lança; resolve quando a expansão alcança longe (~0,8 s), false sem o efeito */
   iceAge(p: Personagem): Promise<boolean>
   /** Hiken do Effekseer: o punho de fogo vai até o alvo e explode; resolve no impacto, false sem o efeito */
@@ -120,6 +122,7 @@ const VISUAL: Record<string, Visual> = {
   hiken: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
   hotarubi: { efeito: 'explosaoFogo', modo: 'especial', escala: 1 },
   higan: { efeito: 'chama', modo: 'especial', escala: 1 },
+  'pheasant-beak': { efeito: 'gelo', modo: 'especial', escala: 1 },
   entei: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.6 },
   // Pika Pika (Kizaru)
   'sabre-luz': { efeito: 'orbeLuz', modo: 'si', escala: 1.4 },
@@ -1036,6 +1039,19 @@ export class ControleBatalha {
         for (let i = 0; i < 3; i++) void P.efeito('gelo', 'normal', origem.clone().add(new THREE.Vector3(0, i * 0.15 - 0.15, 0)), { para: ate, dur: 0.25 + i * 0.05, escala: 0.7 })
         await esperar(280)
         void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
+        break
+      }
+      case 'pheasant-beak': {
+        // ave de gelo (Effekseer) voa até o alvo e explode em cristais; sem o efeito, lança de gelo
+        const pose = (q: number) => a.posar('empurrar', q)
+        pose(2)
+        if (!(await P.pheasant(a, ate))) {
+          void P.efeito('gelo', 'normal', origem, { para: ate, dur: 0.4, escala: 1.2 })
+          await esperar(400)
+        }
+        void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
+        P.tremer(0.35)
+        setTimeout(() => a.soltarPose(), 250)
         break
       }
       case 'ice-time': {
