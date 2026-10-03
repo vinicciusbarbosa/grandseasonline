@@ -99,16 +99,46 @@ def cabecas_ia(arq, altura):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82):
-    """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA"""
+# partes que dá para tingir: (matizes OpenCV 0-180, saturação mínima, valor máximo)
+PARTES_CORPO = {
+    'roupa': (((168, 180), (0, 5)), 115, 215),   # colete e faixa vermelhos (o couro marrom fica)
+    'calca': (((95, 135),), 40, 255),            # calça azul
+}
+PARTES_CABECA = {'cabelo': (((0, 28), (172, 180)), 110, 256)}  # cabelo laranja (a pele é menos saturada)
+
+
+def tingir(q, partes, cores):
+    """troca a cor das partes: cores = {parte: (matiz, x saturação, x valor)}"""
+    if not cores:
+        return q
+    hsv = cv2.cvtColor(q[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
+    h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    vis = q[..., 3] > 0
+    # as máscaras saem todas antes de pintar (senão a cor nova cai na faixa de outra parte)
+    mascaras = {p: vis & (sa >= s_min) & (v < v_max) & np.any([(h >= a) & (h <= b) for a, b in faixas], axis=0)
+                for p, (faixas, s_min, v_max) in partes.items() if p in cores}
+    for parte, m in mascaras.items():
+        nh, fs, fv = cores[parte]
+        h[m] = nh
+        sa[m] = np.clip(sa[m] * fs, 0, 255)
+        v[m] = np.clip(v[m] * fv, 0, 255)
+    out = q.copy()
+    out[..., :3] = cv2.cvtColor(np.dstack([h, sa, v]).astype(np.uint8), cv2.COLOR_HSV2BGR)
+    return out
+
+
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None):
+    """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
+    cores: {'roupa'|'calca'|'cabelo': (matiz, x saturação, x valor)} para tingir"""
     andar = celulas(f'{corpo}-andar.png', 8)
     # escala: corpo parado (frente) com ALTURA_CORPO px
     s = ALTURA_CORPO / andar[0][0].shape[0]
     cabs = cabecas_ia(cabeca, round(ALTURA_CORPO * 0.5)) if isinstance(cabeca, str) else cabecas_ro(*cabeca)
+    cabs = {d: tingir(c, PARTES_CABECA, cores) for d, c in cabs.items()}
     anims = {'parado': {}, 'andar': {}, 'correr': {}}
     refs = {}
     for i, d in enumerate(DIRS):
-        qs = [reduzir(q, s) for q in andar[i]]
+        qs = [tingir(reduzir(q, s), PARTES_CORPO, cores) for q in andar[i]]
         ref = refs[d] = ro.pescoco_parado(qs[0])
         # corpo da IA se inclina mais no golpe: procura o pescoço numa faixa larga
         ref.update(banda=11, perc=30)
@@ -118,7 +148,7 @@ def personagem(pid, corpo, cabeca, densidade=0.82):
     tempos = {'andar': {'fps': 10}, 'correr': {'fps': 12}}
     if os.path.exists(os.path.join(ORIG, f'{corpo}-atacar.png')):
         atacar = celulas(f'{corpo}-atacar.png', 6)
-        anims['atacar'] = {d: [ro.montar(reduzir(q, s), cabs[d], refs[d], 'pe') for q in atacar[i]] for i, d in enumerate(DIRS)}
+        anims['atacar'] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe') for q in atacar[i]] for i, d in enumerate(DIRS)}
         tempos['atacar'] = {'fps': 10, 'impacto': 3}
     ro.gravar(pid, anims, tempos, densidade, 'Gerado por IA no padrão do Ragnarok (teste)')
     arq = os.path.join(ro.SPR, pid, 'manifesto.json')
@@ -131,3 +161,8 @@ def personagem(pid, corpo, cabeca, densidade=0.82):
 if __name__ == '__main__':
     # teste: o corpo novo fica no Capitão (o Espadachim volta ao do RO)
     personagem('pirata-capitao', 'espadachim', 'cabeca-espetado.png')
+    # variações de cor do mesmo personagem
+    personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png',
+               cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75), 'cabelo': (112, 0.45, 0.42)})
+    personagem('espadachim-verde', 'espadachim', 'cabeca-espetado.png',
+               cores={'roupa': (60, 0.7, 0.8), 'calca': (16, 0.55, 1.35), 'cabelo': (24, 0.3, 1.2)})
