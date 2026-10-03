@@ -59,7 +59,12 @@ def curva(e):
 
 def no(n):
     cv = n.find('CommonValues')
-    g = lambda p: None if cv is None else cv.find(p)
+    # 1.80 guarda o tempo de geração dentro de <Generation>
+    def g(p):
+        if cv is None:
+            return None
+        e = cv.find(p)
+        return e if e is not None else cv.find('Generation/' + p)
     o = {
         'nome': n.findtext('Name') or '',
         'tipo': int(num(n.find('DrawingValues/Type'), 0)),
