@@ -71,6 +71,8 @@ export interface Palco {
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
   /** Hotarubi do Effekseer: bolinhas voam até o alvo e detonam (Hidaruma); resolve na detonação, false sem o efeito */
   hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Ice Age do Effekseer em volta de quem lança; resolve quando a expansão alcança longe (~0,8 s), false sem o efeito */
+  iceAge(p: Personagem): Promise<boolean>
   /** Hiken do Effekseer: o punho de fogo vai até o alvo e explode; resolve no impacto, false sem o efeito */
   hiken(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Higan do Effekseer: rajada de balas do dedo até o alvo; resolve quando metade acerta, false sem o efeito */
@@ -1044,10 +1046,12 @@ export class ControleBatalha {
       }
       case 'era-gelo': {
         // Ice Age: o mapa inteiro congela, espinhos em cada inimigo
+        // efeito do Effekseer (expansão do gelo a partir de quem lança); sem ele, só os espinhos
+        const efk = await P.iceAge(a)
         P.lampejo('branco', 0.25)
         P.congelarMapa(2.2)
         P.tremer(0.5)
-        void P.efeito('espinhoGelo', 'normal', origem.clone().setY(1), { dur: 1.2, escala: 1.8 })
+        if (!efk) void P.efeito('espinhoGelo', 'normal', origem.clone().setY(1), { dur: 1.2, escala: 1.8 })
         for (const h of hits) void P.efeito('espinhoGelo', 'normal', h.pos.clone().setY(1.1), { dur: 1.4, escala: 1.7 })
         await esperar(600)
         break

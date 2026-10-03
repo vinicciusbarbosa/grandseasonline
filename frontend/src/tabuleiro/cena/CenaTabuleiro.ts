@@ -319,6 +319,15 @@ export class CenaTabuleiro {
      * Entei: o efeito feito no Effekseer (public/sprites/efk/entei); sem ele,
      * a cena em código (cena/entei.ts). Resolve no impacto.
      */
+    iceAge: (p: Personagem) =>
+      carregarEfk('ice-age').then((d) => {
+        if (!d) return false
+        // raio de ~10 unidades no editor: ~10 do mundo, cobre boa parte dos dois conveses
+        const ef = new EfeitoEfk('ice-age', d, { origem: p.pos.clone().setY(0.02), escala: 1, camera: this.camera })
+        this.efeitos.push(ef)
+        this.cenaFx.add(ef.sprite)
+        return new Promise<boolean>((r) => setTimeout(() => r(true), 800))
+      }),
     hiken: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('hiken'), carregarEfk('hiken-impacto')]).then(([c, i]) => (c && i ? this.hikenEfk(p, ate, c, i) : false)),
     higan: (p: Personagem, ate: THREE.Vector3) =>
