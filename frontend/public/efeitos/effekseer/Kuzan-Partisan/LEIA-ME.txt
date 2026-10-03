@@ -1,0 +1,8 @@
+KUZAN - PARTISAN
+Kuzan_Partisan.efkefc: uma lanca de gelo facetada com brilho pulsante e particulas frias. Origem parada, ponta orientada para +Z. Comprimento aproximado 4,7 unidades.
+Kuzan_Partisan_Formacao.efkefc: cinco lancas paralelas em arco. Use para preparacao visual ou para mover a formacao inteira.
+Para disparar separadamente: remova a formacao ao lancar e instancie cinco Kuzan_Partisan nas posicoes locais (-2.2,0,-0.4), (-1.1,0.65,0), (0,0.95,0.35), (1.1,0.65,0), (2.2,0,-0.4), transformadas pela posicao e rotacao do personagem.
+Lanca e formacao duram 240 quadros (4 s a 60 fps). Movimento, mira, dano e colisao ficam a cargo do jogo.
+Kuzan_Partisan_Impacto.efkefc: estilhacos se espalhando e clarao frio, 45 quadros; tocar no ponto de colisao.
+Distribua .efkefc com as pastas Model e Texture, preservando os caminhos relativos. .efkproj sao os projetos editaveis; .efk sao exportacoes adicionais.
+Conferido no renderizador oficial Effekseer WebGL 1.80.7: formacao em tres angulos, sequencia animada e impacto.
