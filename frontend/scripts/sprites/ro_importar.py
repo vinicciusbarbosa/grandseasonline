@@ -284,7 +284,7 @@ CORPOS = {
 # personagem: corpo, cabeça (folha, linha), Marinha tingida de azul, ataque
 TRIPULACAO = {
     'pirata-capitao': ('bandana', ('cabecas-6.png', 10), False, 'atacar'),
-    'pirata-espadachim': ('samurai', ('cabecas-4.png', 1), False, 'atacar'),
+    # pirata-espadachim: corpo gerado por IA (ia_importar.py)
     'pirata-lutador': ('monge', ('cabecas-1.png', 8), False, 'atacar'),
     'pirata-atiradora': ('pistoleiro', ('cabecas-6.png', 7), False, 'tiro'),
     'pirata-medico': ('verao', ('cabecas-3.png', 4), False, 'atacar'),
