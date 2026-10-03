@@ -9,7 +9,7 @@ import { LUZ_NEUTRA, type LuzPersonagem } from './luzSprite'
  * que só recebe "qual animação, em que ponto, para onde olha".
  */
 
-export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'parar' | 'atacar' | 'dano'
+export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'parar' | 'atacar' | 'dano' | 'conjurar' | 'empurrar'
 export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 
 
@@ -101,8 +101,11 @@ export class Personagem {
     this.tAnim = Math.random() * 1.5
   }
 
+  /** quadro segurado por uma skill (posar); null = animação livre */
+  private fixo: number | null = null
+
   get ocupado() {
-    return this.anim === 'atacar' || this.anim === 'dano' || this.anim === 'frear' || this.anim === 'parar' || this.trecho !== null
+    return this.fixo !== null || this.anim === 'atacar' || this.anim === 'dano' || this.anim === 'frear' || this.anim === 'parar' || this.trecho !== null
   }
 
   private tocar(anim: NomeAnim) {
@@ -165,6 +168,35 @@ export class Personagem {
     this.tocar('dano')
   }
 
+  /**
+   * Segura um quadro de uma animação de skill (o efeito manda no tempo: o
+   * Entei ergue o braço enquanto a bola cresce e arremessa no voo). Sem a
+   * animação desenhada nessa direção, não faz nada.
+   */
+  posar(anim: NomeAnim, quadro: number) {
+    if (!(this.visual.tem?.(anim, this.dir) ?? false)) return false
+    const f = this.info[anim]
+    if (this.anim !== anim) this.tocar(anim)
+    this.fixo = Math.min(f.quadros - 1, quadro)
+    this.tAnim = (this.fixo + 0.5) / f.fps
+    return true
+  }
+
+  /** Solta a pose da skill e volta a ficar parado. */
+  soltarPose() {
+    if (this.fixo === null) return
+    this.fixo = null
+    this.tocar('parado')
+  }
+
+  /** Toca uma animação de skill inteira (sem efeito mandando no tempo). */
+  tocarSkill(anim: NomeAnim) {
+    if (!(this.visual.tem?.(anim, this.dir) ?? false)) return false
+    this.fixo = null
+    this.tocar(anim)
+    return true
+  }
+
   /** Vira para uma casa sem sair do lugar. */
   olharPara(c: Casa) {
     if (!this.ocupado) this.dir = direcaoDe(c.l - this.casa.l, c.c - this.casa.c)
@@ -193,8 +225,12 @@ export class Personagem {
       }
     }
     const f = this.info[this.anim]
-    this.tAnim += dt
     this.dtUltimo = dt
+    if (this.fixo !== null) {
+      this.clarao = Math.max(0, this.clarao - dt)
+      return
+    }
+    this.tAnim += dt
     const dur = f.quadros / f.fps
     if (this.freio) {
       // desliza até o centro da casa perdendo velocidade

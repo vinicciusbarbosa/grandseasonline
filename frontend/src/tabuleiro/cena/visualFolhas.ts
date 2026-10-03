@@ -45,6 +45,9 @@ const TEMPO: Record<NomeAnim, { fps: number; ciclo?: number; laco: boolean; impa
   parar: { fps: 14, laco: false }, // parada brusca (corrida curta, 2 casas)
   atacar: { fps: 15, laco: false, impacto: 6 },
   dano: { fps: 16, laco: false },
+  // skills de akuma (o efeito pode segurar quadros: Personagem.posar)
+  conjurar: { fps: 9, laco: false },
+  empurrar: { fps: 9, laco: false },
 }
 const QUADROS_PADRAO = 12
 

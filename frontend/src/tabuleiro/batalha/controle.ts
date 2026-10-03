@@ -914,12 +914,22 @@ export class ControleBatalha {
         // devagar, a fumaça escurece, acende e explode (folha com tempo por
         // quadro); o golpe acerta no quadro da explosão (6)
         const centro = casas.length ? casas.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / casas.length) : ate
+        // corpo (folha 'empurrar'): junta as mãos, abre as palmas para a frente
+        // e segura enquanto os vaga-lumes voam; no estouro, empurra e volta
+        const pose = (q: number) => a.posar('empurrar', q)
+        if (pose(1)) {
+          await esperar(200)
+          pose(2)
+          await esperar(120)
+          pose(3)
+        }
         const voos = Array.from({ length: 10 }, () => centro.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0.5 + Math.random() * 0.6, (Math.random() - 0.5) * 1.2)))
         await Promise.all(voos.map((c, i) => new Promise<void>((r) => setTimeout(() => void P.efeito('vagalume', 'normal', origem.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.5, 0)), { para: c, dur: 0.75 + Math.random() * 0.25, escala: 0.3 }).then(r), i * 45))))
         const golpe = new Promise<void>((r) => {
           void P.efeitoFolha('hotarubi', dirF, centro.clone().setY(0.02), {
             aoQuadro: [6, () => {
               P.tremer(0.5)
+              pose(4)
               r()
             }],
           }).then((tem) => {
@@ -927,6 +937,10 @@ export class ControleBatalha {
           })
         })
         await golpe
+        setTimeout(() => {
+          pose(5)
+          setTimeout(() => a.soltarPose(), 220)
+        }, 260)
         break
       }
       case 'enjomo': {

@@ -319,6 +319,7 @@ export class CenaTabuleiro {
           lampejo: (tipo, dur) => (this.lampejoAtual = { tipo, t: 0, dur }),
           focar: (pts, z) => this.focar(pts, z),
           congelar: (dur) => (this.congelado = Math.max(this.congelado, dur)),
+          pose: (q) => (q === null ? p.soltarPose() : p.posar('conjurar', q)),
         }, r)
         this.efeitos.push(ef)
         this.cenaFx.add(ef.sprite)

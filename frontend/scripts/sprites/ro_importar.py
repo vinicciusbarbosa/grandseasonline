@@ -210,14 +210,16 @@ def achar_pescoco(cp, ref):
     return x + ref['dx'], y
 
 
-def montar(corpo, cabeca, ref, ancora='pescoco'):
+def montar(corpo, cabeca, ref, ancora='pescoco', braco_por_cima=False, achar=None):
     """corpo + cabeça no pescoço achado neste quadro. ref: pescoco_parado() da
     mesma direção. ancora: 'pescoco' (parado/andar: o tronco fica no lugar e
-    as pernas balançam) ou 'pe' (ataque/dano: os pés ficam no lugar)"""
+    as pernas balançam) ou 'pe' (ataque/dano: os pés ficam no lugar).
+    braco_por_cima: o que o corpo tem acima do pescoço (braço erguido) fica
+    na frente da cabeça. achar(cp, ref) -> (x, y): outro jeito de achar o pescoço"""
     q = np.zeros((A, L, 4), np.uint8)
     cp = aparar(corpo)
     h = cp.shape[0]
-    nx, ny = topo_tronco(cp, ref['dxc'], banda=ref.get('banda', 6), perc=ref.get('perc', 50))
+    nx, ny = achar(cp, ref) if achar else topo_tronco(cp, ref['dxc'], banda=ref.get('banda', 6), perc=ref.get('perc', 50))
     if ancora == 'pe':
         ox = int(round(PE[0] - pe_x(cp)))
     else:
@@ -226,7 +228,9 @@ def montar(corpo, cabeca, ref, ancora='pescoco'):
     pintar(q, cp, ox, oy)
     if cabeca is not None:
         cb = cabeca
-        pintar(q, cb, int(round(ox + nx - cb.shape[1] / 2)), oy + int(ny) - cb.shape[0] + 5)
+        pintar(q, cb, int(round(ox + nx - cb.shape[1] / 2)), oy + int(ny) - cb.shape[0] + ref.get('sobre', 5))
+        if braco_por_cima and ny > 2:
+            pintar(q, cp[:int(ny) - 1], ox, oy)
     return q
 
 

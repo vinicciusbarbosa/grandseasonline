@@ -94,6 +94,42 @@
     "arquivo": "atacar_W.png",
     "quadros": 6
    }
+  },
+  "conjurar": {
+   "S": {
+    "arquivo": "conjurar_S.png",
+    "quadros": 6
+   },
+   "N": {
+    "arquivo": "conjurar_N.png",
+    "quadros": 6
+   },
+   "E": {
+    "arquivo": "conjurar_E.png",
+    "quadros": 6
+   },
+   "W": {
+    "arquivo": "conjurar_W.png",
+    "quadros": 6
+   }
+  },
+  "empurrar": {
+   "S": {
+    "arquivo": "empurrar_S.png",
+    "quadros": 6
+   },
+   "N": {
+    "arquivo": "empurrar_N.png",
+    "quadros": 6
+   },
+   "E": {
+    "arquivo": "empurrar_E.png",
+    "quadros": 6
+   },
+   "W": {
+    "arquivo": "empurrar_W.png",
+    "quadros": 6
+   }
   }
  },
  "apelidos": {

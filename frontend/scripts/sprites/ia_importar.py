@@ -74,6 +74,31 @@ def reduzir(q, s):
     return p
 
 
+def pescoco_pele(cp, ref):
+    """pescoço dos corpos da IA: o toco cortado é pele (rosa claro) no alto do
+    tronco. Pega o pedaço de pele mais perto de onde o pescoço estaria (o
+    jeito do RO, topo do tronco) — a mão erguida também é pele, mas fica longe"""
+    ex, ey = ro.topo_tronco(cp, ref['dxc'], banda=ref.get('banda', 6), perc=ref.get('perc', 50))
+    hsv = cv2.cvtColor(cp[..., :3], cv2.COLOR_BGR2HSV).astype(int)
+    h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    pele = (cp[..., 3] > 0) & ((h <= 20) | (h >= 170)) & (sa >= 30) & (sa <= 150) & (v >= 150)
+    lab, n = ndimage.label(pele)
+    melhor = None
+    for k in range(1, n + 1):
+        ys, xs = np.nonzero(lab == k)
+        if len(ys) < 6:
+            continue
+        x, y = float(xs.mean()), int(ys.min())
+        larg, alt = xs.max() - xs.min() + 1, ys.max() - ys.min() + 1
+        # o toco do pescoço é mais largo que alto (braço e mão são compridos)
+        if alt > larg * 1.1:
+            continue
+        dist = np.hypot(x - ex, (y - ey) * 0.8)
+        if dist < 16 and (melhor is None or dist < melhor[0]):
+            melhor = (dist, x, y)
+    return (melhor[1], melhor[2]) if melhor else (ex, ey)
+
+
 def cabecas_ro(folha, linha):
     """cabeça do RO (S, SO, O, NO, N) -> frente, costas, direita (espelho), esquerda"""
     c = ro.cabecas(folha, linha)
@@ -88,7 +113,9 @@ def cabecas_ia(arq, altura):
         q = reduzir(q, altura / q.shape[0])
         a = q[..., 3] > 0
         h = a.shape[0]
-        ys, xs = np.nonzero(a[int(h * 0.82):])
+        # queixo = os pixels mais de baixo (de lado, a média da faixa de baixo
+        # puxava para o cabelo da nuca e a cabeça ficava para trás do pescoço)
+        ys, xs = np.nonzero(a[h - max(3, round(h * 0.15)):])
         queixo = float(xs.mean())
         falta = int(round(2 * queixo - q.shape[1]))
         if falta > 0:
@@ -141,15 +168,23 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None):
         qs = [tingir(reduzir(q, s), PARTES_CORPO, cores) for q in andar[i]]
         ref = refs[d] = ro.pescoco_parado(qs[0])
         # corpo da IA se inclina mais no golpe: procura o pescoço numa faixa larga
-        ref.update(banda=11, perc=30)
-        anims['parado'][d] = [ro.montar(qs[0], cabs[d], ref)]
-        anims['andar'][d] = [ro.montar(q, cabs[d], ref) for q in qs]
+        # sobre: a cabeça desce 8 px no pescoço (o toco da IA é mais largo que o queixo de lado)
+        ref.update(banda=11, perc=30, sobre=8)
+        anims['parado'][d] = [ro.montar(qs[0], cabs[d], ref, achar=pescoco_pele)]
+        anims['andar'][d] = [ro.montar(q, cabs[d], ref, achar=pescoco_pele) for q in qs]
         anims['correr'][d] = anims['andar'][d]
     tempos = {'andar': {'fps': 10}, 'correr': {'fps': 12}}
     if os.path.exists(os.path.join(ORIG, f'{corpo}-atacar.png')):
         atacar = celulas(f'{corpo}-atacar.png', 6)
-        anims['atacar'] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe') for q in atacar[i]] for i, d in enumerate(DIRS)}
+        anims['atacar'] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', achar=pescoco_pele) for q in atacar[i]] for i, d in enumerate(DIRS)}
         tempos['atacar'] = {'fps': 10, 'impacto': 3}
+    # skills de akuma (6 quadros, 4 direções): 'conjurar' = Entei (braço para o
+    # alto e arremesso), 'empurrar' = vaga-lumes (palmas para a frente)
+    for anim, arq in (('conjurar', 'entei'), ('empurrar', 'hotarubi')):
+        if os.path.exists(os.path.join(ORIG, f'{corpo}-{arq}.png')):
+            fs = celulas(f'{corpo}-{arq}.png', 6)
+            anims[anim] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', braco_por_cima=True, achar=pescoco_pele)
+                               for q in fs[i]] for i, d in enumerate(DIRS)}
     ro.gravar(pid, anims, tempos, densidade, 'Gerado por IA no padrão do Ragnarok (teste)')
     arq = os.path.join(ro.SPR, pid, 'manifesto.json')
     man = json.load(open(arq))

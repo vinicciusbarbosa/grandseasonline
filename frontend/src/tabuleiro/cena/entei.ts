@@ -36,6 +36,8 @@ export type Cena = {
   focar(pontos: THREE.Vector3[] | null, zoom?: number): void
   /** congela o jogo por um instante (hit-stop) */
   congelar(dur: number): void
+  /** pose de quem lança (quadro da animação 'conjurar'; null solta) */
+  pose?(quadro: number | null): void
 }
 
 const ini = (() => {
@@ -190,14 +192,7 @@ export class Entei {
   private bola: THREE.Sprite | null = null
   private bolaQuadros = 8
   private bolaFps = 12
-  private giroBola = 0
   private readonly halo: THREE.Sprite
-  /**
-   * folha nova (entei-v2, 12 quadros): 0–2 espiral se formando, 3–6 a bola
-   * crescendo, 7–11 explosão virando fumaça. Dois sprites por uso (o quadro e
-   * o próximo, misturados) para ficar fluido com poucos desenhos.
-   */
-  private v2: { bola: THREE.Sprite[]; exp: THREE.Sprite[] } | null = null
   private explosao: THREE.Sprite | null = null
   private explosaoQuadros = 13
   private readonly onda: THREE.Mesh
@@ -275,25 +270,6 @@ export class Entei {
       this.sprite.add(s)
       return s
     }
-    const man2 = await manifestoEfeito('entei-v2')
-    if (man2) {
-      const tex = new THREE.TextureLoader().load(recurso(`${import.meta.env.BASE_URL}sprites/efeitos/entei-v2/S.png`))
-      tex.colorSpace = THREE.SRGBColorSpace
-      const par = (ordem: number) =>
-        [0, 1].map((i) => {
-          const t = tex.clone()
-          t.needsUpdate = true
-          t.repeat.set(1 / 4, 1 / 3)
-          const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }))
-          s.renderOrder = ordem + i
-          s.visible = false
-          s.userData = { gc: 4, gl: 3 }
-          this.sprite.add(s)
-          return s
-        })
-      this.v2 = { bola: par(8), exp: par(8) }
-      return
-    }
     this.bola = await folha('entei-bola')
     if (this.bola) {
       this.bolaQuadros = this.bola.userData.man.quadros
@@ -306,19 +282,24 @@ export class Entei {
     }
   }
 
-  /** mostra o quadro fracionário qf misturando o quadro e o próximo */
-  private misturar(par: THREE.Sprite[], qf: number, pos: THREE.Vector3, tam: number, giro: number, claro = 1, opac = 1) {
-    const q = Math.min(11, Math.floor(qf))
-    const f = qf - q
-    par.forEach((s, i) => {
-      s.visible = true
-      this.quadro(s, Math.min(11, q + i))
-      s.position.copy(pos)
-      s.scale.set(tam, tam, 1)
-      s.material.rotation = giro
-      s.material.color.setRGB(claro, claro, claro)
-      s.material.opacity = opac * (i ? f : 1 - f * 0.5)
-    })
+  private poseAtual: number | null | undefined = undefined
+  /**
+   * corpo de quem lança (folha 'conjurar', 6 quadros): prepara no círculo,
+   * ergue o braço na espiral, mão no alto enquanto a bola cresce, arremessa no
+   * voo e volta
+   */
+  private posar(t: number) {
+    const q =
+      t < ini.circulo * 0.35 ? 0
+        : t < ini.espiral ? 1
+          : t < ini.crescer ? 2
+            : t < ini.voo ? 3
+              : t < ini.voo + FASES.voo ? 4
+                : t < ini.explosao + 0.4 ? 5
+                  : null
+    if (q === this.poseAtual) return
+    this.poseAtual = q
+    this.cena.pose?.(q)
   }
 
   private quadro(s: THREE.Sprite, q: number) {
@@ -347,6 +328,7 @@ export class Entei {
     const dt = Math.min(0.05, dtJogo)
     this.t += dt
     const t = this.t
+    this.posar(t)
     const k = this.k
     const tempo = performance.now() / 1000
 
@@ -433,15 +415,6 @@ export class Entei {
     tam *= 1 + 0.04 * Math.sin(tempo * 11) // pulsando
     if (pAnt > 0 && pVoo === 0) tam *= 1 - 0.14 * Math.sin(pAnt * Math.PI * 0.5) // encolhe antes de soltar
     if (pVoo > 0) tam *= 0.86 + 0.06 * pVoo
-    if (this.v2) {
-      if (naBola) {
-        // nasce como espiral e vira a bola ao longo do crescer; depois pulsa entre 5 e 6
-        const qf = pCres < 1 ? pCres * 6 : 5 + 0.5 + 0.5 * Math.sin(tempo * 6)
-        const claro = 1 + (pAnt > 0 && pVoo === 0 ? Math.sin(pAnt * Math.PI) * 1.2 : 0)
-        this.giroBola += dt * (0.6 + pCres * 1.6)
-        this.misturar(this.v2.bola, qf, posBola, (tam / Math.max(0.06, 0.06 + 0.94 * saida(pCres))) * (0.55 + 0.45 * saida(pCres)) * 1.3, this.giroBola, claro)
-      } else for (const s of this.v2.bola) s.visible = false
-    }
     if (this.bola) {
       this.bola.visible = naBola
       if (naBola) {
@@ -535,14 +508,6 @@ export class Entei {
 
     // ---- 7. explosão (folha desacelerando) e onda de choque
     const pExp = entre(t, ini.explosao, FASES.explosao)
-    if (this.v2) {
-      if (pExp > 0 && pExp < 1) {
-        // explode rápido e se desfaz devagar em fumaça
-        const qf = 7 + saida(pExp) * 4
-        const L = this.bolaMax * 2.3 * (0.9 + 0.2 * saida(pExp))
-        this.misturar(this.v2.exp, qf, this.ate.clone().setY(this.bolaMax * 0.55), L, 0, 1, 1 - entre(pExp, 0.8, 0.2))
-      } else for (const s of this.v2.exp) s.visible = false
-    }
     if (this.explosao) {
       this.explosao.visible = pExp > 0 && pExp < 1
       if (this.explosao.visible) {
