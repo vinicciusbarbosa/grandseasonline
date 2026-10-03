@@ -4,253 +4,19 @@
     <Name>Root</Name>
     <Children>
       <Node>
-        <Name>HIKEN - fogo vivo na origem</Name>
+        <Name>HIGAN - bala na origem</Name>
         <Children>
           <Node>
-            <Name>Halo laranja</Name>
+            <Name>Casca de fogo animada</Name>
             <Children />
             <CommonValues>
               <MaxGeneration>
                 <Value>1</Value>
               </MaxGeneration>
               <Life>
-                <Center>240</Center>
-                <Max>240</Max>
-                <Min>240</Min>
-              </Life>
-              <GenerationTimeOffset>
-                <Center>0</Center>
-                <Max>0</Max>
-                <Min>0</Min>
-              </GenerationTimeOffset>
-              <GenerationTime>
-                <Center>1</Center>
-                <Max>1</Max>
-                <Min>1</Min>
-              </GenerationTime>
-              <LocationEffectType>2</LocationEffectType>
-              <RotationEffectType>2</RotationEffectType>
-              <ScaleEffectType>2</ScaleEffectType>
-              <RemoveWhenParentIsRemoved>True</RemoveWhenParentIsRemoved>
-            </CommonValues>
-            <DrawingValues>
-              <Type>2</Type>
-              <Sprite>
-                <ColorAll_Fixed>
-                  <R>255</R>
-                  <G>80</G>
-                  <B>4</B>
-                  <A>65</A>
-                </ColorAll_Fixed>
-              </Sprite>
-              <ColorAll>
-                <Fixed>
-                  <R>255</R>
-                  <G>80</G>
-                  <B>4</B>
-                  <A>65</A>
-                </Fixed>
-              </ColorAll>
-            </DrawingValues>
-            <ScalingValues>
-              <Fixed>
-                <Scale>
-                  <X>6.5</X>
-                  <Y>6.5</Y>
-                  <Z>6.5</Z>
-                </Scale>
-              </Fixed>
-            </ScalingValues>
-            <RendererCommonValues>
-              <ColorTexture>Texture/Particle_Soft.png</ColorTexture>
-              <AlphaBlend>2</AlphaBlend>
-              <ZWrite>False</ZWrite>
-              <FadeInType>1</FadeInType>
-              <FadeIn>
-                <Frame>4</Frame>
-              </FadeIn>
-              <FadeOutType>1</FadeOutType>
-              <FadeOut>
-                <Frame>10</Frame>
-              </FadeOut>
-            </RendererCommonValues>
-            <LocationValues>
-              <Fixed>
-                <Location>
-                  <X>0</X>
-                  <Y>0</Y>
-                  <Z>-2</Z>
-                </Location>
-              </Fixed>
-            </LocationValues>
-          </Node>
-          <Node>
-            <Name>Halo laranja</Name>
-            <Children />
-            <CommonValues>
-              <MaxGeneration>
-                <Value>1</Value>
-              </MaxGeneration>
-              <Life>
-                <Center>240</Center>
-                <Max>240</Max>
-                <Min>240</Min>
-              </Life>
-              <GenerationTimeOffset>
-                <Center>0</Center>
-                <Max>0</Max>
-                <Min>0</Min>
-              </GenerationTimeOffset>
-              <GenerationTime>
-                <Center>1</Center>
-                <Max>1</Max>
-                <Min>1</Min>
-              </GenerationTime>
-              <LocationEffectType>2</LocationEffectType>
-              <RotationEffectType>2</RotationEffectType>
-              <ScaleEffectType>2</ScaleEffectType>
-              <RemoveWhenParentIsRemoved>True</RemoveWhenParentIsRemoved>
-            </CommonValues>
-            <DrawingValues>
-              <Type>2</Type>
-              <Sprite>
-                <ColorAll_Fixed>
-                  <R>255</R>
-                  <G>80</G>
-                  <B>4</B>
-                  <A>65</A>
-                </ColorAll_Fixed>
-              </Sprite>
-              <ColorAll>
-                <Fixed>
-                  <R>255</R>
-                  <G>80</G>
-                  <B>4</B>
-                  <A>65</A>
-                </Fixed>
-              </ColorAll>
-            </DrawingValues>
-            <ScalingValues>
-              <Fixed>
-                <Scale>
-                  <X>7.5</X>
-                  <Y>7.5</Y>
-                  <Z>7.5</Z>
-                </Scale>
-              </Fixed>
-            </ScalingValues>
-            <RendererCommonValues>
-              <ColorTexture>Texture/Particle_Soft.png</ColorTexture>
-              <AlphaBlend>2</AlphaBlend>
-              <ZWrite>False</ZWrite>
-              <FadeInType>1</FadeInType>
-              <FadeIn>
-                <Frame>4</Frame>
-              </FadeIn>
-              <FadeOutType>1</FadeOutType>
-              <FadeOut>
-                <Frame>10</Frame>
-              </FadeOut>
-            </RendererCommonValues>
-            <LocationValues>
-              <Fixed>
-                <Location>
-                  <X>0</X>
-                  <Y>0</Y>
-                  <Z>0</Z>
-                </Location>
-              </Fixed>
-            </LocationValues>
-          </Node>
-          <Node>
-            <Name>Halo laranja</Name>
-            <Children />
-            <CommonValues>
-              <MaxGeneration>
-                <Value>1</Value>
-              </MaxGeneration>
-              <Life>
-                <Center>240</Center>
-                <Max>240</Max>
-                <Min>240</Min>
-              </Life>
-              <GenerationTimeOffset>
-                <Center>0</Center>
-                <Max>0</Max>
-                <Min>0</Min>
-              </GenerationTimeOffset>
-              <GenerationTime>
-                <Center>1</Center>
-                <Max>1</Max>
-                <Min>1</Min>
-              </GenerationTime>
-              <LocationEffectType>2</LocationEffectType>
-              <RotationEffectType>2</RotationEffectType>
-              <ScaleEffectType>2</ScaleEffectType>
-              <RemoveWhenParentIsRemoved>True</RemoveWhenParentIsRemoved>
-            </CommonValues>
-            <DrawingValues>
-              <Type>2</Type>
-              <Sprite>
-                <ColorAll_Fixed>
-                  <R>255</R>
-                  <G>80</G>
-                  <B>4</B>
-                  <A>65</A>
-                </ColorAll_Fixed>
-              </Sprite>
-              <ColorAll>
-                <Fixed>
-                  <R>255</R>
-                  <G>80</G>
-                  <B>4</B>
-                  <A>65</A>
-                </Fixed>
-              </ColorAll>
-            </DrawingValues>
-            <ScalingValues>
-              <Fixed>
-                <Scale>
-                  <X>6.5</X>
-                  <Y>6.5</Y>
-                  <Z>6.5</Z>
-                </Scale>
-              </Fixed>
-            </ScalingValues>
-            <RendererCommonValues>
-              <ColorTexture>Texture/Particle_Soft.png</ColorTexture>
-              <AlphaBlend>2</AlphaBlend>
-              <ZWrite>False</ZWrite>
-              <FadeInType>1</FadeInType>
-              <FadeIn>
-                <Frame>4</Frame>
-              </FadeIn>
-              <FadeOutType>1</FadeOutType>
-              <FadeOut>
-                <Frame>10</Frame>
-              </FadeOut>
-            </RendererCommonValues>
-            <LocationValues>
-              <Fixed>
-                <Location>
-                  <X>0</X>
-                  <Y>0</Y>
-                  <Z>2</Z>
-                </Location>
-              </Fixed>
-            </LocationValues>
-          </Node>
-          <Node>
-            <Name>Volume animado - quarenta poses</Name>
-            <Children />
-            <CommonValues>
-              <MaxGeneration>
-                <Value>1</Value>
-              </MaxGeneration>
-              <Life>
-                <Center>240</Center>
-                <Max>240</Max>
-                <Min>240</Min>
+                <Center>180</Center>
+                <Max>180</Max>
+                <Min>180</Min>
               </Life>
               <GenerationTimeOffset>
                 <Center>0</Center>
@@ -270,81 +36,8 @@
             <DrawingValues>
               <Type>5</Type>
               <Model>
-                <Model>Model/Hiken_FogoVivo.efkmodel</Model>
-                <Culling>2</Culling>
-                <Lighting>False</Lighting>
-                <Color>0</Color>
-                <Color_Fixed>
-                  <R>255</R>
-                  <G>255</G>
-                  <B>255</B>
-                  <A>255</A>
-                </Color_Fixed>
-              </Model>
-              <ColorAll>
-                <Fixed>
-                  <R>255</R>
-                  <G>255</G>
-                  <B>255</B>
-                  <A>255</A>
-                </Fixed>
-              </ColorAll>
-            </DrawingValues>
-            <ScalingValues>
-              <Fixed>
-                <Scale>
-                  <X>1</X>
-                  <Y>1</Y>
-                  <Z>1</Z>
-                </Scale>
-              </Fixed>
-            </ScalingValues>
-            <RendererCommonValues>
-              <AlphaBlend>2</AlphaBlend>
-              <ZWrite>False</ZWrite>
-              <FadeInType>1</FadeInType>
-              <FadeIn>
-                <Frame>4</Frame>
-              </FadeIn>
-              <FadeOutType>1</FadeOutType>
-              <FadeOut>
-                <Frame>10</Frame>
-              </FadeOut>
-              <EmissiveScaling>1.05</EmissiveScaling>
-            </RendererCommonValues>
-          </Node>
-          <Node>
-            <Name>Linguas de fogo em movimento</Name>
-            <Children />
-            <CommonValues>
-              <MaxGeneration>
-                <Value>1</Value>
-              </MaxGeneration>
-              <Life>
-                <Center>240</Center>
-                <Max>240</Max>
-                <Min>240</Min>
-              </Life>
-              <GenerationTimeOffset>
-                <Center>0</Center>
-                <Max>0</Max>
-                <Min>0</Min>
-              </GenerationTimeOffset>
-              <GenerationTime>
-                <Center>1</Center>
-                <Max>1</Max>
-                <Min>1</Min>
-              </GenerationTime>
-              <LocationEffectType>2</LocationEffectType>
-              <RotationEffectType>2</RotationEffectType>
-              <ScaleEffectType>2</ScaleEffectType>
-              <RemoveWhenParentIsRemoved>True</RemoveWhenParentIsRemoved>
-            </CommonValues>
-            <DrawingValues>
-              <Type>5</Type>
-              <Model>
-                <Model>Model/Hiken_Linguas.efkmodel</Model>
-                <Culling>2</Culling>
+                <Model>Model/Higan_Bala.efkmodel</Model>
+                <Culling>0</Culling>
                 <Lighting>False</Lighting>
                 <Color>0</Color>
                 <Color_Fixed>
@@ -383,20 +76,20 @@
               <FadeOut>
                 <Frame>10</Frame>
               </FadeOut>
-              <EmissiveScaling>1.15</EmissiveScaling>
+              <EmissiveScaling>1.3</EmissiveScaling>
             </RendererCommonValues>
           </Node>
           <Node>
-            <Name>Fragmentos luminosos de velocidade</Name>
+            <Name>Linguas de fogo</Name>
             <Children />
             <CommonValues>
               <MaxGeneration>
                 <Value>1</Value>
               </MaxGeneration>
               <Life>
-                <Center>240</Center>
-                <Max>240</Max>
-                <Min>240</Min>
+                <Center>180</Center>
+                <Max>180</Max>
+                <Min>180</Min>
               </Life>
               <GenerationTimeOffset>
                 <Center>0</Center>
@@ -416,7 +109,7 @@
             <DrawingValues>
               <Type>5</Type>
               <Model>
-                <Model>Model/Hiken_Faiscas.efkmodel</Model>
+                <Model>Model/Higan_Chama.efkmodel</Model>
                 <Culling>2</Culling>
                 <Lighting>False</Lighting>
                 <Color>0</Color>
@@ -456,8 +149,241 @@
               <FadeOut>
                 <Frame>10</Frame>
               </FadeOut>
-              <EmissiveScaling>2</EmissiveScaling>
             </RendererCommonValues>
+          </Node>
+          <Node>
+            <Name>Nucleo quente</Name>
+            <Children />
+            <CommonValues>
+              <MaxGeneration>
+                <Value>1</Value>
+              </MaxGeneration>
+              <Life>
+                <Center>180</Center>
+                <Max>180</Max>
+                <Min>180</Min>
+              </Life>
+              <GenerationTimeOffset>
+                <Center>0</Center>
+                <Max>0</Max>
+                <Min>0</Min>
+              </GenerationTimeOffset>
+              <GenerationTime>
+                <Center>1</Center>
+                <Max>1</Max>
+                <Min>1</Min>
+              </GenerationTime>
+              <LocationEffectType>2</LocationEffectType>
+              <RotationEffectType>2</RotationEffectType>
+              <ScaleEffectType>2</ScaleEffectType>
+              <RemoveWhenParentIsRemoved>True</RemoveWhenParentIsRemoved>
+            </CommonValues>
+            <DrawingValues>
+              <Type>2</Type>
+              <Sprite>
+                <ColorAll_Fixed>
+                  <R>255</R>
+                  <G>237</G>
+                  <B>145</B>
+                  <A>255</A>
+                </ColorAll_Fixed>
+              </Sprite>
+              <ColorAll>
+                <Fixed>
+                  <R>255</R>
+                  <G>237</G>
+                  <B>145</B>
+                  <A>255</A>
+                </Fixed>
+              </ColorAll>
+            </DrawingValues>
+            <ScalingValues>
+              <Fixed>
+                <Scale>
+                  <X>0.65</X>
+                  <Y>0.65</Y>
+                  <Z>0.65</Z>
+                </Scale>
+              </Fixed>
+            </ScalingValues>
+            <RendererCommonValues>
+              <ColorTexture>Texture/Particle_Soft.png</ColorTexture>
+              <AlphaBlend>2</AlphaBlend>
+              <ZWrite>False</ZWrite>
+              <FadeInType>1</FadeInType>
+              <FadeIn>
+                <Frame>4</Frame>
+              </FadeIn>
+              <FadeOutType>1</FadeOutType>
+              <FadeOut>
+                <Frame>10</Frame>
+              </FadeOut>
+            </RendererCommonValues>
+            <LocationValues>
+              <Fixed>
+                <Location>
+                  <X>0</X>
+                  <Y>0</Y>
+                  <Z>0.03</Z>
+                </Location>
+              </Fixed>
+            </LocationValues>
+          </Node>
+          <Node>
+            <Name>Glow dourado</Name>
+            <Children />
+            <CommonValues>
+              <MaxGeneration>
+                <Value>1</Value>
+              </MaxGeneration>
+              <Life>
+                <Center>180</Center>
+                <Max>180</Max>
+                <Min>180</Min>
+              </Life>
+              <GenerationTimeOffset>
+                <Center>0</Center>
+                <Max>0</Max>
+                <Min>0</Min>
+              </GenerationTimeOffset>
+              <GenerationTime>
+                <Center>1</Center>
+                <Max>1</Max>
+                <Min>1</Min>
+              </GenerationTime>
+              <LocationEffectType>2</LocationEffectType>
+              <RotationEffectType>2</RotationEffectType>
+              <ScaleEffectType>2</ScaleEffectType>
+              <RemoveWhenParentIsRemoved>True</RemoveWhenParentIsRemoved>
+            </CommonValues>
+            <DrawingValues>
+              <Type>2</Type>
+              <Sprite>
+                <ColorAll_Fixed>
+                  <R>255</R>
+                  <G>150</G>
+                  <B>20</B>
+                  <A>115</A>
+                </ColorAll_Fixed>
+              </Sprite>
+              <ColorAll>
+                <Fixed>
+                  <R>255</R>
+                  <G>150</G>
+                  <B>20</B>
+                  <A>115</A>
+                </Fixed>
+              </ColorAll>
+            </DrawingValues>
+            <ScalingValues>
+              <Fixed>
+                <Scale>
+                  <X>1.5</X>
+                  <Y>1.5</Y>
+                  <Z>1.5</Z>
+                </Scale>
+              </Fixed>
+            </ScalingValues>
+            <RendererCommonValues>
+              <ColorTexture>Texture/Particle_Soft.png</ColorTexture>
+              <AlphaBlend>2</AlphaBlend>
+              <ZWrite>False</ZWrite>
+              <FadeInType>1</FadeInType>
+              <FadeIn>
+                <Frame>4</Frame>
+              </FadeIn>
+              <FadeOutType>1</FadeOutType>
+              <FadeOut>
+                <Frame>10</Frame>
+              </FadeOut>
+            </RendererCommonValues>
+            <LocationValues>
+              <Fixed>
+                <Location>
+                  <X>0</X>
+                  <Y>0</Y>
+                  <Z>-0.05</Z>
+                </Location>
+              </Fixed>
+            </LocationValues>
+          </Node>
+          <Node>
+            <Name>Halo laranja</Name>
+            <Children />
+            <CommonValues>
+              <MaxGeneration>
+                <Value>1</Value>
+              </MaxGeneration>
+              <Life>
+                <Center>180</Center>
+                <Max>180</Max>
+                <Min>180</Min>
+              </Life>
+              <GenerationTimeOffset>
+                <Center>0</Center>
+                <Max>0</Max>
+                <Min>0</Min>
+              </GenerationTimeOffset>
+              <GenerationTime>
+                <Center>1</Center>
+                <Max>1</Max>
+                <Min>1</Min>
+              </GenerationTime>
+              <LocationEffectType>2</LocationEffectType>
+              <RotationEffectType>2</RotationEffectType>
+              <ScaleEffectType>2</ScaleEffectType>
+              <RemoveWhenParentIsRemoved>True</RemoveWhenParentIsRemoved>
+            </CommonValues>
+            <DrawingValues>
+              <Type>2</Type>
+              <Sprite>
+                <ColorAll_Fixed>
+                  <R>255</R>
+                  <G>65</G>
+                  <B>3</B>
+                  <A>65</A>
+                </ColorAll_Fixed>
+              </Sprite>
+              <ColorAll>
+                <Fixed>
+                  <R>255</R>
+                  <G>65</G>
+                  <B>3</B>
+                  <A>65</A>
+                </Fixed>
+              </ColorAll>
+            </DrawingValues>
+            <ScalingValues>
+              <Fixed>
+                <Scale>
+                  <X>2.5</X>
+                  <Y>2.5</Y>
+                  <Z>2.5</Z>
+                </Scale>
+              </Fixed>
+            </ScalingValues>
+            <RendererCommonValues>
+              <ColorTexture>Texture/Particle_Soft.png</ColorTexture>
+              <AlphaBlend>2</AlphaBlend>
+              <ZWrite>False</ZWrite>
+              <FadeInType>1</FadeInType>
+              <FadeIn>
+                <Frame>4</Frame>
+              </FadeIn>
+              <FadeOutType>1</FadeOutType>
+              <FadeOut>
+                <Frame>10</Frame>
+              </FadeOut>
+            </RendererCommonValues>
+            <LocationValues>
+              <Fixed>
+                <Location>
+                  <X>0</X>
+                  <Y>0</Y>
+                  <Z>-0.3</Z>
+                </Location>
+              </Fixed>
+            </LocationValues>
           </Node>
         </Children>
         <CommonValues>
@@ -465,9 +391,9 @@
             <Value>1</Value>
           </MaxGeneration>
           <Life>
-            <Center>240</Center>
-            <Max>240</Max>
-            <Min>240</Min>
+            <Center>180</Center>
+            <Max>180</Max>
+            <Min>180</Min>
           </Life>
           <GenerationTimeOffset>
             <Center>0</Center>
@@ -493,6 +419,6 @@
   <ToolVersion>1.80.7</ToolVersion>
   <Version>3</Version>
   <StartFrame>0</StartFrame>
-  <EndFrame>240</EndFrame>
+  <EndFrame>180</EndFrame>
   <IsLoop>True</IsLoop>
 </EffekseerProject>

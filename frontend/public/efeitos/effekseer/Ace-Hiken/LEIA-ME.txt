@@ -1,12 +1,7 @@
-ACE - HIKEN, RAJADA ANIME
-Abra Ace_Hiken.efkefc no Effekseer 1.80.7.
-Rajada de fogo sem formato de mao; nucleo amarelo claro, glow aditivo laranja, rastros conectados, chamas curvas e linhas de velocidade.
-60 FPS; 120 quadros (2 segundos).
-0-10: ignicao; 10-40: rajada; 40-106: impacto e dissipacao. Impacto visual em 0.667 segundos.
-Origem do efeito: pes do personagem. Mao em X=0.6,Y=1.4,Z=0. Direcao +Z; alvo X=0.6,Y=1.4,Z=18.
-Copiar Ace_Hiken.efkefc e pasta Texture mantendo os caminhos relativos.
-Girar o efeito no jogo em direcao ao alvo. Para distancia variavel, ajustar trajetoria/ponto de impacto ou separar o impacto no jogo.
-Glow feito com camadas aditivas: bloom da camera pode ampliar o brilho, se disponivel no jogo.
-Personagem e animacao de soco nao incluidos. Sem fogo residual no chao.
-Texturas: exemplos do Effekseer, Sample/01_Pierre02.
-Conversao e exportacao verificadas; aparencia ainda nao conferida em reproducao.
+HIKEN - ONDA HORIZONTAL ENCORPADA
+Ace_Hiken.efkefc: corpo denso de fogo, faixas largas animadas, brasas e halo luminoso. Eixo longitudinal +Z. A origem fica parada; movimento e orientacao pelo codigo.
+Duracao: 240 quadros (4 segundos a 60 fps). Para uso continuo, reinicie o efeito pelo codigo.
+Ace_Hiken_Impacto.efkefc: efeito separado, acionado na colisao.
+Distribua os arquivos .efkefc com as pastas Model e Texture preservando caminhos relativos.
+O corpo usa modelos nativos animados de 40 poses. Fontes de projeto: .efkproj.
+Verificacao visual: renderizador oficial Effekseer WebGL 1.80.7, tres angulos e sequencia de quadros.

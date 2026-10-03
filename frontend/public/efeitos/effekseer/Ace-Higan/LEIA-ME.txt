@@ -1,0 +1,8 @@
+HIGAN - BALAS DE FOGO DO DEDO
+Ace_Higan.efkefc: uma bala animada na origem, orientada para +Z. Duracao 180 quadros (3 s a 60 fps). O codigo controla posicao, rotacao, velocidade e colisao.
+Para rajada: instanciar uma bala por tiro na posicao do dedo. Sugestao inicial: 6 a 10 tiros com intervalo de 0,08 a 0,12 s, ajustavel pelo jogo.
+Ace_Higan_Disparo.efkefc: clarao de 12 quadros no dedo; tocar a cada tiro.
+Ace_Higan_Impacto.efkefc: pequeno impacto de 30 quadros; tocar na colisao e remover a bala.
+A bala tem aproximadamente 3 unidades de comprimento incluindo cauda; ajustar escala ao personagem. Ponta em +Z e cauda em -Z.
+Copiar sempre os .efkefc junto com Model e Texture, preservando caminhos relativos. .efkproj sao fontes editaveis; .efk sao exportacoes.
+Conferido no renderizador Effekseer WebGL 1.80.7. Personagem, animacao da mao e logica de disparo nao estao incluidos.
