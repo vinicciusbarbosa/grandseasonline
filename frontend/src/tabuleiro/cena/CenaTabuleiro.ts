@@ -319,6 +319,8 @@ export class CenaTabuleiro {
      * Entei: o efeito feito no Effekseer (public/sprites/efk/entei); sem ele,
      * a cena em código (cena/entei.ts). Resolve no impacto.
      */
+    partisan: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all([carregarEfk('partisan'), carregarEfk('partisan-formacao'), carregarEfk('partisan-impacto')]).then(([l, f, i]) => (l && f && i ? this.partisanEfk(p, ate, l, f, i) : false)),
     pheasant: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('pheasant-beak'), carregarEfk('pheasant-beak-impacto')]).then(([ave, imp]) => (ave && imp ? this.pheasantEfk(p, ate, ave, imp) : false)),
     iceAge: (p: Personagem) =>
@@ -477,6 +479,53 @@ export class CenaTabuleiro {
     })
     this.efeitos.push(ef)
     this.cenaFx.add(ef.sprite)
+  }
+
+  /**
+   * Partisan (efeitos do Effekseer): a formação de cinco lanças (~4,7 de
+   * comprimento no editor, ponta em +Z) surge em arco sobre quem lança,
+   * apontada para o alvo; depois some e cada lança é disparada das mesmas
+   * posições até o alvo, com estilhaços onde bate.
+   */
+  private partisanEfk(p: Personagem, ate: THREE.Vector3, lanca: DadosEfk, formacao: DadosEfk, impacto: DadosEfk) {
+    const escala = 0.17
+    const VELOCIDADE = 14 // mundo/s
+    const FORMAR = 650 // ms com a formação parada antes de disparar
+    const alto = p.visual.altura * 0.75
+    const centro = p.pos.clone().setY(alto)
+    const mira = ate.clone().setY(p.visual.altura * 0.5)
+    const toca = (dados: DadosEfk, nome: string, onde: THREE.Vector3, esc: number, alvo?: THREE.Vector3) => {
+      const ef = new EfeitoEfk(nome, dados, { origem: onde.clone(), alvo, escala: esc, camera: this.camera })
+      ef.sprite.position.copy(onde)
+      if (alvo) ef.sprite.lookAt(alvo)
+      this.efeitos.push(ef)
+      this.cenaFx.add(ef.sprite)
+      return ef
+    }
+    p.posar('empurrar', 2)
+    const form = toca(formacao, 'partisan-formacao', centro, escala, mira)
+    // posições das lanças na formação (do LEIA-ME), no espaço do efeito
+    const locais: [number, number, number][] = [[-2.2, 0, -0.4], [-1.1, 0.65, 0], [0, 0.95, 0.35], [1.1, 0.65, 0], [2.2, 0, -0.4]]
+    return new Promise<boolean>((r) => {
+      setTimeout(() => {
+        form.sprite.updateMatrixWorld()
+        const pontos = locais.map((l) => new THREE.Vector3(...l).applyMatrix4(form.sprite.matrixWorld))
+        form.encerrar()
+        p.posar('empurrar', 3)
+        let acertos = 0
+        pontos.forEach((de, i) => {
+          setTimeout(() => {
+            const alvo = mira.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.4))
+            const l = toca(lanca, 'partisan', de, escala, alvo)
+            void this.animarPor(Math.max(0.12, de.distanceTo(alvo) / VELOCIDADE), (f) => l.sprite.position.lerpVectors(de, alvo, f)).then(() => {
+              l.encerrar()
+              toca(impacto, 'partisan-impacto', alvo, escala * 1.2)
+              if (++acertos === 3) r(true)
+            })
+          }, i * 70)
+        })
+      }, FORMAR)
+    })
   }
 
   /**

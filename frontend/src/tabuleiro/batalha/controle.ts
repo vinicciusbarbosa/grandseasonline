@@ -71,6 +71,8 @@ export interface Palco {
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
   /** Hotarubi do Effekseer: bolinhas voam até o alvo e detonam (Hidaruma); resolve na detonação, false sem o efeito */
   hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Partisan do Effekseer: formação de lanças e disparo até o alvo; resolve quando metade acerta, false sem o efeito */
+  partisan(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Pheasant Beak do Effekseer: a ave voa até o alvo e explode; resolve no impacto, false sem o efeito */
   pheasant(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Ice Age do Effekseer em volta de quem lança; resolve quando a expansão alcança longe (~0,8 s), false sem o efeito */
@@ -1036,6 +1038,13 @@ export class ControleBatalha {
         break
       }
       case 'lanca-gelo': {
+        // Partisan (Effekseer): cinco lanças se formam em arco atrás de quem lança e disparam até o alvo
+        if (await P.partisan(a, ate)) {
+          void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
+          P.tremer(0.3)
+          setTimeout(() => a.soltarPose(), 250)
+          break
+        }
         for (let i = 0; i < 3; i++) void P.efeito('gelo', 'normal', origem.clone().add(new THREE.Vector3(0, i * 0.15 - 0.15, 0)), { para: ate, dur: 0.25 + i * 0.05, escala: 0.7 })
         await esperar(280)
         void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
