@@ -131,25 +131,64 @@ PE = (75, 124)
 DIRS = ['S', 'SE', 'E', 'NE', 'N']
 
 
-def montar(corpo, cabeca, ref_pescoco):
-    """corpo + cabeça no pescoço. ref_pescoco: altura do pescoço acima do pé
-    (da pose parada); o pescoço deste quadro fica no topo do corpo, mas sem
-    sair mais de 6 px da referência (braço erguido não levanta a cabeça)"""
+def pescoco_parado(corpo):
+    """pescoço (x, y no corpo aparado) da pose parada e o molde em volta dele"""
+    cp = aparar(corpo)
+    ys = np.nonzero(cp[..., 3].max(1) > 20)[0]
+    y = int(ys.min())
+    cols = np.nonzero((cp[y:y + 12, :, 3] > 20).any(0))[0]
+    x = float(cols.mean())
+    molde = cp[y:y + 18, max(0, int(x) - 10):int(x) + 11]
+    return {'x': x, 'y': y, 'molde': molde, 'dx': x - max(0, int(x) - 10), 'pe': pe_x(cp), 'h': cp.shape[0]}
+
+
+def pe_x(cp):
+    """x do meio dos pés (linhas de baixo do corpo)"""
+    cols = np.nonzero((cp[-8:, :, 3] > 20).any(0))[0]
+    return float(cols.mean())
+
+
+def sobre_preto(im):
+    a = im[..., 3:].astype(np.float32) / 255
+    return np.dstack([im[..., :3] * a, im[..., 3:]]).astype(np.float32)
+
+
+def achar_pescoco(cp, ref):
+    """acha no quadro o mesmo pedaço de pescoço/ombros da pose parada (o braço
+    erguido ou o corpo inclinado não enganam, como enganava pegar o topo)"""
+    h = cp.shape[0]
+    # perto de onde o pescoço estaria pela altura (pés no chão)
+    y_esp = ref['y'] + (h - ref['h'])
+    alvo = sobre_preto(cp)
+    m = sobre_preto(ref['molde'])
+    if alvo.shape[0] < m.shape[0] or alvo.shape[1] < m.shape[1]:
+        return ref['x'], y_esp
+    r = cv2.matchTemplate(alvo, m, cv2.TM_SQDIFF)
+    # penaliza ficar longe do esperado (evita achar o pescoço no meio da perna)
+    yy, xx = np.mgrid[0:r.shape[0], 0:r.shape[1]]
+    x_esp = pe_x(cp) + (ref['x'] - ref['pe']) - ref['dx']
+    r = r / (r.max() + 1e-6) + 0.004 * ((yy - y_esp) ** 2 + 0.5 * (xx - x_esp) ** 2)
+    y, x = np.unravel_index(np.argmin(r), r.shape)
+    return x + ref['dx'], y
+
+
+def montar(corpo, cabeca, ref, ancora='pescoco'):
+    """corpo + cabeça no pescoço achado neste quadro. ref: pescoco_parado() da
+    mesma direção. ancora: 'pescoco' (parado/andar: o tronco fica no lugar e
+    as pernas balançam) ou 'pe' (ataque/dano: os pés ficam no lugar)"""
     q = np.zeros((A, L, 4), np.uint8)
     cp = aparar(corpo)
     h = cp.shape[0]
-    topo = h - ref_pescoco
-    ys = np.nonzero(cp[..., 3].max(1) > 20)[0]
-    y_top = int(np.clip(ys.min(), topo - 6, topo + 6)) if topo >= 0 else int(ys.min())
-    faixa = cp[max(0, y_top):max(0, y_top) + 12, :, 3] > 20
-    cols = np.nonzero(faixa.any(0))[0]
-    cx = float(cols.mean()) if len(cols) else cp.shape[1] / 2
-    ox = int(round(PE[0] - cx))
+    nx, ny = achar_pescoco(cp, ref)
+    if ancora == 'pe':
+        ox = int(round(PE[0] - pe_x(cp)))
+    else:
+        ox = int(round(PE[0] - (ref['pe'] - ref['x']) - nx))
     oy = PE[1] - h
     pintar(q, cp, ox, oy)
     if cabeca is not None:
         cb = cabeca
-        pintar(q, cb, int(round(PE[0] - cb.shape[1] / 2)), oy + y_top - cb.shape[0] + 5)
+        pintar(q, cb, int(round(ox + nx - cb.shape[1] / 2)), oy + int(ny) - cb.shape[0] + 5)
     return q
 
 
@@ -228,9 +267,8 @@ def personagem(pid, corpo, cab, marinha, ataque):
     cabs = cabecas(*cab)
     y, x1 = c['parado']
     parado = janela(a, k, y, 0, x1)[:5]
-    ref = [aparar(p).shape[0] - (aparar(p).shape[0] - 0) for p in parado]  # placeholder
-    # altura do pescoço acima do pé em cada direção (pose parada)
-    ref = [aparar(p).shape[0] for p in parado]
+    # pescoço da pose parada em cada direção (molde para achar nos outros quadros)
+    ref = [pescoco_parado(p) for p in parado]
     ys, x1 = c['andar']
     andar = [janela(a, k, yy, 0, x1)[:8] for yy in ys]
     anims = {'parado': {}, 'andar': {}, 'correr': {}}
@@ -250,8 +288,8 @@ def personagem(pid, corpo, cab, marinha, ataque):
         if not fr or not co:
             print('  sem', nome, pid)
             continue
-        mf = [montar(q, cabs[1], ref[1]) for q in fr]
-        mc = [montar(q, cabs[3], ref[3]) for q in co]
+        mf = [montar(q, cabs[1], ref[1], 'pe') for q in fr]
+        mc = [montar(q, cabs[3], ref[3], 'pe') for q in co]
         anims[nome] = {'S': mf, 'SE': [espelho(q) for q in mf], 'E': [espelho(q) for q in mf], 'NE': [espelho(q) for q in mc], 'N': mc}
         if nome == 'atacar':
             tempos['atacar']['impacto'] = max(1, len(fr) // 2)
