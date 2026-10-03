@@ -69,7 +69,7 @@
             </ScalingValues>
             <RendererCommonValues>
               <AlphaBlend>1</AlphaBlend>
-              <ZWrite>False</ZWrite>
+              <ZWrite>True</ZWrite>
               <FadeInType>1</FadeInType>
               <FadeIn>
                 <Frame>10</Frame>

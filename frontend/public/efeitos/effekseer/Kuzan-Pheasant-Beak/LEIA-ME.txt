@@ -2,7 +2,9 @@ KUZAN - PHEASANT BEAK
 Kuzan_Pheasant_Beak.efkefc: ave de gelo facetada, asas e cauda animadas, bico longo, crista, penas cristalinas, aura azul e cristais que se desprendem.
 Origem parada; bico para +Z, Y para cima. Movimento, mira, velocidade e colisao controlados pelo jogo.
 Dimensoes aproximadas: 8,8 unidades de envergadura, 6,8 de comprimento. Ajuste a escala uniformemente.
-Duracao: 240 quadros (4 segundos a 60 fps). Animacao interna dos modelos em 40 poses.
+Duracao: 240 quadros (4 segundos a 60 fps). Ave: 96 poses por ciclo (1,6 s a 60 fps), com articulacao de ombro, cotovelo e punho, penas volumetricas e flexao atrasada nas pontas. Cristais: 40 poses.
 Kuzan_Pheasant_Beak_Impacto.efkefc: explosao de cristais e clarao frio, acionada no ponto da colisao. Remover a ave ao colidir. Dano e congelamento ficam no codigo.
 Distribuir .efkefc com Model e Texture preservando os caminhos relativos. .efkproj sao fontes editaveis; .efk sao exportacoes.
 Ave conferida no renderizador oficial Effekseer WebGL 1.80.7, em tres angulos e sequencia de quadros.
+
+Refino: corpo e peito mais volumosos, cabeca e crista remodeladas, asas fechadas com volume e camadas de penas. Modelo com vertices duplicados removidos. ZWrite ativo na ave para resolver sobreposicoes; conferir a integracao com objetos transparentes no jogo.
