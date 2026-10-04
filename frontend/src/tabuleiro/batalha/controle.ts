@@ -1075,12 +1075,20 @@ export class ControleBatalha {
         const meio = origem.clone().lerp(ate, 0.5)
         void P.efeito('feixeLuz', 'normal', meio, { dur: 0.35, escala: 0.6, alongar: Math.max(1, origem.distanceTo(ate) / 0.9), direcao: dir })
         a.tinta = new THREE.Color(2, 1.9, 1.2)
+        // corpo (folha 'chutar'): chega dobrando a perna, chuta (quadro 3) e volta
+        const pose = (q: number) => a.posar('chutar', q)
+        pose(1)
         await P.deslizar(a, para, 0.07)
+        if (pose(2)) await esperar(70)
+        pose(3)
         void P.efeito('impacto', 'normal', ate, { dur: 0.35, escala: 1.4 })
         void P.efeito('luz', 'normal', ate, { dur: 0.4, escala: 1.2 })
         P.tremer(0.3)
-        await esperar(220)
+        await esperar(160)
+        if (pose(4)) await esperar(80)
+        pose(5)
         await P.deslizar(a, null, 0.07)
+        a.soltarPose()
         a.tinta = null
         break
       }

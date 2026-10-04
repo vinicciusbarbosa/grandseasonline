@@ -104,6 +104,23 @@ def pescoco_pele(cp, ref):
     return (melhor[1], melhor[2]) if melhor else (ex, ey)
 
 
+# chute: quadros em que o pescoço foi marcado à mão (x no corpo aparado)
+PESCOCO_CHUTE = {('S', 4): 59.5, ('N', 3): 21, ('N', 4): 21}
+
+
+def pescoco_topo(cp, ref):
+    """chute: o corpo inclina muito e a cintura sai do lugar, mas os punhos
+    ficam abaixo do pescoço; o toco do pescoço é o ponto mais alto do corpo"""
+    a = cp[..., 3] > 20
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    t = cv2.morphologyEx(a.astype(np.uint8), cv2.MORPH_OPEN, k) > 0
+    y = int(np.nonzero(t.any(1))[0].min())
+    # no alto pode subir também um punho ou ombro: fica o pedaço maior da faixa
+    lab, n = ndimage.label(t[y:y + 4])
+    k = 1 + int(np.argmax(ndimage.sum(np.ones_like(lab), lab, range(1, n + 1))))
+    return float(np.nonzero((lab == k).any(0))[0].mean()), y
+
+
 def cabecas_ro(folha, linha):
     """cabeça do RO (S, SO, O, NO, N) -> frente, costas, direita (espelho), esquerda"""
     c = ro.cabecas(folha, linha)
@@ -186,11 +203,18 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None):
     # skills de akuma (6 quadros, 4 direções): 'conjurar' = Entei (braço para o
     # alto e arremesso), 'empurrar' = vaga-lumes (palmas para a frente)
     # 'cruzar' = Yasakani (abre os braços e cruza na frente do peito)
-    for anim, arq in (('conjurar', 'entei'), ('empurrar', 'hotarubi'), ('cruzar', 'yasakani')):
+    # 'chutar' = Chute da Luz (Kizaru): pula e chuta de lado
+    for anim, arq in (('conjurar', 'entei'), ('empurrar', 'hotarubi'), ('cruzar', 'yasakani'), ('chutar', 'chute')):
         if os.path.exists(os.path.join(ORIG, f'{corpo}-{arq}.png')):
             fs = celulas(f'{corpo}-{arq}.png', 6)
-            anims[anim] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', braco_por_cima=True, achar=pescoco_pele)
-                               for q in fs[i]] for i, d in enumerate(DIRS)}
+            def achar(d, j, anim=anim):
+                if anim != 'chutar':
+                    return pescoco_pele
+                if (d, j) in PESCOCO_CHUTE:  # o braço erguido fica mais alto que o pescoço
+                    return lambda cp, ref: (PESCOCO_CHUTE[(d, j)], 0)
+                return pescoco_topo
+            anims[anim] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', braco_por_cima=True, achar=achar(d, j))
+                               for j, q in enumerate(fs[i])] for i, d in enumerate(DIRS)}
     ro.gravar(pid, anims, tempos, densidade, 'Gerado por IA no padrão do Ragnarok (teste)')
     arq = os.path.join(ro.SPR, pid, 'manifesto.json')
     man = json.load(open(arq))

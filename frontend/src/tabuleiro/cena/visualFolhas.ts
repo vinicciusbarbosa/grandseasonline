@@ -49,6 +49,7 @@ const TEMPO: Record<NomeAnim, { fps: number; ciclo?: number; laco: boolean; impa
   conjurar: { fps: 9, laco: false },
   empurrar: { fps: 9, laco: false },
   cruzar: { fps: 9, laco: false },
+  chutar: { fps: 12, laco: false },
 }
 const QUADROS_PADRAO = 12
 
