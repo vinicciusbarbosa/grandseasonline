@@ -147,11 +147,11 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     elemento: 'gelo',
     passiva: 'Intangível. Congela: o alvo pode perder a próxima vez.',
     skills: [
-      { id: 'lanca-gelo', nome: 'Lanças de Gelo (Partisan)', descricao: 'Lanças de gelo a até 4 casas; 25% de congelar.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1, elemento: 'gelo', congela: 0.25 },
-      { id: 'ice-saber', nome: 'Sabre de Gelo', descricao: 'Espada de gelo de perto; 20% de congelar.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.3, elemento: 'gelo', congela: 0.2 },
-      { id: 'ice-time', nome: 'Ice Time', descricao: 'Toque que congela: 80% de congelar o alvo ao lado.', energia: 30, recarga: 3, alcance: 1, area: 'alvo', mult: 0.5, elemento: 'gelo', congela: 0.8 },
-      { id: 'pheasant-beak', nome: 'Bico de Faisão (Pheasant Beak)', descricao: 'Uma ave de gelo voa até o alvo (até 5 casas) e explode em cristais; 40% de congelar.', energia: 35, recarga: 3, alcance: 5, area: 'alvo', mult: 1.5, elemento: 'gelo', congela: 0.4 },
-      { id: 'era-gelo', nome: 'Era do Gelo (Ice Age)', descricao: 'Congela o mapa inteiro: acerta todos os inimigos; 35% de congelar.', energia: 60, recarga: 5, alcance: 0, area: 'mapa', mult: 0.45, elemento: 'gelo', congela: 0.35 },
+      { id: 'lanca-gelo', nome: 'Lanças de Gelo (Partisan)', descricao: 'Lanças de gelo a até 4 casas; congela o alvo.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1, elemento: 'gelo', congela: 1 },
+      { id: 'ice-saber', nome: 'Sabre de Gelo', descricao: 'Espada de gelo de perto; congela o alvo.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.3, elemento: 'gelo', congela: 1 },
+      { id: 'ice-time', nome: 'Ice Time', descricao: 'Toque que congela o alvo ao lado.', energia: 30, recarga: 3, alcance: 1, area: 'alvo', mult: 0.5, elemento: 'gelo', congela: 1 },
+      { id: 'pheasant-beak', nome: 'Bico de Faisão (Pheasant Beak)', descricao: 'Uma ave de gelo voa até o alvo (até 5 casas) e explode em cristais; congela o alvo.', energia: 35, recarga: 3, alcance: 5, area: 'alvo', mult: 1.5, elemento: 'gelo', congela: 1 },
+      { id: 'era-gelo', nome: 'Era do Gelo (Ice Age)', descricao: 'Congela o mapa inteiro: acerta e congela todos os inimigos.', energia: 60, recarga: 5, alcance: 0, area: 'mapa', mult: 0.45, elemento: 'gelo', congela: 1 },
     ],
   },
   borracha: {

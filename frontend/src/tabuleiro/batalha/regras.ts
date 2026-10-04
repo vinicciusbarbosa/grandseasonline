@@ -446,7 +446,8 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
     espirito(c, ESPIRITO_AO_ACERTAR)
     ferir(alvo, final)
     if (alvo.hp > 0 && s.queima) alvo.queimadura = { ...s.queima }
-    if (alvo.hp > 0 && s.congela && !alvo.atordoado && rnd() < s.congela) {
+    // congela mesmo quem já está atordoado (fica congelado em vez de só atordoado)
+    if (alvo.hp > 0 && s.congela && rnd() < s.congela) {
       alvo.atordoado = true
       ev.push({ t: 'congelou', id: alvo.id })
     }

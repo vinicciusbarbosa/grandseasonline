@@ -87,8 +87,8 @@ export interface Palco {
   higan(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** desliza o personagem até um ponto (null = volta ao lugar) */
   deslizar(p: Personagem, para: THREE.Vector3 | null, dur: number): Promise<void>
-  /** Ice Age: o tabuleiro inteiro congela por um tempo */
-  congelarMapa(dur: number): void
+  /** congelou: o gelo do Ice Time cresce em volta do personagem (Effekseer) */
+  congelar(p: Personagem): void
   /** choque de Haki do Rei desenhado na tela inteira (raios, anéis, clarão) */
   choqueTela(ponto: THREE.Vector3): void
   /** quadro de impacto do anime: a tela pisca (negro/vermelho ou branco) */
@@ -1048,25 +1048,18 @@ export class ControleBatalha {
       case 'lanca-gelo': {
         // Partisan (Effekseer): cinco lanças se formam em arco atrás de quem lança e disparam até o alvo
         if (await P.partisan(a, ate)) {
-          void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
           P.tremer(0.3)
           setTimeout(() => a.soltarPose(), 250)
           break
         }
-        for (let i = 0; i < 3; i++) void P.efeito('gelo', 'normal', origem.clone().add(new THREE.Vector3(0, i * 0.15 - 0.15, 0)), { para: ate, dur: 0.25 + i * 0.05, escala: 0.7 })
         await esperar(280)
-        void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
         break
       }
       case 'pheasant-beak': {
         // ave de gelo (Effekseer) voa até o alvo e explode em cristais; sem o efeito, lança de gelo
         const pose = (q: number) => a.posar('empurrar', q)
         pose(2)
-        if (!(await P.pheasant(a, ate))) {
-          void P.efeito('gelo', 'normal', origem, { para: ate, dur: 0.4, escala: 1.2 })
-          await esperar(400)
-        }
-        void P.efeito('espinhoGelo', 'normal', ate.clone().setY(0.9), { dur: 0.9, escala: 1.3 })
+        if (!(await P.pheasant(a, ate))) await esperar(400)
         P.tremer(0.35)
         setTimeout(() => a.soltarPose(), 250)
         break
@@ -1080,24 +1073,17 @@ export class ControleBatalha {
         break
       }
       case 'ice-time': {
-        // Effekseer: clarão de contato na mão e cristais crescendo do chão no alvo;
-        // se congelar, os cristais ficam (status 'gelo') até a vez do congelado acabar
-        if (!(await P.iceTime(a, hits[0] ?? null, ate))) {
-          void P.efeito('espinhoGelo', 'normal', ate.clone().setY(1.1), { dur: 1.1, escala: 1.6 })
-          void P.efeito('gelo', 'normal', ate, { dur: 0.7, escala: 1.4 })
-          await esperar(300)
-        }
+        // Effekseer: clarão de contato na mão; os cristais crescem no alvo quando
+        // ele congela (evento 'congelou') e ficam até a vez do congelado acabar
+        if (!(await P.iceTime(a, hits[0] ?? null, ate))) await esperar(300)
         break
       }
       case 'era-gelo': {
-        // Ice Age: o mapa inteiro congela, espinhos em cada inimigo
-        // efeito do Effekseer (expansão do gelo a partir de quem lança); sem ele, só os espinhos
-        const efk = await P.iceAge(a)
+        // Ice Age (Effekseer): o gelo se espalha a partir de quem lança; cada
+        // inimigo atingido congela com o gelo do Ice Time (evento 'congelou')
+        await P.iceAge(a)
         P.lampejo('branco', 0.25)
-        P.congelarMapa(2.2)
         P.tremer(0.5)
-        if (!efk) void P.efeito('espinhoGelo', 'normal', origem.clone().setY(1), { dur: 1.2, escala: 1.8 })
-        for (const h of hits) void P.efeito('espinhoGelo', 'normal', h.pos.clone().setY(1.1), { dur: 1.4, escala: 1.7 })
         await esperar(600)
         break
       }
@@ -1236,6 +1222,7 @@ export class ControleBatalha {
         if (!b) return
         this.tipoStatus.set(e.id, e.t === 'congelou' ? 'gelo' : 'stun')
         b.status = e.t === 'congelou' ? 'gelo' : 'stun'
+        if (e.t === 'congelou') this.palco.congelar(b)
         this.palco.flutuar(b, e.t === 'congelou' ? 'Congelado!' : 'Atordoado!', e.t === 'congelou' ? '#a8ecff' : '#ff5a6e', 1)
         this.registrar(`${nome(e.id)} ${e.t === 'congelou' ? 'congela' : 'fica atordoado pelo Haki do Rei'} e perde a próxima vez.`)
         await esperar(350)

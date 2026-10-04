@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { casaEm, centroCasa, mesmaCasa, COLUNAS, LINHAS, METADE, type Casa } from '../tabuleiro'
+import { casaEm, centroCasa, mesmaCasa, COLUNAS, METADE, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
 import { montarNavios } from './navio'
 import { Assador } from '../boneco/assador'
@@ -14,6 +14,10 @@ import { EfeitoEfk, carregarEfk, type DadosEfk } from './efk'
 
 /** altura de quem lança no efeito do Effekseer (unidades do editor): o efeito escala por ela */
 const ALTURA_EFK = 5
+/** escala do gelo do Ice Time (aplicar e congelado) */
+const ESCALA_GELO = 0.5
+/** s até o gelo do Ice Time terminar de crescer (aí entram os cristais do congelado) */
+const GELO_CRESCER = 1.2
 import { Poeira } from './poeira'
 import { GolpeHaki } from './golpeHaki'
 import { HakiRei } from './hakiRei'
@@ -66,7 +70,6 @@ const GIRO = THREE.MathUtils.degToRad(-8)
 const FOV = 22
 
 
-const entre01 = (x: number, a: number, b: number) => Math.max(0, Math.min(1, (x - a) / (b - a)))
 /** cor das formas (multiplica o sprite) */
 const TINTA = {
   zoan: new THREE.Color(0.95, 0.72, 0.52),
@@ -327,7 +330,7 @@ export class CenaTabuleiro {
      */
     corte: (p: Personagem, ate: THREE.Vector3) => carregarEfk('corte-ciano').then((d) => (d ? this.corteEfk(p, ate, d) : false)),
     iceTime: (p: Personagem, alvo: Personagem | null, ate: THREE.Vector3) =>
-      Promise.all([carregarEfk('ice-time'), carregarEfk('ice-time-contato')]).then(([gelo, contato]) => (gelo && contato ? this.iceTimeEfk(p, alvo, ate, gelo, contato) : false)),
+      carregarEfk('ice-time-contato').then((contato) => (contato ? this.iceTimeEfk(p, alvo, ate, contato) : false)),
     partisan: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('partisan'), carregarEfk('partisan-formacao'), carregarEfk('partisan-impacto')]).then(([l, f, i]) => (l && f && i ? this.partisanEfk(p, ate, l, f, i) : false)),
     pheasant: (p: Personagem, ate: THREE.Vector3) =>
@@ -359,7 +362,14 @@ export class CenaTabuleiro {
       const alvo = para ? para.clone().setY(0).sub(p.pos.clone().setY(0)) : new THREE.Vector3()
       return this.animarPor(dur, (f) => p.deslize.lerpVectors(de, alvo, f))
     },
-    congelarMapa: (dur: number) => this.congelarMapa(dur),
+    congelar: (p: Personagem) => {
+      // o gelo do Ice Time cresce nos pés; os cristais formados (status 'gelo')
+      // entram quando ele termina de crescer
+      this.geloDesde.set(p, performance.now() + GELO_CRESCER * 1000)
+      void carregarEfk('ice-time').then((d) => {
+        if (d) this.tocarEfk('ice-time', d, p.pos.clone().setY(0.02), ESCALA_GELO)
+      })
+    },
     choqueTela: (ponto: THREE.Vector3) => {
       this.choques.push(new ChoqueTela(ponto.clone()))
     },
@@ -374,61 +384,6 @@ export class CenaTabuleiro {
       const id = this.retratoBatalha?.selecionado?.id
       this.selecionado = id ? (this.personagens.find((p) => p.id === id) ?? null) : null
     },
-  }
-
-  /**
-   * Ice Age: o tabuleiro inteiro vira gelo (camada azul com rachaduras que
-   * aparece, fica e derrete).
-   */
-  private congelarMapa(dur: number) {
-    const cv = document.createElement('canvas')
-    cv.width = 1024
-    cv.height = 512
-    const g = cv.getContext('2d')!
-    const gr = g.createLinearGradient(0, 0, 1024, 512)
-    gr.addColorStop(0, 'rgba(200,240,255,0.85)')
-    gr.addColorStop(0.5, 'rgba(150,215,255,0.8)')
-    gr.addColorStop(1, 'rgba(210,245,255,0.85)')
-    g.fillStyle = gr
-    g.fillRect(0, 0, 1024, 512)
-    // rachaduras e brilhos
-    g.strokeStyle = 'rgba(255,255,255,0.9)'
-    for (let i = 0; i < 60; i++) {
-      let x = Math.random() * 1024
-      let y = Math.random() * 512
-      g.lineWidth = 1 + Math.random() * 2
-      g.beginPath()
-      g.moveTo(x, y)
-      for (let k = 0; k < 5; k++) {
-        x += (Math.random() - 0.5) * 90
-        y += (Math.random() - 0.5) * 60
-        g.lineTo(x, y)
-      }
-      g.stroke()
-    }
-    g.fillStyle = 'rgba(40,120,200,0.25)'
-    for (let i = 0; i < 40; i++) g.fillRect(Math.random() * 1024, Math.random() * 512, 30 + Math.random() * 80, 3)
-    const tex = new THREE.CanvasTexture(cv)
-    tex.colorSpace = THREE.SRGBColorSpace
-    const a = centroCasa(0, 0)
-    const b = centroCasa(LINHAS - 1, COLUNAS - 1)
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(Math.abs(b.x - a.x) + 1.4, Math.abs(b.z - a.z) + 1.4),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }),
-    )
-    m.rotation.x = -Math.PI / 2
-    m.position.set((a.x + b.x) / 2, 0.03, (a.z + b.z) / 2)
-    m.renderOrder = 1
-    this.cena.add(m)
-    void this.animarPor(dur, (f) => {
-      ;(m.material as THREE.MeshBasicMaterial).opacity = Math.min(1, f * 6) * (1 - entre01(f, 0.75, 1))
-      if (f >= 1) {
-        this.cena.remove(m)
-        tex.dispose()
-        ;(m.material as THREE.Material).dispose()
-        m.geometry.dispose()
-      }
-    })
   }
 
   /** partículas das formas (vapor do Gear Second, poeira da Zoan, brilho da luz) */
@@ -517,50 +472,58 @@ export class CenaTabuleiro {
   }
 
   /**
-   * Ice Time (Effekseer): clarão de contato na mão de quem toca e cristais
-   * crescendo do chão em volta do alvo (~3,4 de diâmetro no editor). Se o
-   * alvo congelar, o status 'gelo' segura os cristais formados.
+   * Ice Time (Effekseer): clarão de contato na mão de quem toca. Os cristais
+   * crescem no alvo quando ele congela (palco.congelar, evento 'congelou').
    */
-  private iceTimeEfk(p: Personagem, alvo: Personagem | null, ate: THREE.Vector3, gelo: DadosEfk, contato: DadosEfk) {
+  private iceTimeEfk(p: Personagem, alvo: Personagem | null, ate: THREE.Vector3, contato: DadosEfk) {
     const pe = (alvo?.pos ?? ate).clone().setY(0.02)
     const mao = p.pos.clone().lerp(pe, 0.45).setY(p.visual.altura * 0.5)
     this.tocarEfk('ice-time-contato', contato, mao, 0.3)
-    this.tocarEfk('ice-time', gelo, pe, 0.3)
     return new Promise<boolean>((r) => setTimeout(() => r(true), 450))
   }
 
-  /** estrelinhas na cabeça (atordoado) ou cristais nos pés (congelado), presos ao personagem */
-  private readonly statusFx = new Map<Personagem, { tipo: 'stun' | 'gelo'; ef: EfeitoEfk | null; carregando: boolean }>()
+  /**
+   * estrelinhas na cabeça (atordoado e congelado) e, no congelado, os cristais
+   * do Ice Time nos pés; presos ao personagem até a vez dele acabar
+   */
+  private readonly statusFx = new Map<Personagem, { tipo: 'stun' | 'gelo'; fx: { nome: string; ef: EfeitoEfk | null; carregando: boolean }[] }>()
+  /** quando os cristais do congelado entram (ms): depois do gelo crescer */
+  private readonly geloDesde = new Map<Personagem, number>()
 
   private atualizarStatus() {
+    const agora = performance.now()
     for (const p of this.personagens) {
       const atual = this.statusFx.get(p)
       if (atual && atual.tipo !== p.status) {
-        atual.ef?.encerrar()
+        for (const f of atual.fx) f.ef?.encerrar()
         this.statusFx.delete(p)
       }
       if (!p.status) continue
       let s = this.statusFx.get(p)
       if (!s) {
-        s = { tipo: p.status, ef: null, carregando: false }
+        const fx = [{ nome: 'stun', ef: null, carregando: false }]
+        if (p.status === 'gelo') fx.push({ nome: 'ice-time-congelado', ef: null, carregando: false })
+        s = { tipo: p.status, fx }
         this.statusFx.set(p, s)
       }
-      // congelado dura até 10 s no editor: recomeça se ainda estiver congelado
-      if ((!s.ef || !s.ef.vivo) && !s.carregando) {
-        s.carregando = true
-        const reg = s
-        const nome = reg.tipo === 'stun' ? 'stun' : 'ice-time-congelado'
-        void carregarEfk(nome).then((d) => {
-          reg.carregando = false
-          if (!d || this.statusFx.get(p) !== reg) return
-          reg.ef = this.tocarEfk(nome, d, p.pos, reg.tipo === 'stun' ? 0.75 : 0.3)
-        })
+      for (const f of s.fx) {
+        const cabeca = f.nome === 'stun'
+        // os efeitos acabam no editor (o congelado dura 10 s): recomeça enquanto durar
+        if ((!f.ef || !f.ef.vivo) && !f.carregando && (cabeca || agora >= (this.geloDesde.get(p) ?? 0))) {
+          f.carregando = true
+          const reg = s
+          void carregarEfk(f.nome).then((d) => {
+            f.carregando = false
+            if (!d || this.statusFx.get(p) !== reg) return
+            f.ef = this.tocarEfk(f.nome, d, p.pos, cabeca ? 1 : ESCALA_GELO)
+          })
+        }
+        if (f.ef) f.ef.sprite.position.copy(cabeca ? p.pos.clone().setY(p.visual.altura * 0.92) : p.pos.clone().setY(0.02))
       }
-      if (s.ef) s.ef.sprite.position.copy(s.tipo === 'stun' ? p.pos.clone().setY(p.visual.altura * 0.92) : p.pos.clone().setY(0.02))
     }
     for (const [p, s] of this.statusFx) {
       if (!this.personagens.includes(p)) {
-        s.ef?.encerrar()
+        for (const f of s.fx) f.ef?.encerrar()
         this.statusFx.delete(p)
       }
     }
