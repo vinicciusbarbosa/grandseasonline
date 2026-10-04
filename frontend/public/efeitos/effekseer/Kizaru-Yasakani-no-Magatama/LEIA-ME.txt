@@ -1,0 +1,54 @@
+KIZARU / BORSALINO - YASAKANI NO MAGATAMA
+
+Efeito de luz amarelo-clara com centro branco, clarões de quatro pontas,
+halo difuso forte, filamentos animados e partículas luminosas. Não contém
+personagem. O jogo controla o voo, a pose das mãos, a trajetória e o dano.
+
+ARQUIVOS DE RUNTIME
+Kizaru_Yasakani_Carga_Mao.efkefc
+  Carga individual na origem. Criar duas instâncias, uma em cada mão.
+  Entrada gradual de brilho em aproximadamente 0,4 s. Depois mantém a carga
+  pulsando, com partículas convergindo e pequenos filamentos orbitando.
+  Continua ativa até o jogo encerrar a instância.
+
+Kizaru_Yasakani_Carga_Dupla.efkefc
+  Alternativa com as duas cargas já posicionadas em X=-0,72/+0,72;
+  Y=1,55; Z=0,05, relativa à origem nos pés. É uma formação fixa de referência.
+  Para acompanhar mãos animadas, usar duas instâncias de Carga_Mao.
+
+Kizaru_Yasakani_Projetil.efkefc
+  Uma bola de luz oval, volumétrica, com glow e cauda curta animada.
+  Frente no eixo +Z, cauda para -Z, origem fixa no centro da bola.
+  Pulsa e cintila sem sair da origem. A trajetória é feita pelo código.
+  Criar várias instâncias para formar a rajada. Encerrar cada uma na colisão,
+  no limite de alcance ou no fim da habilidade.
+
+Kizaru_Yasakani_Disparo.efkefc
+  Clarão breve da palma para cada disparo. Parte visual de cerca de 0,25 s.
+
+Kizaru_Yasakani_Impacto.efkefc
+  Flash em cruz, halo amarelo, onda discreta de pressão e partículas de luz.
+  Parte visual dissipa em aproximadamente 0,6 s; janela de 50 quadros / 0,83 s.
+
+EIXOS E DISTRIBUIÇÃO
+Y para cima. Projétil orientado para +Z. Ajustar posição, rotação e escala
+nas instâncias do jogo. As raízes da carga e da bola de luz ficam paradas;
+as partículas e filamentos têm movimento interno.
+Distribuir os arquivos .efkefc junto com TODAS as pastas Model e Texture,
+preservando os caminhos relativos. .efkproj é a fonte editável no Effekseer;
+.efk é uma exportação adicional. As texturas são compartilhadas pelos efeitos.
+O glow já faz parte dos assets. Bloom do jogo pode ampliar o brilho.
+
+PREVIA E INTEGRAÇÃO
+A rajada da prévia usa os mesmos arquivos de runtime. Um script de demonstração
+movimenta as instâncias, dispara em sequência e inicia o impacto ao final de
+cada trajetória. Essa movimentação não está gravada no asset do projétil.
+INTEGRACAO.md explica como encaixar as etapas no personagem do jogo.
+Não há personagem, cenário ou animação de personagem no pacote.
+
+VERIFICAÇÃO
+Exportações geradas no Effekseer 1.80.7 e carregadas no runtime oficial WebGL
+1.80.7. Carga e projétil conferidos em três vistas e em execução prolongada;
+impacto e rajada conferidos até dissiparem. Animações renderizadas para prévia.
+Dependências locais verificadas. A integração e o desempenho dentro da cena
+do sugoigame ainda dependem do código e da quantidade de instâncias usada.
