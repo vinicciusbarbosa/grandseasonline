@@ -149,10 +149,14 @@ def cabecas_ia(arq, altura):
 
 
 # partes que dá para tingir: (matizes OpenCV 0-180, saturação mínima, valor máximo)
-PARTES_CORPO = {
+PARTES_ESPADACHIM = {
     'roupa': (((168, 180), (0, 5)), 115, 215),   # colete e faixa vermelhos (o couro marrom fica)
     'calca': (((95, 135),), 40, 255),            # calça azul
 }
+# lutador: o calção vinho
+PARTES_LUTADOR = {'calca': (((165, 180), (0, 3)), 140, 170)}
+# atirador: a capa verde-escura (as estrelas amarelas ficam)
+PARTES_ATIRADOR = {'roupa': (((60, 110),), 25, 125)}
 PARTES_CABECA = {'cabelo': (((0, 28), (172, 180)), 110, 256)}  # cabelo laranja (a pele é menos saturada)
 
 
@@ -176,12 +180,18 @@ def tingir(q, partes, cores):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82, cores=None):
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False):
     """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
-    cores: {'roupa'|'calca'|'cabelo': (matiz, x saturação, x valor)} para tingir"""
+    cores: {parte|'cabelo': (matiz, x saturação, x valor)} para tingir;
+    partes: as partes tingíveis desse corpo (padrão: as do espadachim);
+    altura: px do corpo parado; ataque: (quadros da folha, quadro do impacto);
+    igualar: a folha do ataque foi desenhada noutro tamanho — o 1º quadro do
+    ataque fica com a altura do corpo parado"""
+    PARTES_CORPO = partes or PARTES_ESPADACHIM
     andar = celulas(f'{corpo}-andar.png', 8)
-    # escala: corpo parado (frente) com ALTURA_CORPO px
-    s = ALTURA_CORPO / andar[0][0].shape[0]
+    # escala: corpo parado (frente) com `altura` px; a cabeça tem o tamanho de
+    # sempre (metade do corpo padrão), não cresce com um corpo maior
+    s = altura / andar[0][0].shape[0]
     cabs = cabecas_ia(cabeca, round(ALTURA_CORPO * 0.5)) if isinstance(cabeca, str) else cabecas_ro(*cabeca)
     cabs = {d: tingir(c, PARTES_CABECA, cores) for d, c in cabs.items()}
     anims = {'parado': {}, 'andar': {}, 'correr': {}}
@@ -197,9 +207,10 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None):
         anims['correr'][d] = anims['andar'][d]
     tempos = {'andar': {'fps': 10}, 'correr': {'fps': 12}}
     if os.path.exists(os.path.join(ORIG, f'{corpo}-atacar.png')):
-        atacar = celulas(f'{corpo}-atacar.png', 6)
-        anims['atacar'] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', achar=pescoco_pele) for q in atacar[i]] for i, d in enumerate(DIRS)}
-        tempos['atacar'] = {'fps': 10, 'impacto': 3}
+        atacar = celulas(f'{corpo}-atacar.png', ataque[0])
+        sa = altura / atacar[0][0].shape[0] if igualar else s
+        anims['atacar'] = {d: [ro.montar(tingir(reduzir(q, sa), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', achar=pescoco_pele) for q in atacar[i]] for i, d in enumerate(DIRS)}
+        tempos['atacar'] = {'fps': 10 if ataque[0] == 6 else round(10 * ataque[0] / 6, 2), 'impacto': ataque[1]}
     # skills de akuma (6 quadros, 4 direções): 'conjurar' = Entei (braço para o
     # alto e arremesso), 'empurrar' = vaga-lumes (palmas para a frente)
     # 'cruzar' = Yasakani (abre os braços e cruza na frente do peito)
@@ -231,3 +242,14 @@ if __name__ == '__main__':
                cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75), 'cabelo': (112, 0.45, 0.42)})
     personagem('espadachim-verde', 'espadachim', 'cabeca-espetado.png',
                cores={'roupa': (60, 0.7, 0.8), 'calca': (16, 0.55, 1.35), 'cabelo': (24, 0.3, 1.2)})
+    # lutador novo (soco) nos dois lados: o da Marinha de calção azul; a cabeça
+    # é a do Capitão com outra cor de cabelo (cada um diferente)
+    personagem('pirata-lutador', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
+               cores={'cabelo': (0, 0.25, 0.3)})
+    personagem('marinha-soldado', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
+               cores={'calca': (110, 0.9, 1.2), 'cabelo': (22, 0.35, 1.25)})
+    # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
+    personagem('pirata-atiradora', 'atirador', 'cabeca-espetado.png', partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
+               cores={'cabelo': (112, 0.55, 0.5)})
+    personagem('marinha-atirador', 'atirador', 'cabeca-espetado.png', partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
+               cores={'roupa': (112, 2.2, 2.4), 'cabelo': (12, 0.45, 0.62)})
