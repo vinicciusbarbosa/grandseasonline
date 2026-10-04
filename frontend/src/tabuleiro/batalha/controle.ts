@@ -44,6 +44,20 @@ import {
 
 export type Marca = 'mover' | 'alcance' | 'alvo' | 'cura' | 'destino' | 'area'
 
+/** Light Kick em andamento: cada etapa toca um efeito do Effekseer */
+export type LightKick = {
+  /** rastro de luz indo até `para` (acompanha o personagem) */
+  avancar(para: THREE.Vector3): void
+  /** fim do avanço: o rastro some */
+  parar(): void
+  /** arco da varredura da perna, virado para o alvo */
+  arco(alvo: THREE.Vector3): void
+  /** clarão no ponto do contato */
+  impacto(onde: THREE.Vector3): void
+  /** apaga a luz do pé */
+  apagar(): void
+}
+
 export interface Palco {
   personagem(id: string): Personagem | undefined
   marcar(c: Casa, tipo: Marca): void
@@ -69,6 +83,11 @@ export interface Palco {
   efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoQuadro?: [number, () => void] }): Promise<boolean>
   /** Entei em fases (cena longa); resolve no impacto, a explosão continua sozinha */
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
+  /**
+   * Light Kick do Effekseer: luz no pé, rastro no avanço, arco na varredura e
+   * clarão no contato; null sem o efeito
+   */
+  lightKick(p: Personagem): Promise<LightKick | null>
   /**
    * Yasakani no Magatama do Effekseer: carga de luz em cada mão (braços
    * cruzados) e rajada de bolas de luz até os pontos; resolve quando metade
@@ -1069,27 +1088,32 @@ export class ControleBatalha {
         break
       }
       case 'chute-luz': {
-        // vira luz, chega no alvo num instante, chuta e volta
+        // Light Kick (Effekseer): a luz acende no pé, avança num instante com o
+        // rastro, o arco sai na varredura da perna e o clarão no contato; volta.
+        // Corpo (folha 'chutar'): dobra a perna, chuta (quadro 3) e recolhe
         const alvo = hits[0]
         const para = alvo ? alvo.pos.clone().lerp(a.pos, 0.35) : ate
-        const meio = origem.clone().lerp(ate, 0.5)
-        void P.efeito('feixeLuz', 'normal', meio, { dur: 0.35, escala: 0.6, alongar: Math.max(1, origem.distanceTo(ate) / 0.9), direcao: dir })
-        a.tinta = new THREE.Color(2, 1.9, 1.2)
-        // corpo (folha 'chutar'): chega dobrando a perna, chuta (quadro 3) e volta
+        const casa = origem.clone().setY(0)
         const pose = (q: number) => a.posar('chutar', q)
+        const lk = await P.lightKick(a)
         pose(1)
+        if (lk) await esperar(250)
+        lk?.avancar(para)
         await P.deslizar(a, para, 0.07)
+        lk?.parar()
         if (pose(2)) await esperar(70)
+        lk?.arco(ate)
         pose(3)
-        void P.efeito('impacto', 'normal', ate, { dur: 0.35, escala: 1.4 })
-        void P.efeito('luz', 'normal', ate, { dur: 0.4, escala: 1.2 })
+        lk?.impacto(ate)
         P.tremer(0.3)
         await esperar(160)
         if (pose(4)) await esperar(80)
+        lk?.apagar()
         pose(5)
+        lk?.avancar(casa)
         await P.deslizar(a, null, 0.07)
+        lk?.parar()
         a.soltarPose()
-        a.tinta = null
         break
       }
       case 'raio-luz': {

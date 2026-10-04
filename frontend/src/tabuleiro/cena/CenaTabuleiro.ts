@@ -5,7 +5,7 @@ import { montarNavios } from './navio'
 import { Assador } from '../boneco/assador'
 import { CAPITAES } from '../boneco/boneco'
 import { Personagem } from './personagem'
-import { ControleBatalha, type Marca, type RetratoBatalha } from '../batalha/controle'
+import { ControleBatalha, type LightKick, type Marca, type RetratoBatalha } from '../batalha/controle'
 import { TRIPULACOES } from '../batalha/elenco'
 import { VisualSprite } from './visualSprite'
 import { VisualFolhas } from './visualFolhas'
@@ -348,6 +348,10 @@ export class CenaTabuleiro {
       Promise.all([carregarEfk('hiken'), carregarEfk('hiken-impacto')]).then(([c, i]) => (c && i ? this.hikenEfk(p, ate, c, i) : false)),
     higan: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('higan'), carregarEfk('higan-disparo'), carregarEfk('higan-impacto')]).then(([b, d, i]) => (b && d && i ? this.higanEfk(p, ate, b, d, i) : false)),
+    lightKick: (p: Personagem) =>
+      Promise.all(['light-kick-carga', 'light-kick-rastro', 'light-kick-arco', 'light-kick-impacto'].map((n) => carregarEfk(n))).then(([c, r, a, i]) =>
+        c && r && a && i ? this.lightKick(p, c, r, a, i) : null,
+      ),
     yasakani: (p: Personagem, pontos: THREE.Vector3[]) =>
       Promise.all(['yasakani-carga', 'yasakani-projetil', 'yasakani-disparo', 'yasakani-impacto'].map((n) => carregarEfk(n))).then(([c, b, d, i]) =>
         c && b && d && i ? this.yasakaniEfk(p, pontos, c, b, d, i) : false,
@@ -687,6 +691,55 @@ export class CenaTabuleiro {
         }, i * INTERVALO)
       }
     })
+  }
+
+  /** efeitos presos a um ponto que anda (o pé no Light Kick): reposicionados a cada quadro */
+  private presos: { ef: EfeitoEfk; onde: () => THREE.Vector3 }[] = []
+
+  /**
+   * Light Kick (efeitos do Effekseer, feitos para um personagem de ~2
+   * unidades): a carga fica no pé (dobrado no começo, esticado no chute), o
+   * rastro (+Z para onde vai) acompanha o corpo no avanço, o arco sai no
+   * centro da varredura virado para o alvo e o clarão no ponto do contato.
+   */
+  private lightKick(p: Personagem, carga: DadosEfk, rastro: DadosEfk, arco: DadosEfk, impacto: DadosEfk): LightKick {
+    const k = p.visual.altura / 2
+    const h = p.visual.altura
+    let frente = new THREE.Vector3(0, 0, 1)
+    let esticado = false
+    const pe = () => p.pos.clone().addScaledVector(frente, h * (esticado ? 0.42 : 0.12)).setY(h * (esticado ? 0.45 : 0.3))
+    const prender = (ef: EfeitoEfk, onde: () => THREE.Vector3) => {
+      ef.sprite.position.copy(onde())
+      this.presos.push({ ef, onde })
+      return ef
+    }
+    const luz = prender(this.tocarEfk('light-kick-carga', carga, pe(), k * 0.55), pe)
+    let r: EfeitoEfk | null = null
+    return {
+      avancar: (para) => {
+        r?.encerrar()
+        const dir = para.clone().sub(p.pos).setY(0)
+        if (dir.lengthSq() < 1e-6) return
+        frente = dir.normalize()
+        const corpo = () => p.pos.clone().setY(h * 0.45)
+        r = prender(this.tocarEfk('light-kick-rastro', rastro, corpo(), k * 0.6), corpo)
+        r.sprite.lookAt(corpo().add(frente))
+      },
+      parar: () => {
+        r?.encerrar()
+        r = null
+      },
+      arco: (alvo) => {
+        esticado = true
+        const centro = p.pos.clone().setY(h * 0.55)
+        const a = this.tocarEfk('light-kick-arco', arco, centro, k * 0.7)
+        a.sprite.lookAt(alvo.clone().setY(centro.y))
+      },
+      impacto: (onde) => {
+        this.tocarEfk('light-kick-impacto', impacto, onde, k * 0.6)
+      },
+      apagar: () => luz.encerrar(),
+    }
   }
 
   /**
@@ -1217,6 +1270,8 @@ export class CenaTabuleiro {
     for (const p of this.personagens) p.atualizar(dt)
     this.atualizarFormas(dt)
     this.atualizarStatus()
+    this.presos = this.presos.filter((x) => x.ef.vivo)
+    for (const x of this.presos) x.ef.sprite.position.copy(x.onde())
     for (const l of this.navios.luzes) l.intensity = 2.6 + Math.sin(this.tempo * 9 + l.id) * 0.25 + Math.sin(this.tempo * 23 + l.id * 3) * 0.15
     for (const pano of this.navios.panos) this.ondular(pano)
     // molduras
