@@ -9,7 +9,7 @@ import { LUZ_NEUTRA, type LuzPersonagem } from './luzSprite'
  * que só recebe "qual animação, em que ponto, para onde olha".
  */
 
-export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'parar' | 'atacar' | 'dano' | 'conjurar' | 'empurrar' | 'cruzar'
+export type NomeAnim = 'parado' | 'andar' | 'correr' | 'frear' | 'parar' | 'atacar' | 'dano' | 'conjurar' | 'empurrar' | 'cruzar' | 'chutar'
 export type Direcao = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW'
 
 

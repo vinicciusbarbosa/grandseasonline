@@ -148,6 +148,24 @@
     "arquivo": "cruzar_W.png",
     "quadros": 6
    }
+  },
+  "chutar": {
+   "S": {
+    "arquivo": "chutar_S.png",
+    "quadros": 6
+   },
+   "N": {
+    "arquivo": "chutar_N.png",
+    "quadros": 6
+   },
+   "E": {
+    "arquivo": "chutar_E.png",
+    "quadros": 6
+   },
+   "W": {
+    "arquivo": "chutar_W.png",
+    "quadros": 6
+   }
   }
  },
  "apelidos": {
