@@ -515,10 +515,10 @@ export class CenaTabuleiro {
           void carregarEfk(f.nome).then((d) => {
             f.carregando = false
             if (!d || this.statusFx.get(p) !== reg) return
-            f.ef = this.tocarEfk(f.nome, d, p.pos, cabeca ? 1 : ESCALA_GELO)
+            f.ef = this.tocarEfk(f.nome, d, p.pos, cabeca ? 0.6 : ESCALA_GELO)
           })
         }
-        if (f.ef) f.ef.sprite.position.copy(cabeca ? p.pos.clone().setY(p.visual.altura * 0.92) : p.pos.clone().setY(0.02))
+        if (f.ef) f.ef.sprite.position.copy(cabeca ? p.pos.clone().setY(p.visual.altura * 0.9) : p.pos.clone().setY(0.02))
       }
     }
     for (const [p, s] of this.statusFx) {
