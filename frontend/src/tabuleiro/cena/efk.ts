@@ -556,12 +556,14 @@ export class EfeitoEfk {
       if (k) dist += ps[k].distanceTo(ps[k - 1])
       const f = pts[k]
       const [u0, v0, u1, v1] = this.uvRet(no, f.idade)
-      // ao longo: repete a textura a cada `tile`; atravessando: a altura da textura
-      const u = u0 + (fi.uvTipo ? dist / Math.max(1e-3, fi.tile) : k / (ps.length - 1)) * (u1 - u0)
+      // como no Effekseer: atravessando (esquerda -> direita) é o U da textura;
+      // ao longo é o V, de cima para baixo, esticado ou repetido a cada `tile`
+      const t = fi.uvTipo ? dist / Math.max(1e-3, fi.tile) : k / (ps.length - 1)
+      const v = v1 - t * (v1 - v0)
       const a = f.fade()
       const e = new THREE.Vector3().setFromMatrixColumn(f.mundo, 0).length() || 1
-      const iL = m.vertice(ps[k].clone().addScaledVector(lado, fi.l * e), u, v0, fi.cor, a)
-      const iR = m.vertice(ps[k].clone().addScaledVector(lado, fi.r * e), u, v1, fi.cor, a)
+      const iL = m.vertice(ps[k].clone().addScaledVector(lado, fi.l * e), u0, v, fi.cor, a)
+      const iR = m.vertice(ps[k].clone().addScaledVector(lado, fi.r * e), u1, v, fi.cor, a)
       if (ant >= 0) m.quad(ant, ant + 1, iR, iL)
       ant = iL
     }
