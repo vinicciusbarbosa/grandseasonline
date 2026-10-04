@@ -1,0 +1,53 @@
+KIZARU / BORSALINO - LIGHT KICK
+
+Pacote de efeitos para o chute de luz: carga branca e amarela no pé/perna,
+rastro de velocidade, arco dourado de varredura e clarão forte no contato.
+Não contém personagem, perna, pé, roupa ou animação de personagem.
+As malhas do pacote representam somente luz e seus halos.
+
+ARQUIVOS PRINCIPAIS
+Kizaru_Light_Kick_Carga_Pe.efkefc
+  Luz contínua na origem do tornozelo, com extensão no eixo local +Y.
+  Núcleo branco volumétrico, halo amarelo, filamentos e centelhas.
+  Acende em aproximadamente 0,25 s e mantém o brilho pulsando.
+  Encerrar pelo código ao terminar a preparação/chute.
+
+Kizaru_Light_Kick_Rastro.efkefc
+  Linhas fotônicas e halo alongado atrás da origem.
+  Frente +Z; rastro até aproximadamente 3,8 unidades no sentido -Z.
+  Fica animado na origem. Mover e orientar a instância pelo código durante
+  o avanço rápido. Encerrar quando o avanço terminar.
+
+Kizaru_Light_Kick_Arco.efkefc
+  Arco curto de luz branca/dourada, com filamentos paralelos e faíscas.
+  Origem no centro da varredura do chute; plano principal YZ, frente +Z.
+  Raio frontal aproximado de 1,43 unidade e extensão vertical de 1,12 unidade.
+  Completa a varredura principal em aproximadamente 0,15 s e dissipa em
+  cerca de 0,55 s. A raiz fica parada; a varredura é movimento interno.
+
+Kizaru_Light_Kick_Impacto.efkefc
+  Clarão assimétrico de quatro pontas, centro branco, glow amarelo,
+  onda curta de pressão e pequenas partículas de luz.
+  Instanciar no ponto de contato. Parte visual dissipa em aproximadamente
+  0,6 s; janela do projeto 50 quadros / 0,83 s.
+
+DISTRIBUIÇÃO
+Usar .efkefc no runtime junto com as pastas Model e Texture, preservando os
+caminhos relativos. .efkproj é a fonte editável no Effekseer 1.80.7;
+.efk é a exportação adicional. O pacote é independente das outras skills.
+Os modelos animados somam aproximadamente 20,1 MiB. Carregar e reutilizar
+os efeitos pelo cache do jogo em vez de recarregar os assets a cada chute.
+
+INTEGRAÇÃO
+O jogo controla a animação do personagem, o avanço, a direção, a posição
+do pé, a colisão e o dano. Carga e rastro são contínuos até serem encerrados;
+arco e impacto se dissipam sozinhos. INTEGRACAO.md detalha os encaixes.
+O glow está incluído nos assets e foi renderizado sem bloom adicional.
+
+VERIFICAÇÃO
+Exportado com Effekseer 1.80.7 e carregado no runtime oficial WebGL 1.80.7
+sem erros. Carga, arco e rastro renderizados em três vistas; carga e rastro
+conferidos em execução prolongada; arco, impacto e sequência de demonstração
+conferidos até dissiparem. Dependências locais verificadas.
+A prévia usa código para mover os efeitos. Não inclui personagem.
+A integração e o desempenho na cena do sugoigame ainda não foram medidos.
