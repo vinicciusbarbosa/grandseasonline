@@ -39,6 +39,11 @@ for arq in [] if sem_sprites else glob.glob(os.path.join(raiz, 'public', 'sprite
             Image.open(arq).save(b, 'WEBP', lossless=True, method=6, quality=100)
         emb[rel] = 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
         continue
+    if dentro_sprites.startswith('efk/') and arq.endswith('.json'):
+        # efeitos do Effekseer: comprimidos (o jogo descomprime ao carregar)
+        import gzip
+        emb[rel] = 'data:application/gzip;base64,' + base64.b64encode(gzip.compress(open(arq, 'rb').read(), 9)).decode()
+        continue
     tipo = 'application/json' if arq.endswith('.json') else 'image/webp' if arq.endswith('.webp') else 'application/octet-stream'
     emb[rel] = f'data:{tipo};base64,' + base64.b64encode(open(arq, 'rb').read()).decode()
 html = f'''<meta charset="utf-8" />

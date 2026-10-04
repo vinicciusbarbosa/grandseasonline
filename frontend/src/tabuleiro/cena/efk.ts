@@ -277,22 +277,35 @@ function base(nome: string) {
   return `${import.meta.env.BASE_URL}sprites/efk/${nome}/`
 }
 
+/**
+ * JSON de um arquivo ou de um data URI (página única); a página guarda os
+ * efeitos comprimidos (data:application/gzip) para caber no limite
+ */
+async function lerJson(url: string): Promise<unknown> {
+  if (!url.startsWith('data:')) {
+    const r = await fetch(url)
+    if (!r.ok) throw new Error(url)
+    return r.json()
+  }
+  const b = bytes(url.split(',')[1])
+  if (!url.startsWith('data:application/gzip')) return JSON.parse(new TextDecoder().decode(b))
+  const fluxo = new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))
+  return JSON.parse(await new Response(fluxo).text())
+}
+
 /** Carrega o efeito convertido (null se não existir). */
 export function carregarEfk(nome: string) {
   let d = dadosCache.get(nome)
   if (!d) {
     const url = recurso(`${base(nome)}efeito.json`)
-    d = (url.startsWith('data:')
-      ? Promise.resolve(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0)))) as DadosEfk)
-      : fetch(url).then((r) => (r.ok ? (r.json() as Promise<DadosEfk>) : null))
-    )
+    d = (lerJson(url) as Promise<DadosEfk>)
       .then(async (dd) => {
         if (!dd?.modelos?.length) return dd
         // modelos 3D (base64 dentro de um JSON por modelo)
         dd.mods = {}
         for (const arq of dd.modelos) {
           const u = recurso(`${base(nome)}${arq}.json`)
-          const j = (u.startsWith('data:') ? JSON.parse(new TextDecoder().decode(bytes(u.split(',')[1]))) : await (await fetch(u)).json()) as {
+          const j = (await lerJson(u)) as {
             nv: number; idx: string; idx32?: boolean; uv: string; cor: string; poses: string[]; passo?: number; min?: number[]; max?: number[]
           }
           // posições em 16 bits (escala pela caixa) ou, nos convertidos antigos, em f32
