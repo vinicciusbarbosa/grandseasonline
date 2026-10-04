@@ -28,7 +28,8 @@ type No = {
   rot?: { t: 'fixo'; p: Vet } | { t: 'pva'; p: Vet; v: Vet; a: Vet } | { t: 'eixo'; eixo: Vet; p: Faixa; v: Faixa; a: Faixa }
   /** não morre ao fim da vida */
   eterno?: boolean
-  esc?: { t: 'fixo'; p: Vet } | { t: 'easing'; de: Vet; ate: Vet }
+  esc?: { t: 'fixo'; p: Vet } | { t: 'easing'; de: Vet; ate: Vet } | { t: 'pva'; p: Vet; v: Vet; a: Vet }
+  linha?: { div: number; ordem: number; de: Vet; ate: Vet; ruido: Faixa }
   circulo?: { eixo: number; div: number; ordem: number; raio: Faixa; a0: Faixa; a1: Faixa; ruido: Faixa }
   render?: {
     tex: string
@@ -46,7 +47,8 @@ type No = {
   filhos: No[]
 }
 /** modelo 3D do Effekseer (.efkmodel convertido): poses animadas, mesma topologia */
-type Modelo = { nv: number; idx: Uint16Array | Uint32Array; uv: Float32Array; cor: Uint8Array; poses: Float32Array[]; passo: number }
+type Topo = { nv: number; idx: Uint16Array | Uint32Array; uv: Float32Array; cor: Uint8Array }
+type Modelo = Topo & { poses: Float32Array[]; passo: number; topos?: (Topo | null)[] }
 export type DadosEfk = { fim: number; filhos: No[]; texturas: string[]; modelos?: string[]; mods?: Record<string, Modelo> }
 
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
@@ -88,6 +90,8 @@ class Inst {
   private readonly ra = new THREE.Vector3()
   private readonly s0 = new THREE.Vector3(1, 1, 1)
   private readonly s1 = new THREE.Vector3(1, 1, 1)
+  private readonly sv = new THREE.Vector3()
+  private readonly sa = new THREE.Vector3()
   private readonly circ = new THREE.Vector3()
   /** rotação em volta de um eixo (o ângulo fica em r0.x/rv.x/ra.x) */
   private readonly eixo = new THREE.Vector3()
@@ -124,6 +128,19 @@ class Inst {
     const e = no.esc
     if (e?.t === 'fixo') this.s0.copy(vet(e.p)), this.s1.copy(this.s0)
     else if (e?.t === 'easing') this.s0.copy(vet(e.de)), this.s1.copy(vet(e.ate))
+    else if (e?.t === 'pva') {
+      this.s0.copy(vet(e.p))
+      this.sv.copy(vet(e.v))
+      this.sa.copy(vet(e.a))
+    }
+    const ln = no.linha
+    if (ln) {
+      // ao longo da linha: em ordem (raio) ou sorteado
+      const k = ln.ordem ? (indice % ln.div) / Math.max(1, ln.div - 1) : Math.random()
+      this.circ.lerpVectors(vet(ln.de), vet(ln.ate), k)
+      const r = sorteio(ln.ruido)
+      if (r) this.circ.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(2 * r))
+    }
     const c = no.circulo
     if (c) {
       const a0 = sorteio(c.a0)
@@ -149,6 +166,7 @@ class Inst {
 
   /** escala própria agora */
   escala(out: THREE.Vector3) {
+    if (this.no.esc?.t === 'pva') return out.copy(this.s0).addScaledVector(this.sv, this.idade).addScaledVector(this.sa, 0.5 * this.idade * this.idade)
     const k = Math.min(1, this.idade / Math.max(1, this.vida))
     return out.lerpVectors(this.s0, this.s1, k)
   }
@@ -290,13 +308,18 @@ export function carregarEfk(nome: string) {
             }
             return out
           }
+          const topo = (t: { nv: number; idx: string; idx32?: boolean; uv: string; cor: string }): Topo => ({
+            nv: t.nv,
+            idx: t.idx32 ? new Uint32Array(bytes(t.idx).buffer) : new Uint16Array(bytes(t.idx).buffer),
+            uv: new Float32Array(bytes(t.uv).buffer),
+            cor: bytes(t.cor),
+          })
+          const jt = j as typeof j & { topos?: ({ nv: number; idx: string; idx32?: boolean; uv: string; cor: string } | null)[] }
           dd.mods[arq] = {
-            nv: j.nv,
-            idx: j.idx32 ? new Uint32Array(bytes(j.idx).buffer) : new Uint16Array(bytes(j.idx).buffer),
-            uv: new Float32Array(bytes(j.uv).buffer),
-            cor: bytes(j.cor),
-            poses: j.poses.map(pose),
+            ...topo(j),
+            poses: j.poses.map((p) => (p ? pose(p) : new Float32Array(0))),
             passo: j.passo ?? 1,
+            topos: jt.topos?.map((t) => (t ? topo(t) : null)),
           }
         }
         return dd
@@ -535,18 +558,22 @@ export class EfeitoEfk {
   private modelo(m: Malha, f: Inst) {
     const md = this.dados.mods?.[f.no.modelo!.arq]
     if (!md) return
-    const pose = md.poses[Math.floor(f.idade / md.passo) % md.poses.length]
+    const qp = Math.floor(f.idade / md.passo) % md.poses.length
+    const pose = md.poses[qp]
     if (!pose.length) return
+    // topologia da pose (modelos que mudam de forma) ou a única
+    const tp = md.topos?.[qp] ?? md
+    if (!tp.nv && md.topos) return
     const a = f.fade()
     const c0 = f.no.modelo!.cor
     const p = new THREE.Vector3()
     const base0 = m.contagem()
-    for (let k = 0; k < md.nv; k++) {
+    for (let k = 0; k < tp.nv; k++) {
       p.set(pose[k * 3], pose[k * 3 + 1], pose[k * 3 + 2]).applyMatrix4(f.mundo)
-      const c = [(md.cor[k * 4] / 255) * c0[0], (md.cor[k * 4 + 1] / 255) * c0[1], (md.cor[k * 4 + 2] / 255) * c0[2], (md.cor[k * 4 + 3] / 255) * c0[3]]
-      m.vertice(p, md.uv[k * 2], 1 - md.uv[k * 2 + 1], c, a)
+      const c = [(tp.cor[k * 4] / 255) * c0[0], (tp.cor[k * 4 + 1] / 255) * c0[1], (tp.cor[k * 4 + 2] / 255) * c0[2], (tp.cor[k * 4 + 3] / 255) * c0[3]]
+      m.vertice(p, tp.uv[k * 2], 1 - tp.uv[k * 2 + 1], c, a)
     }
-    m.triangulos(md.idx, base0)
+    m.triangulos(tp.idx, base0)
   }
 
   private anel(m: Malha, f: Inst) {

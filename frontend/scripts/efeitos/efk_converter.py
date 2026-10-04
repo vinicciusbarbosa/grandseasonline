@@ -110,6 +110,9 @@ def no(n):
         if t == 2:
             e = sv.find('Easing')
             o['esc'] = {'t': 'easing', 'de': vetor(e.find('Start'), (1, 1, 1)), 'ate': vetor(e.find('End'), (1, 1, 1))}
+        elif t == 1:
+            e = sv.find('PVA')
+            o['esc'] = {'t': 'pva', 'p': vetor(e.find('Scale'), (1, 1, 1)), 'v': vetor(e.find('Velocity')), 'a': vetor(e.find('Acceleration'))}
         else:
             o['esc'] = {'t': 'fixo', 'p': vetor(sv.find('Fixed/Scale'), (1, 1, 1))}
     # geração em círculo
@@ -122,6 +125,11 @@ def no(n):
             'a0': faixa(c.find('AngleStart'), 0), 'a1': faixa(c.find('AngleEnd'), 360),
             'ruido': faixa(c.find('AngleNoize'), 0),
         }
+    # geração ao longo de uma linha (os raios do Haki do Rei)
+    if gl is not None and int(num(gl.find('Type'), 0)) == 4:
+        c = gl.find('Line')
+        o['linha'] = {'div': int(num(c.find('Division'), 8)), 'ordem': int(num(c.find('Type'), 0)),
+                      'de': vetor(c.find('PositionStart')), 'ate': vetor(c.find('PositionEnd')), 'ruido': faixa(c.find('PositionNoize'), 0)}
     # desenho
     rc = n.find('RendererCommonValues')
     if rc is not None:
@@ -170,16 +178,16 @@ MAX_POSES = 48
 
 
 def modelo(de, para):
-    """.efkmodel (versão 5, com poses) -> JSON com base64: índices (u16 ou u32),
-    UV (f32), cor por vértice (u8, da 1ª pose) e posições de cada pose (i16)"""
+    """.efkmodel (versão 5, com poses) -> JSON com base64. Mesma topologia em
+    todas as poses: índices (u16/u32), UV (f32) e cor (u8) uma vez só, e as
+    posições de cada pose em 16 bits. Topologia variável (ondas que crescem):
+    cada pose leva os seus (`topos`)."""
     import base64, struct
     import numpy as np
     d = open(de, 'rb').read()
     versao, escala, _, poses = struct.unpack_from('<ifii', d, 0)
     o = 16
-    todas = []
-    b64 = lambda a: base64.b64encode(np.ascontiguousarray(a).tobytes()).decode()
-    out = {}
+    lidas = []
     for k in range(poses):
         nv, = struct.unpack_from('<i', d, o)
         o += 4
@@ -189,20 +197,27 @@ def modelo(de, para):
         o += 4
         f = np.frombuffer(d, '<i4', nf * 3, o)
         o += nf * 12
-        # pose vazia (ex.: o corte antes de aparecer): não desenha nada
-        todas.append(v[:, :12].copy().view('<f4').reshape(nv, 3) * escala if nv else None)
-        if nv and 'nv' not in out:
-            grande = nv > 65535
-            out.update(nv=nv, nf=nf, idx32=grande, idx=b64(f.astype('<u4' if grande else '<u2')),
-                       uv=b64(v[:, 48:56].copy().view('<f4')), cor=b64(v[:, 56:60]))
+        lidas.append((v, f))
+    b64 = lambda a: base64.b64encode(np.ascontiguousarray(a).tobytes()).decode()
     passo = max(1, -(-poses // MAX_POSES))
-    todas = todas[::passo]
-    cheias = [t for t in todas if t is not None]
-    assert all(t.shape == cheias[0].shape for t in cheias), 'poses com topologias diferentes'
-    tudo = np.stack(cheias)
-    lo, hi = tudo.min((0, 1)), tudo.max((0, 1))
+    lidas = lidas[::passo]
+    cheias = [(v, f) for v, f in lidas if len(v)]
+    pos = lambda v: v[:, :12].copy().view('<f4').reshape(len(v), 3) * escala
+    tudo = np.concatenate([pos(v) for v, _ in cheias])
+    lo, hi = tudo.min(0), tudo.max(0)
     quant = lambda t: b64(np.round((t - lo) / np.maximum(hi - lo, 1e-9) * 65535 - 32768).astype('<i2'))
-    out.update(passo=passo, min=lo.tolist(), max=hi.tolist(), poses=[quant(t) if t is not None else '' for t in todas])
+    idx = lambda f: b64(f.astype('<u4' if len(f) and f.max() > 65535 else '<u2'))
+    out = {'passo': passo, 'min': lo.tolist(), 'max': hi.tolist()}
+    iguais = all(len(v) == len(cheias[0][0]) and np.array_equal(f, cheias[0][1]) for v, f in cheias)
+    v0, f0 = cheias[0]
+    if iguais:
+        out.update(nv=len(v0), nf=len(f0) // 3, idx32=bool(len(f0) and f0.max() > 65535), idx=idx(f0),
+                   uv=b64(v0[:, 48:56].copy().view('<f4')), cor=b64(v0[:, 56:60]),
+                   poses=[quant(pos(v)) if len(v) else '' for v, _ in lidas])
+    else:
+        out.update(nv=0, idx='', uv='', cor='', poses=[quant(pos(v)) if len(v) else '' for v, _ in lidas],
+                   topos=[{'nv': len(v), 'idx32': bool(len(f) and f.max() > 65535), 'idx': idx(f),
+                           'uv': b64(v[:, 48:56].copy().view('<f4')), 'cor': b64(v[:, 56:60])} if len(v) else None for v, f in lidas])
     json.dump(out, open(para, 'w'), separators=(',', ':'))
 
 

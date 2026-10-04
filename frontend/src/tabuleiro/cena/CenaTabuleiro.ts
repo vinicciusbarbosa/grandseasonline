@@ -288,11 +288,17 @@ export class CenaTabuleiro {
       return new THREE.Vector3(p.x, 0.7, p.z)
     },
     hakiDoRei: (p: Personagem) => {
-      const h = new HakiRei(p.pos, p.visual.altura)
-      h.dono = p
-      this.hakis.push(h)
-      this.cena.add(...h.objetos)
-      window.setTimeout(() => h.desligar(), 1400 / this.velocidade)
+      // raios, ondas e poeira: o efeito do Effekseer; o chão explodindo (raios
+      // que descem e racham o convés): o Haki em código, só nessa parte
+      void carregarEfk('haki-rei').then((d) => {
+        const h = new HakiRei(p.pos, p.visual.altura, !!d)
+        h.dono = p
+        this.hakis.push(h)
+        this.cena.add(...h.objetos)
+        window.setTimeout(() => h.desligar(), 1400 / this.velocidade)
+        // o efeito foi feito para um personagem de ~2 unidades de altura
+        if (d) this.tocarEfk('haki-rei', d, p.pos.clone().setY(0.02), p.visual.altura / 2)
+      })
     },
     tremer: (s: number) => {
       this.tremorGolpe = Math.max(this.tremorGolpe, s)

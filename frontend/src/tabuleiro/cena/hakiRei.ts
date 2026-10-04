@@ -92,7 +92,14 @@ export class HakiRei {
   /** personagem de quem sai (para ligar/desligar o certo) */
   dono: unknown = null
 
-  constructor(pe: THREE.Vector3, alturaPersonagem: number) {
+  /**
+   * soChao: só os raios que acertam o convés e explodem o chão (rachaduras,
+   * lascas); os raios, anéis e névoa ficam com o efeito do Effekseer
+   */
+  private readonly soChao: boolean
+
+  constructor(pe: THREE.Vector3, alturaPersonagem: number, soChao = false) {
+    this.soChao = soChao
     this.altura = alturaPersonagem
     const centro = pe.clone().setY(pe.y + alturaPersonagem * 0.42)
     this.centro = centro
@@ -206,18 +213,22 @@ export class HakiRei {
     // ondas de choque: enquanto ligado, pulsam de novo a cada 1,4 s
     this.matChao.uniforms.t.value = this.ativo && this.t > 1.1 ? ((this.t - 1.1) % 1.4) / 1.4 * 0.9 : f
     this.matChao.uniforms.forca.value = e
+    if (this.soChao) this.chao.visible = false
 
     // raios: refeitos a cada ~3 quadros, para piscarem como eletricidade
     const passo = Math.floor(this.t * 20)
     if (passo !== this.ultimoRaio) {
       this.ultimoRaio = passo
-      this.raios = this.gerarRaios(e, f)
-      this.gigantes = f > 0.08 && f < 0.75 ? this.gerarGigantes(e) : []
+      // só o chão: nada de raios no ar (ficam os que descem e acertam o convés)
+      this.raios = this.soChao ? [] : this.gerarRaios(e, f)
+      this.gigantes = !this.soChao && f > 0.08 && f < 0.75 ? this.gerarGigantes(e) : []
       // de vez em quando um raio desce e acerta o convés
       // de vez em quando um raio acerta o convés; no máximo 3 ao mesmo tempo
-      if (f > 0.1 && f < 0.7 && this.t > this.proxGolpe && this.impactos.length < 3 && Math.random() < 0.35) {
+      // só o chão: as explosões são o que fica do código, então vêm sempre (2–3 por uso)
+      const chance = this.soChao ? 0.8 : 0.35
+      if (f > 0.1 && f < 0.7 && this.t > this.proxGolpe && this.impactos.length < 3 && Math.random() < chance) {
         this.golpear(camera, Math.random() < 0.4)
-        this.proxGolpe = this.t + 0.7 + Math.random() * 1.1
+        this.proxGolpe = this.t + (this.soChao ? 0.35 + Math.random() * 0.3 : 0.7 + Math.random() * 1.1)
       }
       for (const fx of this.fixos) {
         ;(fx.longe ? this.gigantes : this.raios).push(fx.raio)
@@ -340,13 +351,15 @@ export class HakiRei {
     this.desenharLonge(e)
     const { g, t } = this.tras
     g.clearRect(0, 0, PX, PX)
-    // névoa vermelha em volta do corpo
-    const neb = g.createRadialGradient(PX / 2, PX / 2, 0, PX / 2, PX / 2, PX * (0.2 + 0.25 * e))
-    neb.addColorStop(0, `rgba(255,40,60,${0.55 * e})`)
-    neb.addColorStop(0.4, `rgba(200,10,40,${0.3 * e})`)
-    neb.addColorStop(1, 'rgba(120,0,20,0)')
-    g.fillStyle = neb
-    g.fillRect(0, 0, PX, PX)
+    // névoa vermelha em volta do corpo (no modo só chão, o Effekseer faz o halo)
+    if (!this.soChao) {
+      const neb = g.createRadialGradient(PX / 2, PX / 2, 0, PX / 2, PX / 2, PX * (0.2 + 0.25 * e))
+      neb.addColorStop(0, `rgba(255,40,60,${0.55 * e})`)
+      neb.addColorStop(0.4, `rgba(200,10,40,${0.3 * e})`)
+      neb.addColorStop(1, 'rgba(120,0,20,0)')
+      g.fillStyle = neb
+      g.fillRect(0, 0, PX, PX)
+    }
     // raios: os que apontam para cima/para trás ficam atrás do personagem;
     // os que vêm para baixo (na direção da câmera) passam pela frente dele
     const idade = (this.t * 20) % 1 // fração desde o último "relâmpago"
@@ -359,7 +372,7 @@ export class HakiRei {
     this.abrirCorpo(gf, TAM)
     this.raiosFrente.t.needsUpdate = true
     // clarão inicial: brilho vermelho-claro que some rápido
-    if (f < 0.1) {
+    if (f < 0.1 && !this.soChao) {
       const k = 1 - f / 0.1
       const cl = g.createRadialGradient(PX / 2, PX / 2, 0, PX / 2, PX / 2, PX * 0.16)
       cl.addColorStop(0, `rgba(255,235,240,${k})`)
