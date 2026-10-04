@@ -515,10 +515,17 @@ export class CenaTabuleiro {
           void carregarEfk(f.nome).then((d) => {
             f.carregando = false
             if (!d || this.statusFx.get(p) !== reg) return
-            f.ef = this.tocarEfk(f.nome, d, p.pos, cabeca ? 0.6 : ESCALA_GELO)
+            f.ef = this.tocarEfk(f.nome, d, p.pos, cabeca ? 0.35 : ESCALA_GELO)
+            // as estrelinhas não somem atrás da cabeça (a silhueta escondia a
+            // bolinha de repente a cada volta e o giro parecia dar um tranco)
+            if (cabeca) {
+              f.ef.sprite.traverse((o) => {
+                if (o instanceof THREE.Mesh) (o.material as THREE.Material).depthTest = false
+              })
+            }
           })
         }
-        if (f.ef) f.ef.sprite.position.copy(cabeca ? p.pos.clone().setY(p.visual.altura * 0.9) : p.pos.clone().setY(0.02))
+        if (f.ef) f.ef.sprite.position.copy(cabeca ? p.pos.clone().setY(p.visual.altura * 0.83) : p.pos.clone().setY(0.02))
       }
     }
     for (const [p, s] of this.statusFx) {
