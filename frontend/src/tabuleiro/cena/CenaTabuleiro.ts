@@ -348,6 +348,10 @@ export class CenaTabuleiro {
       Promise.all([carregarEfk('hiken'), carregarEfk('hiken-impacto')]).then(([c, i]) => (c && i ? this.hikenEfk(p, ate, c, i) : false)),
     higan: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('higan'), carregarEfk('higan-disparo'), carregarEfk('higan-impacto')]).then(([b, d, i]) => (b && d && i ? this.higanEfk(p, ate, b, d, i) : false)),
+    yasakani: (p: Personagem, pontos: THREE.Vector3[]) =>
+      Promise.all(['yasakani-carga', 'yasakani-projetil', 'yasakani-disparo', 'yasakani-impacto'].map((n) => carregarEfk(n))).then(([c, b, d, i]) =>
+        c && b && d && i ? this.yasakaniEfk(p, pontos, c, b, d, i) : false,
+      ),
     hotarubi: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('hotarubi-bolinha'), carregarEfk('hidaruma')]).then(([bol, hid]) => (bol && hid ? this.hotarubiEfk(p, ate, bol, hid) : false)),
     entei: (p: Personagem, ate: THREE.Vector3, k: number) =>
@@ -681,6 +685,52 @@ export class CenaTabuleiro {
             if (++acertos === Math.ceil(TIROS / 2)) r(true)
           })
         }, i * INTERVALO)
+      }
+    })
+  }
+
+  /**
+   * Yasakani no Magatama (efeitos do Effekseer, feitos para um personagem de
+   * ~2 unidades): com os braços cruzados, a luz carrega em cada mão (~0,6 s);
+   * depois as mãos se alternam disparando bolas de luz (+Z para o alvo) até
+   * pontos sorteados na área, com clarão na palma e impacto onde cai.
+   * Resolve true quando metade acertou.
+   */
+  private yasakaniEfk(p: Personagem, pontos: THREE.Vector3[], carga: DadosEfk, bola: DadosEfk, disparo: DadosEfk, impacto: DadosEfk) {
+    const TIROS = 24
+    const INTERVALO = 55 // ms entre tiros (as mãos se alternam)
+    const CARGA = 600 // ms carregando antes da rajada
+    const VELOCIDADE = 14 // mundo/s
+    const k = p.visual.altura / 2
+    const centro = pontos.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / pontos.length)
+    // mãos cruzadas na frente do peito: de frente/costas ficam nos ombros (bem
+    // separadas na tela); de lado, quase juntas, um pouco à frente do corpo
+    const frente = centro.clone().sub(p.pos).setY(0).normalize()
+    const olhar = new THREE.Vector3()
+    this.camera.getWorldDirection(olhar)
+    olhar.setY(0).normalize()
+    const lado = new THREE.Vector3(0, 1, 0).cross(olhar).normalize().negate()
+    const abre = p.visual.altura * (0.05 + 0.11 * Math.abs(frente.dot(olhar)))
+    const peito = p.pos.clone().setY(p.visual.altura * 0.62).addScaledVector(frente, p.visual.altura * 0.08)
+    const maos = [peito.clone().addScaledVector(lado, -abre), peito.clone().addScaledVector(lado, abre)]
+    const cargas = maos.map((m) => this.tocarEfk('yasakani-carga', carga, m, k * 0.35))
+    let acertos = 0
+    return new Promise<boolean>((r) => {
+      for (let i = 0; i < TIROS; i++) {
+        setTimeout(() => {
+          const mao = maos[i % 2]
+          const pt = pontos[Math.floor(Math.random() * pontos.length)]
+          const alvo = pt.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.15 + Math.random() * 0.5, (Math.random() - 0.5) * 0.8))
+          this.tocarEfk('yasakani-disparo', disparo, mao, k * 0.4)
+          const b = this.tocarEfk('yasakani-projetil', bola, mao, k * 0.4, alvo)
+          const de = mao.clone()
+          void this.animarPor(de.distanceTo(alvo) / VELOCIDADE, (f) => b.sprite.position.lerpVectors(de, alvo, f)).then(() => {
+            b.encerrar()
+            this.tocarEfk('yasakani-impacto', impacto, alvo, k * 0.45)
+            if (++acertos === Math.ceil(TIROS / 2)) r(true)
+            if (acertos === TIROS) for (const c of cargas) c.encerrar()
+          })
+        }, CARGA + i * INTERVALO)
       }
     })
   }

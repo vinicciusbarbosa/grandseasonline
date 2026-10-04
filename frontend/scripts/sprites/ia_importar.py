@@ -185,7 +185,8 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None):
         tempos['atacar'] = {'fps': 10, 'impacto': 3}
     # skills de akuma (6 quadros, 4 direções): 'conjurar' = Entei (braço para o
     # alto e arremesso), 'empurrar' = vaga-lumes (palmas para a frente)
-    for anim, arq in (('conjurar', 'entei'), ('empurrar', 'hotarubi')):
+    # 'cruzar' = Yasakani (abre os braços e cruza na frente do peito)
+    for anim, arq in (('conjurar', 'entei'), ('empurrar', 'hotarubi'), ('cruzar', 'yasakani')):
         if os.path.exists(os.path.join(ORIG, f'{corpo}-{arq}.png')):
             fs = celulas(f'{corpo}-{arq}.png', 6)
             anims[anim] = {d: [ro.montar(tingir(reduzir(q, s), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', braco_por_cima=True, achar=pescoco_pele)

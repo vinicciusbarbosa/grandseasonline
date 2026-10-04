@@ -69,6 +69,12 @@ export interface Palco {
   efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoQuadro?: [number, () => void] }): Promise<boolean>
   /** Entei em fases (cena longa); resolve no impacto, a explosão continua sozinha */
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
+  /**
+   * Yasakani no Magatama do Effekseer: carga de luz em cada mão (braços
+   * cruzados) e rajada de bolas de luz até os pontos; resolve quando metade
+   * acerta, false sem o efeito
+   */
+  yasakani(p: Personagem, pontos: THREE.Vector3[]): Promise<boolean>
   /** Hotarubi do Effekseer: bolinhas voam até o alvo e detonam (Hidaruma); resolve na detonação, false sem o efeito */
   hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** corte básico de espada do Effekseer; resolve no golpe, false sem o efeito */
@@ -1027,7 +1033,26 @@ export class ControleBatalha {
         break
       }
       case 'yasakani': {
-        // dezenas de bolas de luz caindo na área
+        // corpo (folha 'cruzar'): abre os braços e cruza na frente do peito; a
+        // luz carrega em cada mão e a rajada sai delas (efeitos do Effekseer)
+        const pose = (q: number) => a.posar('cruzar', q)
+        if (pose(1)) {
+          await esperar(110)
+          pose(2)
+          await esperar(220)
+          pose(3)
+          await esperar(110)
+          pose(4)
+          await esperar(90)
+          pose(5)
+        }
+        const pontos = (casas.length ? casas : [ate]).map((c) => c.clone().setY(0))
+        if (await P.yasakani(a, pontos)) {
+          P.tremer(0.3)
+          setTimeout(() => a.soltarPose(), 700)
+          break
+        }
+        // sem o efeito: bolas de luz caindo na área
         const cima = a.pos.clone().setY(a.visual.altura + 1)
         const tiros = Array.from({ length: 22 }, () => casas[Math.floor(Math.random() * casas.length)] ?? ate)
         await Promise.all(
@@ -1040,6 +1065,7 @@ export class ControleBatalha {
           }, i * 40))),
         )
         P.tremer(0.3)
+        a.soltarPose()
         break
       }
       case 'chute-luz': {

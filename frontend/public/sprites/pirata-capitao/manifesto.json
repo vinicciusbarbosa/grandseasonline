@@ -130,6 +130,24 @@
     "arquivo": "empurrar_W.png",
     "quadros": 6
    }
+  },
+  "cruzar": {
+   "S": {
+    "arquivo": "cruzar_S.png",
+    "quadros": 6
+   },
+   "N": {
+    "arquivo": "cruzar_N.png",
+    "quadros": 6
+   },
+   "E": {
+    "arquivo": "cruzar_E.png",
+    "quadros": 6
+   },
+   "W": {
+    "arquivo": "cruzar_W.png",
+    "quadros": 6
+   }
   }
  },
  "apelidos": {
