@@ -265,6 +265,27 @@ export class ControleBatalha {
   static readonly TREINO_JOGADOR = 'pirata-capitao'
   static readonly TREINO_ALVO = 'marinha-soldado'
 
+  /**
+   * Botão Treino: entra no treino na mesma página (mudar a URL e recarregar
+   * não funciona quando o jogo roda dentro de outra página, como no celular)
+   */
+  entrarTreino() {
+    if (this.animando) return
+    this.treino = { fruta: 'fogo', arma: 'espada', alvoFruta: '', armamento: 0, rei: false }
+    this.comecarTreino()
+    this.palco.avisar()
+  }
+
+  /** Sai do treino: recarrega a página (sem o ?treino) e volta à batalha */
+  sairTreino() {
+    try {
+      if (location.search) history.replaceState(null, '', location.pathname + location.hash)
+    } catch {
+      /* sem histórico: só recarrega */
+    }
+    location.reload()
+  }
+
   /** Começa o treino: some com os outros, arruma o pirata e o boneco. */
   comecarTreino() {
     if (!this.treino) return

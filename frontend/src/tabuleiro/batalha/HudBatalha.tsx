@@ -416,7 +416,7 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
           <button className="bt" onClick={() => c.restaurarConfig()} title="Volta ao elenco de teste">
             ↺ Padrão
           </button>
-          <button className="bt" onClick={() => (location.search = '?treino')} title="Um pirata e um boneco alvo para testar skills e sprites">
+          <button className="bt" onClick={() => c.entrarTreino()} title="Um pirata e um boneco alvo para testar skills e sprites">
             🎯 Treino
           </button>
           <button className="bt vermelho tit" style={{ fontSize: 22, padding: '6px 28px' }} onClick={() => c.comecar()}>
@@ -527,7 +527,7 @@ function PainelTreino({ t, c }: { t: NonNullable<RetratoBatalha['treino']>; c: C
           ))}
         </select>
       </label>
-      <button className="bt" style={{ alignSelf: 'center' }} onClick={() => (location.search = '')} title="Volta para a batalha">
+      <button className="bt" style={{ alignSelf: 'center' }} onClick={() => c.sairTreino()} title="Volta para a batalha">
         Sair
       </button>
     </div>
