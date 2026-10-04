@@ -1,0 +1,10 @@
+KUZAN - ICE TIME / CRISTAIS LUMINOSOS
+Visual revisado a partir das referencias: coroa de laminas de gelo pontudas, alturas variadas, faces azuis, pontas luminosas, fissuras e geada na base. Espaco central reservado ao inimigo.
+Kuzan_Ice_Time.efkefc: aplicacao com cristais crescendo do chao em grupos, clarao e particulas. 90 quadros / 1,5 s.
+Kuzan_Ice_Time_Congelado.efkefc: cristais ja formados para manter o alvo congelado. Maximo 600 quadros / 10 s; parar pelo codigo ao encerrar o status.
+Kuzan_Ice_Time_Contato.efkefc: clarao de contato na mao, 22 quadros.
+Integracao: no acerto melee tocar Contato no ponto atingido e Ice_Time nos pes do alvo. Em aproximadamente 0,8 s substituir a aplicacao por Congelado. Atualizar posicao com o alvo e remover ao terminar o status. Acima de 10 s ajustar duracao ou reiniciar.
+Origem nos pes, Y para cima. Altura maxima aproximada 3 unidades, diametro aproximado 3,4 unidades. Ajustar escala ao personagem.
+Este e o efeito visual ao redor do alvo. Congelamento, dano, imobilizacao e material gelado sobre a malha do inimigo dependem do codigo.
+Distribuir .efkefc com Model e Texture preservando caminhos. .efkproj sao fontes; .efk sao exportacoes. Modelos _Surge animam apenas a aplicacao; os modelos de estado sao estaticos com particulas animadas.
+Aplicacao conferida no runtime Effekseer WebGL 1.80.7 em tres angulos e sequencia de quadros.

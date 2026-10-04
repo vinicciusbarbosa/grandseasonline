@@ -1,0 +1,8 @@
+CORTE DE ESPADA - PINCELADA CURVA / GLOW INTENSO
+Sword_Slash_Ciano.efkefc e Sword_Slash_Rosa.efkefc: frente luminosa, cauda curva afilada, quatro filamentos, dois ecos atrasados, faiscas com halo, clarão inicial e camadas amplas de luz difusa.
+O glow usa geometria e sprites aditivos no proprio efeito, visivel sem depender de bloom do jogo.
+Golpe principal aproximadamente 0,6 s; dissipacao completa dentro de 1 s a 60 fps. Instanciar uma vez por golpe.
+Plano local XY, normal +Z. Centro do efeito fixo. Posicionar e orientar pelo codigo: rotacao no Z inclina o corte na tela; rotacao de 90 graus no X coloca o plano na horizontal.
+Largura do arco aproximadamente 4 unidades; halos e fragmentos ultrapassam a lamina. Ajustar escala ao alcance visual da espada. Dano e colisao pelo jogo.
+Distribuir .efkefc com Model e Texture preservando caminhos. .efkproj sao fontes editaveis; .efk sao exportacoes.
+As duas cores foram renderizadas no Effekseer WebGL 1.80.7 em varios angulos e em sequencia completa.

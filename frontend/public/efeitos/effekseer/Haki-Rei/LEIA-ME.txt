@@ -1,0 +1,11 @@
+HAKI DO REI - EMISSAO EM AREA
+Haki_Rei_Emissao.efkefc: acumulo curto seguido por tres descargas de raios negros ramificados com bordas vermelhas e glow, tres ondas de pressao no chao, poeira, detritos e particulas carmesins.
+Os caminhos dos raios mudam ao longo dos pulsos, com comprimentos e alturas diferentes. O nucleo negro e renderizado separado do halo aditivo para preservar o contraste.
+Origem fixa nos pes do personagem, Y para cima. Ondas no plano XZ. Instanciar uma vez por uso da habilidade. Movimento da origem, rotacao, area de dano e status dependem do jogo.
+Raio das ondas aproximadamente 9 unidades; alcance de raios aproximadamente 8 unidades; altura de alguns raios aproximadamente 6 unidades. Ajustar escala uniformemente.
+Acumulo inicial: aproximadamente 0,3 s. Tres pulsos em aproximadamente 0,3 s, 0,78 s e 1,3 s. Parte visual dissipa em cerca de 2 s a 60 fps; janela do projeto 165 quadros / 2,75 s.
+Distribuir .efkefc com Model e Texture preservando os caminhos relativos. .efkproj e a fonte editavel; .efk e exportacao adicional.
+O glow faz parte do efeito, sem exigir bloom do jogo. Black core usa ZWrite para a composicao com a borda vermelha.
+Modelos nativos animados: Haki_Raios_Negros, Haki_Raios_Glow, Haki_Ondas_Chao, Haki_Detritos e Haki_Pressao. Tamanho aproximado total dos modelos: 74 MB; desempenho na cena do jogo ainda nao medido.
+O boneco e o chao quadriculado sao guias da previa e nao fazem parte deste pacote.
+Verificacao: conversao/exportacao com Effekseer 1.80.7; runtime oficial WebGL 1.80.7; tres vistas, 56 quadros do ciclo, dissipacao e dependencias conferidas.

@@ -1,0 +1,6 @@
+STATUS STUN - TRES BOLINHAS DE GLOW COM RASTRO
+Status_Stun.efkefc: tres luzes douradas orbitando com rastros curtos que desaparecem suavemente.
+Origem no centro da orbita. Posicionar acima da cabeca e atualizar junto com o personagem. Raio 0,60 unidade; volta completa em aproximadamente 3 s a 60 fps.
+Instanciar uma vez ao entrar em stun e parar o handle ao fim do turno/status. Luzes e emissores nao expiram por tempo; cada particula de rastro vive 22 quadros. Emissores configurados para ate 1 milhao de particulas cada, aproximadamente 4,6 horas continuas.
+Distribuir Status_Stun.efkefc e Texture/Particle_Soft.png. Nao usa modelos. .efkproj e fonte editavel; .efk e exportacao adicional.
+Orbita e rastros conferidos no Effekseer WebGL 1.80.7. Persistencia conferida aos 720 quadros (12 s).
