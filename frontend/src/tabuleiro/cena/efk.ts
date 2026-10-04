@@ -25,7 +25,9 @@ type No = {
   heranca: [number, number, number]
   comPai: boolean
   pos?: { t: 'fixo'; p: Vet } | { t: 'pva'; p: Vet; v: Vet; a: Vet } | { t: 'curva'; c: [number, number][][] }
-  rot?: { t: 'fixo'; p: Vet } | { t: 'pva'; p: Vet; v: Vet; a: Vet }
+  rot?: { t: 'fixo'; p: Vet } | { t: 'pva'; p: Vet; v: Vet; a: Vet } | { t: 'eixo'; eixo: Vet; p: Faixa; v: Faixa; a: Faixa }
+  /** não morre ao fim da vida */
+  eterno?: boolean
   esc?: { t: 'fixo'; p: Vet } | { t: 'easing'; de: Vet; ate: Vet }
   circulo?: { eixo: number; div: number; ordem: number; raio: Faixa; a0: Faixa; a1: Faixa; ruido: Faixa }
   render?: {
@@ -87,6 +89,8 @@ class Inst {
   private readonly s0 = new THREE.Vector3(1, 1, 1)
   private readonly s1 = new THREE.Vector3(1, 1, 1)
   private readonly circ = new THREE.Vector3()
+  /** rotação em volta de um eixo (o ângulo fica em r0.x/rv.x/ra.x) */
+  private readonly eixo = new THREE.Vector3()
   /** geração dos filhos: quantos já nasceram e quando nasce o próximo (idade) */
   readonly geracao: { n: number; prox: number }[]
   readonly filhos: Inst[][] = []
@@ -106,7 +110,12 @@ class Inst {
       this.a0.copy(vet(p.a))
     }
     const r = no.rot
-    if (r?.t === 'fixo') this.r0.copy(vet(r.p))
+    if (r?.t === 'eixo') {
+      this.eixo.copy(vet(r.eixo)).normalize()
+      this.r0.set(sorteio(r.p), 0, 0)
+      this.rv.set(sorteio(r.v), 0, 0)
+      this.ra.set(sorteio(r.a), 0, 0)
+    } else if (r?.t === 'fixo') this.r0.copy(vet(r.p))
     else if (r?.t === 'pva') {
       this.r0.copy(vet(r.p))
       this.rv.copy(vet(r.v))
@@ -133,6 +142,7 @@ class Inst {
 
   /** rotação Z própria (graus), para o sprite girar na tela */
   giroZ() {
+    if (this.no.rot?.t === 'eixo') return 0
     const t = this.idade
     return this.r0.z + this.rv.z * t + 0.5 * this.ra.z * t * t
   }
@@ -155,7 +165,8 @@ class Inst {
     if (this.pai && !this.pai.pai) pos.z *= alongar // nós de cima: o Z vai até o alvo
     pos.add(this.circ)
     const rot = new THREE.Vector3().copy(this.r0).addScaledVector(this.rv, t).addScaledVector(this.ra, 0.5 * t * t).multiplyScalar(GRAU)
-    const local = new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z, 'ZXY')), this.escala(new THREE.Vector3()))
+    const quat = this.no.rot?.t === 'eixo' ? new THREE.Quaternion().setFromAxisAngle(this.eixo, rot.x) : new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z, 'ZXY'))
+    const local = new THREE.Matrix4().compose(pos, quat, this.escala(new THREE.Vector3()))
     if (!this.pai) return this.mundo.copy(local)
     const [hl, hr, hs] = no.heranca
     const atual = this.pai.mundo
@@ -399,7 +410,7 @@ export class EfeitoEfk {
   /** envelhece, gera filhos e remove os mortos */
   private passo(i: Inst) {
     i.idade = this.q - i.nasc
-    if (i.pai && i.idade >= i.vida) i.vivo = false
+    if (i.pai && !i.no.eterno && i.idade >= i.vida) i.vivo = false
     if (i.vivo) i.calcular(this.alongar)
     i.no.filhos.forEach((fn, k) => {
       const g = i.geracao[k]
@@ -525,6 +536,7 @@ export class EfeitoEfk {
     const md = this.dados.mods?.[f.no.modelo!.arq]
     if (!md) return
     const pose = md.poses[Math.floor(f.idade / md.passo) % md.poses.length]
+    if (!pose.length) return
     const a = f.fade()
     const c0 = f.no.modelo!.cor
     const p = new THREE.Vector3()

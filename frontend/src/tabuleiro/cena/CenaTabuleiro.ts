@@ -319,6 +319,9 @@ export class CenaTabuleiro {
      * Entei: o efeito feito no Effekseer (public/sprites/efk/entei); sem ele,
      * a cena em código (cena/entei.ts). Resolve no impacto.
      */
+    corte: (p: Personagem, ate: THREE.Vector3) => carregarEfk('corte-ciano').then((d) => (d ? this.corteEfk(p, ate, d) : false)),
+    iceTime: (p: Personagem, alvo: Personagem | null, ate: THREE.Vector3) =>
+      Promise.all([carregarEfk('ice-time'), carregarEfk('ice-time-contato')]).then(([gelo, contato]) => (gelo && contato ? this.iceTimeEfk(p, alvo, ate, gelo, contato) : false)),
     partisan: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('partisan'), carregarEfk('partisan-formacao'), carregarEfk('partisan-impacto')]).then(([l, f, i]) => (l && f && i ? this.partisanEfk(p, ate, l, f, i) : false)),
     pheasant: (p: Personagem, ate: THREE.Vector3) =>
@@ -479,6 +482,82 @@ export class CenaTabuleiro {
     })
     this.efeitos.push(ef)
     this.cenaFx.add(ef.sprite)
+  }
+
+  /** efeito do Effekseer tocando num ponto (opcionalmente virado para outro) */
+  private tocarEfk(nome: string, dados: DadosEfk, onde: THREE.Vector3, escala: number, alvo?: THREE.Vector3) {
+    const ef = new EfeitoEfk(nome, dados, { origem: onde.clone(), alvo, escala, camera: this.camera })
+    ef.sprite.position.copy(onde)
+    if (alvo) ef.sprite.lookAt(alvo)
+    this.efeitos.push(ef)
+    this.cenaFx.add(ef.sprite)
+    return ef
+  }
+
+  /**
+   * Corte básico (Effekseer): o arco (~4 unidades de largura no editor, plano
+   * XY) no peito do alvo, virado para a câmera e inclinado na diagonal, como
+   * um golpe de cima para baixo.
+   */
+  private corteEfk(p: Personagem, ate: THREE.Vector3, dados: DadosEfk) {
+    const ef = this.tocarEfk('corte-ciano', dados, ate, 0.3)
+    ef.sprite.quaternion.copy(this.camera.quaternion)
+    // espelha conforme o lado de onde vem o golpe (na tela)
+    const de = p.pos.clone().project(this.camera)
+    const para = ate.clone().project(this.camera)
+    ef.sprite.rotateZ(para.x < de.x ? 0.5 : -0.5)
+    if (para.x < de.x) ef.sprite.scale.x *= -1
+    return new Promise<boolean>((r) => setTimeout(() => r(true), 120))
+  }
+
+  /**
+   * Ice Time (Effekseer): clarão de contato na mão de quem toca e cristais
+   * crescendo do chão em volta do alvo (~3,4 de diâmetro no editor). Se o
+   * alvo congelar, o status 'gelo' segura os cristais formados.
+   */
+  private iceTimeEfk(p: Personagem, alvo: Personagem | null, ate: THREE.Vector3, gelo: DadosEfk, contato: DadosEfk) {
+    const pe = (alvo?.pos ?? ate).clone().setY(0.02)
+    const mao = p.pos.clone().lerp(pe, 0.45).setY(p.visual.altura * 0.5)
+    this.tocarEfk('ice-time-contato', contato, mao, 0.3)
+    this.tocarEfk('ice-time', gelo, pe, 0.3)
+    return new Promise<boolean>((r) => setTimeout(() => r(true), 450))
+  }
+
+  /** estrelinhas na cabeça (atordoado) ou cristais nos pés (congelado), presos ao personagem */
+  private readonly statusFx = new Map<Personagem, { tipo: 'stun' | 'gelo'; ef: EfeitoEfk | null; carregando: boolean }>()
+
+  private atualizarStatus() {
+    for (const p of this.personagens) {
+      const atual = this.statusFx.get(p)
+      if (atual && atual.tipo !== p.status) {
+        atual.ef?.encerrar()
+        this.statusFx.delete(p)
+      }
+      if (!p.status) continue
+      let s = this.statusFx.get(p)
+      if (!s) {
+        s = { tipo: p.status, ef: null, carregando: false }
+        this.statusFx.set(p, s)
+      }
+      // congelado dura até 10 s no editor: recomeça se ainda estiver congelado
+      if ((!s.ef || !s.ef.vivo) && !s.carregando) {
+        s.carregando = true
+        const reg = s
+        const nome = reg.tipo === 'stun' ? 'stun' : 'ice-time-congelado'
+        void carregarEfk(nome).then((d) => {
+          reg.carregando = false
+          if (!d || this.statusFx.get(p) !== reg) return
+          reg.ef = this.tocarEfk(nome, d, p.pos, reg.tipo === 'stun' ? 0.75 : 0.3)
+        })
+      }
+      if (s.ef) s.ef.sprite.position.copy(s.tipo === 'stun' ? p.pos.clone().setY(p.visual.altura * 0.92) : p.pos.clone().setY(0.02))
+    }
+    for (const [p, s] of this.statusFx) {
+      if (!this.personagens.includes(p)) {
+        s.ef?.encerrar()
+        this.statusFx.delete(p)
+      }
+    }
   }
 
   /**
@@ -1111,6 +1190,7 @@ export class CenaTabuleiro {
     }
     for (const p of this.personagens) p.atualizar(dt)
     this.atualizarFormas(dt)
+    this.atualizarStatus()
     for (const l of this.navios.luzes) l.intensity = 2.6 + Math.sin(this.tempo * 9 + l.id) * 0.25 + Math.sin(this.tempo * 23 + l.id * 3) * 0.15
     for (const pano of this.navios.panos) this.ondular(pano)
     // molduras

@@ -85,6 +85,8 @@ export class Personagem {
   /** transformação/buff visível: Zoan (maior, tom de bisão), Gear Second
    * (vermelho, vapor), espada de luz (brilho dourado) */
   forma: 'zoan' | 'gear' | 'sabre' | 'lobo' | 'agni' | null = null
+  /** perde a próxima vez: atordoado (estrelinhas na cabeça) ou congelado (cristais nos pés) */
+  status: 'stun' | 'gelo' | null = null
   /** tamanho do sprite (a Zoan cresce) */
   escala = 1
 

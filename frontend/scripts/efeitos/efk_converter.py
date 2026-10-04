@@ -75,6 +75,8 @@ def no(n):
         # herança do pai: 0 não, 1 só ao nascer, 2 sempre (posição, rotação, escala)
         'heranca': [int(num(g(k), 2)) for k in ('LocationEffectType', 'RotationEffectType', 'ScaleEffectType')],
         'comPai': bool(num(g('RemoveWhenParentIsRemoved'), 0)),
+        # Removal/WhenLifeIsExtinct = False: não morre ao fim da vida (fica até o efeito ser parado)
+        'eterno': (cv is not None and cv.findtext('Removal/WhenLifeIsExtinct') == 'False'),
     }
     # posição
     lv = n.find('LocationValues')
@@ -95,6 +97,10 @@ def no(n):
         if t == 1:
             p = rv.find('PVA')
             o['rot'] = {'t': 'pva', 'p': vetor(p.find('Rotation')), 'v': vetor(p.find('Velocity')), 'a': vetor(p.find('Acceleration'))}
+        elif t == 3:
+            # girando em volta de um eixo (graus por quadro)
+            p = rv.find('AxisPVA')
+            o['rot'] = {'t': 'eixo', 'eixo': vetor(p.find('Axis'), (0, 1, 0)), 'p': faixa(p.find('Rotation'), 0), 'v': faixa(p.find('Velocity'), 0), 'a': faixa(p.find('Acceleration'), 0)}
         else:
             o['rot'] = {'t': 'fixo', 'p': vetor(rv.find('Fixed/Rotation'))}
     # escala
@@ -183,17 +189,20 @@ def modelo(de, para):
         o += 4
         f = np.frombuffer(d, '<i4', nf * 3, o)
         o += nf * 12
-        todas.append(v[:, :12].copy().view('<f4').reshape(nv, 3) * escala)
-        if k == 0:
+        # pose vazia (ex.: o corte antes de aparecer): não desenha nada
+        todas.append(v[:, :12].copy().view('<f4').reshape(nv, 3) * escala if nv else None)
+        if nv and 'nv' not in out:
             grande = nv > 65535
             out.update(nv=nv, nf=nf, idx32=grande, idx=b64(f.astype('<u4' if grande else '<u2')),
                        uv=b64(v[:, 48:56].copy().view('<f4')), cor=b64(v[:, 56:60]))
     passo = max(1, -(-poses // MAX_POSES))
     todas = todas[::passo]
-    tudo = np.stack(todas)
+    cheias = [t for t in todas if t is not None]
+    assert all(t.shape == cheias[0].shape for t in cheias), 'poses com topologias diferentes'
+    tudo = np.stack(cheias)
     lo, hi = tudo.min((0, 1)), tudo.max((0, 1))
-    q = np.round((tudo - lo) / np.maximum(hi - lo, 1e-9) * 65535 - 32768).astype('<i2')
-    out.update(passo=passo, min=lo.tolist(), max=hi.tolist(), poses=[b64(p) for p in q])
+    quant = lambda t: b64(np.round((t - lo) / np.maximum(hi - lo, 1e-9) * 65535 - 32768).astype('<i2'))
+    out.update(passo=passo, min=lo.tolist(), max=hi.tolist(), poses=[quant(t) if t is not None else '' for t in todas])
     json.dump(out, open(para, 'w'), separators=(',', ':'))
 
 

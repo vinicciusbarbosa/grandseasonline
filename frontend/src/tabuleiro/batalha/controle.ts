@@ -71,6 +71,10 @@ export interface Palco {
   entei(p: Personagem, ate: THREE.Vector3, k: number): Promise<void>
   /** Hotarubi do Effekseer: bolinhas voam até o alvo e detonam (Hidaruma); resolve na detonação, false sem o efeito */
   hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** corte básico de espada do Effekseer; resolve no golpe, false sem o efeito */
+  corte(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Ice Time do Effekseer (contato + cristais no alvo); resolve no golpe, false sem o efeito */
+  iceTime(p: Personagem, alvo: Personagem | null, ate: THREE.Vector3): Promise<boolean>
   /** Partisan do Effekseer: formação de lanças e disparo até o alvo; resolve quando metade acerta, false sem o efeito */
   partisan(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Pheasant Beak do Effekseer: a ave voa até o alvo e explode; resolve no impacto, false sem o efeito */
@@ -97,7 +101,7 @@ const JOGADOR: Lado = 'piratas'
 /** Como cada skill aparece: animação do corpo e efeito. */
 type Visual = { efeito: TipoEfeito; modo: 'perto' | 'projetil' | 'area' | 'si' | 'especial'; escala?: number; tiros?: number }
 const VISUAL: Record<string, Visual> = {
-  corte: { efeito: 'impacto', modo: 'perto' },
+  corte: { efeito: 'impacto', modo: 'especial' },
   'corte-duplo': { efeito: 'impacto', modo: 'perto' },
   'corte-voador': { efeito: 'corte', modo: 'projetil', escala: 1.1 },
   'estocada-perfurante': { efeito: 'impacto', modo: 'area' },
@@ -162,7 +166,6 @@ const FORMAS: Record<string, 'zoan' | 'gear' | 'sabre' | 'lobo' | 'agni'> = { bi
  */
 type FxFolha = { folha: string; onde: 'si' | 'alvo' | 'casas'; chao?: boolean; largura?: number }
 const FOLHA_SKILL: Record<string, FxFolha[]> = {
-  corte: [{ folha: 'corte-arco', onde: 'alvo' }],
   'corte-duplo': [{ folha: 'corte-arco', onde: 'alvo' }],
   'estocada-perfurante': [{ folha: 'corte-arco', onde: 'casas' }],
   garras: [{ folha: 'garra', onde: 'alvo', largura: 1.1 }],
@@ -484,6 +487,9 @@ export class ControleBatalha {
   }
 
   /** Aplica uma ação e anima. Devolve se deu certo. */
+  /** de onde veio o "perde a vez" de cada um (o estado só guarda atordoado) */
+  private readonly tipoStatus = new Map<string, 'stun' | 'gelo'>()
+
   private async executar(a: Acao) {
     const r = aplicar(this.estado, a)
     if ('erro' in r) {
@@ -504,6 +510,8 @@ export class ControleBatalha {
       // o Haki ligado fica aparecendo na arma
       p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
       p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
+      // estrelinhas (atordoado) ou cristais (congelado) até a vez dele acabar
+      p.status = c.atordoado && c.hp > 0 ? (this.tipoStatus.get(c.id) ?? 'stun') : null
     }
     this.animando = false
     if (this.treino) {
@@ -1063,10 +1071,22 @@ export class ControleBatalha {
         setTimeout(() => a.soltarPose(), 250)
         break
       }
+      case 'corte': {
+        // ataque básico de espada: só o corte feito no Effekseer (sem ele, um impacto simples)
+        if (!(await P.corte(a, ate))) {
+          void P.efeito('impacto', 'normal', ate, { dur: 0.4, escala: 0.9 })
+          await esperar(150)
+        }
+        break
+      }
       case 'ice-time': {
-        void P.efeito('espinhoGelo', 'normal', ate.clone().setY(1.1), { dur: 1.1, escala: 1.6 })
-        void P.efeito('gelo', 'normal', ate, { dur: 0.7, escala: 1.4 })
-        await esperar(300)
+        // Effekseer: clarão de contato na mão e cristais crescendo do chão no alvo;
+        // se congelar, os cristais ficam (status 'gelo') até a vez do congelado acabar
+        if (!(await P.iceTime(a, hits[0] ?? null, ate))) {
+          void P.efeito('espinhoGelo', 'normal', ate.clone().setY(1.1), { dur: 1.1, escala: 1.6 })
+          void P.efeito('gelo', 'normal', ate, { dur: 0.7, escala: 1.4 })
+          await esperar(300)
+        }
         break
       }
       case 'era-gelo': {
@@ -1214,8 +1234,9 @@ export class ControleBatalha {
       case 'congelou': {
         const b = P(e.id)
         if (!b) return
+        this.tipoStatus.set(e.id, e.t === 'congelou' ? 'gelo' : 'stun')
+        b.status = e.t === 'congelou' ? 'gelo' : 'stun'
         this.palco.flutuar(b, e.t === 'congelou' ? 'Congelado!' : 'Atordoado!', e.t === 'congelou' ? '#a8ecff' : '#ff5a6e', 1)
-        if (e.t === 'congelou') void this.palco.efeito('gelo', 'normal', this.palco.peito(b), { dur: 0.6, escala: 1 })
         this.registrar(`${nome(e.id)} ${e.t === 'congelou' ? 'congela' : 'fica atordoado pelo Haki do Rei'} e perde a próxima vez.`)
         await esperar(350)
         return
