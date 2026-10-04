@@ -1,0 +1,22 @@
+KIZARU — ESPADA DE LUZ (AMA NO MURAKUMO)
+
+Abrir Kizaru_Espada_de_Luz.efkproj no Effekseer 1.80.7.
+No jogo, carregar Kizaru_Espada_de_Luz.efkefc.
+Manter Model/ e Texture/ junto ao arquivo do efeito.
+
+Espada fixa com lâmina branca de bordas retas, guarda circular em luz,
+glow amarelo fino e uniforme, reflexos, centelhas e partículas contínuas.
+A raiz, a lâmina e a guarda não têm animação de deslocamento ou rotação.
+Somente os detalhes luminosos e as partículas têm animação interna.
+
+Origem: centro da empunhadura (0, 0, 0).
+Direção da lâmina: +Y local. Ponta: Y=2,86. Guarda: Y=0,25.
+Base da empunhadura: Y=-0,30.
+Mover, girar e ajustar a escala pela instância do jogo ao anexar à mão.
+O efeito fica ativo até o jogo encerrá-lo. Atualização em 60 quadros/s.
+
+Ver INTEGRACAO.md para o encaixe e o exemplo de uso no runtime WebGL.
+O pacote contém apenas a espada e seus efeitos de luz, sem personagem.
+
+Geometria e máscaras luminosas próprias, criadas a partir das referências
+visuais fornecidas. Nenhuma malha do Sketchfab foi baixada ou redistribuída.
