@@ -121,50 +121,6 @@ def pescoco_topo(cp, ref):
     return float(np.nonzero((lab == k).any(0))[0].mean()), y
 
 
-def machados(q, d):
-    """dual machado: um machado pendurado em cada punho (lâmina para baixo,
-    de face), por trás do corpo: o punho cobre o cabo. De lado só aparece o
-    do punho da frente, por cima do corpo"""
-    global _MACHADOS
-    if '_MACHADOS' not in globals():
-        _MACHADOS = celulas('machados.png', 6, 1)[0]
-    q = np.pad(ro.aparar(q), ((0, 0), (9, 9), (0, 0)))
-    H = q.shape[0]
-    hsv = cv2.cvtColor(q[..., :3], cv2.COLOR_BGR2HSV).astype(int)
-    h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
-    pele = (q[..., 3] > 0) & ((h <= 20) | (h >= 170)) & (sa >= 60) & (v >= 140)
-    pele[:int(H * 0.36)] = False
-    pele[int(H * 0.56):] = False
-    ys, xs = np.nonzero(pele)
-    if not len(xs):
-        return q
-    def ponta(lado):  # centro do punho na ponta do braço (esquerda/direita)
-        borda = xs.min() if lado < 0 else xs.max()
-        m = np.abs(xs - borda) <= 4
-        return xs[m].mean(), ys[m].mean()
-    alt = round(H * 0.42)
-    def machado(k):
-        m = _MACHADOS[k][::-1]  # lâmina para baixo
-        return reduzir(m, alt / m.shape[0])
-    def pendurar(alvo, m, x, y):
-        ro.pintar(alvo, m, int(round(x - m.shape[1] / 2)), int(round(y - alt * 0.16)))
-    if d in ('S', 'N'):
-        fundo = np.zeros_like(q)
-        k0, k1 = (0, 1) if d == 'S' else (2, 3)
-        pendurar(fundo, machado(k0), *ponta(-1))
-        pendurar(fundo, machado(k1), *ponta(1))
-        ro.pintar(fundo, q, 0, 0)
-        return fundo
-    x, y = ponta(1 if d == 'E' else -1)
-    out = q.copy()
-    pendurar(out, machado(0 if d == 'E' else 1), x, y)
-    # o punho por cima do cabo
-    punho = q.copy()
-    punho[..., 3] = np.where(pele & (np.hypot(np.arange(q.shape[1])[None] - x, np.arange(H)[:, None] - y) < 4), q[..., 3], 0)
-    ro.pintar(out, punho, 0, 0)
-    return out
-
-
 def cabecas_ro(folha, linha):
     """cabeça do RO (S, SO, O, NO, N) -> frente, costas, direita (espelho), esquerda"""
     c = ro.cabecas(folha, linha)
@@ -198,7 +154,7 @@ PARTES_ESPADACHIM = {
     'calca': (((95, 135),), 40, 255),            # calça azul
 }
 # lutador: o calção vinho
-PARTES_LUTADOR = {'calca': (((165, 180), (0, 3)), 140, 170)}
+PARTES_LUTADOR = {'calca': (((165, 180), (0, 3)), 140, 170, 0.42)}
 # dual machado: o calção azul e a faixa vermelha da cintura
 PARTES_MACHADO = {'calca': (((90, 112),), 50, 256), 'roupa': (((0, 8), (172, 180)), 150, 256)}
 # atirador: a capa verde-escura (as estrelas amarelas ficam)
@@ -206,16 +162,45 @@ PARTES_ATIRADOR = {'roupa': (((60, 110),), 25, 125)}
 PARTES_CABECA = {'cabelo': (((0, 28), (172, 180)), 110, 256)}  # cabelo laranja (a pele é menos saturada)
 
 
+def tom_pele(q, s_max=160):
+    """cor mediana da pele (matiz, saturação, valor) de um quadro"""
+    hsv = cv2.cvtColor(q[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
+    h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    m = (q[..., 3] > 0) & (h >= 3) & (h <= 22) & (sa >= 40) & (sa <= s_max) & (v >= 150)
+    return np.median(h[m]), np.median(sa[m]), np.median(v[m])
+
+
+def igualar_pele(cab, alvo, original):
+    """deixa a pele do rosto com o tom da pele do corpo (alvo). A pele é
+    achada na cabeça original (o cabelo laranja é mais saturado), antes do
+    cabelo ser tingido; `cab` é a cabeça já tingida"""
+    o = cv2.cvtColor(original[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
+    pele = (original[..., 3] > 0) & ((o[..., 0] <= 25) | (o[..., 0] >= 172)) & (o[..., 1] >= 20) & (o[..., 1] < 110) & (o[..., 2] >= 90)
+    th, ts, tv = tom_pele(original, 110)
+    hsv = cv2.cvtColor(cab[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
+    h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    h[pele] = (h[pele] + (alvo[0] - th)) % 180
+    sa[pele] = np.clip(sa[pele] * alvo[1] / ts, 0, 255)
+    v[pele] = np.clip(v[pele] * alvo[2] / tv, 0, 255)
+    out = cab.copy()
+    out[..., :3] = cv2.cvtColor(np.dstack([h, sa, v]).astype(np.uint8), cv2.COLOR_HSV2BGR)
+    return out
+
+
 def tingir(q, partes, cores):
-    """troca a cor das partes: cores = {parte: (matiz, x saturação, x valor)}"""
+    """troca a cor das partes: cores = {parte: (matiz, x saturação, x valor)}.
+    Uma parte pode ter um 4º valor: só abaixo dessa fração da altura do quadro
+    (o calção do lutador tem o mesmo vinho do contorno do peito)"""
     if not cores:
         return q
     hsv = cv2.cvtColor(q[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
     h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     vis = q[..., 3] > 0
     # as máscaras saem todas antes de pintar (senão a cor nova cai na faixa de outra parte)
-    mascaras = {p: vis & (sa >= s_min) & (v < v_max) & np.any([(h >= a) & (h <= b) for a, b in faixas], axis=0)
-                for p, (faixas, s_min, v_max) in partes.items() if p in cores}
+    linhas = np.arange(q.shape[0])[:, None] / q.shape[0]
+    mascaras = {p: vis & (sa >= c[1]) & (v < c[2]) & np.any([(h >= a) & (h <= b) for a, b in c[0]], axis=0)
+                   & (linhas >= (c[3] if len(c) > 3 else 0))
+                for p, c in partes.items() if p in cores}
     for parte, m in mascaras.items():
         nh, fs, fv = cores[parte]
         h[m] = nh
@@ -226,27 +211,26 @@ def tingir(q, partes, cores):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, armar=None):
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False):
     """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
     cores: {parte|'cabelo': (matiz, x saturação, x valor)} para tingir;
     partes: as partes tingíveis desse corpo (padrão: as do espadachim);
     altura: px do corpo parado; ataque: (quadros da folha, quadro do impacto);
     igualar: a folha do ataque foi desenhada noutro tamanho — o 1º quadro do
-    ataque fica com a altura do corpo parado; armar(q, d): põe a arma no corpo
-    já reduzido (andar)"""
+    ataque fica com a altura do corpo parado"""
     PARTES_CORPO = partes or PARTES_ESPADACHIM
     andar = celulas(f'{corpo}-andar.png', 8)
     # escala: corpo parado (frente) com `altura` px; a cabeça tem o tamanho de
     # sempre (metade do corpo padrão), não cresce com um corpo maior
     s = altura / andar[0][0].shape[0]
     cabs = cabecas_ia(cabeca, round(ALTURA_CORPO * 0.5)) if isinstance(cabeca, str) else cabecas_ro(*cabeca)
-    cabs = {d: tingir(c, PARTES_CABECA, cores) for d, c in cabs.items()}
+    # o rosto com o mesmo tom de pele do corpo (antes de tingir o cabelo)
+    pele = tom_pele(andar[0][0])
+    cabs = {d: igualar_pele(tingir(c, PARTES_CABECA, cores), pele, c) for d, c in cabs.items()}
     anims = {'parado': {}, 'andar': {}, 'correr': {}}
     refs = {}
     for i, d in enumerate(DIRS):
         qs = [tingir(reduzir(q, s), PARTES_CORPO, cores) for q in andar[i]]
-        if armar:
-            qs = [armar(q, d) for q in qs]
         ref = refs[d] = ro.pescoco_parado(qs[0])
         # corpo da IA se inclina mais no golpe: procura o pescoço numa faixa larga
         # sobre: a cabeça desce 8 px no pescoço (o toco da IA é mais largo que o queixo de lado)
@@ -296,13 +280,14 @@ if __name__ == '__main__':
     personagem('pirata-lutador', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
                cores={'cabelo': (0, 0.25, 0.3)})
     personagem('marinha-soldado', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
-               cores={'calca': (110, 0.9, 1.2), 'cabelo': (22, 0.35, 1.25)})
+               cores={'calca': (110, 0.9, 1.2), 'cabelo': (18, 0.6, 0.85)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
     # dual machado no Médico e na Enfermeira (a da Marinha de calção azul-marinho
-    # e faixa azul); só a folha do andar
-    personagem('pirata-medico', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO, armar=machados,
+    # e faixa azul); só a folha do andar. Os machados ficam na cintura, como na
+    # folha (colados por cima do corpo nas mãos ficavam errados)
+    personagem('pirata-medico', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO,
                cores={'cabelo': (60, 0.45, 0.55)})
-    personagem('marinha-enfermeira', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO, armar=machados,
+    personagem('marinha-enfermeira', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO,
                cores={'calca': (115, 1.3, 0.55), 'roupa': (110, 0.8, 0.8), 'cabelo': (150, 0.45, 0.8)})
     personagem('pirata-atiradora', 'atirador', 'cabeca-espetado.png', partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
                cores={'cabelo': (112, 0.55, 0.5)})
