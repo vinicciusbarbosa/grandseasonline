@@ -15,6 +15,10 @@
   },
   "correr": {
    "fps": 12
+  },
+  "atacar": {
+   "fps": 10,
+   "impacto": 3
   }
  },
  "fonte": "Gerado por IA no padr\u00e3o do Ragnarok (teste)",
@@ -71,6 +75,24 @@
    "W": {
     "arquivo": "correr_W.png",
     "quadros": 8
+   }
+  },
+  "atacar": {
+   "S": {
+    "arquivo": "atacar_S.png",
+    "quadros": 6
+   },
+   "N": {
+    "arquivo": "atacar_N.png",
+    "quadros": 6
+   },
+   "E": {
+    "arquivo": "atacar_E.png",
+    "quadros": 6
+   },
+   "W": {
+    "arquivo": "atacar_W.png",
+    "quadros": 6
    }
   }
  },
