@@ -121,6 +121,101 @@ def pescoco_topo(cp, ref):
     return float(np.nonzero((lab == k).any(0))[0].mean()), y
 
 
+def girar(img, graus):
+    """gira um RGBA em volta do centro (graus no sentido anti-horário), sem cortar"""
+    h, w = img.shape[:2]
+    p = int(np.hypot(h, w) / 2 - min(h, w) / 2) + 2
+    img = np.pad(img, ((p, p), (p, p), (0, 0)))
+    H, W = img.shape[:2]
+    M = cv2.getRotationMatrix2D((W / 2, H / 2), graus, 1)
+    return cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_NEAREST, borderValue=(0, 0, 0, 0))
+
+
+def punhos(q, d):
+    """centro dos punhos [(x, y) esquerdo, direito] de um corpo da IA. A pele
+    do braço e a do punho ficam separadas pela munhequeira: o punho é o pedaço
+    de pele mais baixo dos que encostam na borda de fora do corpo (as flores
+    laranja da camisa ficam soltas no meio; a faixa vermelha é mais saturada)"""
+    hsv = cv2.cvtColor(q[..., :3], cv2.COLOR_BGR2HSV).astype(int)
+    h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    pele = (q[..., 3] > 0) & (h >= 4) & (h <= 20) & (sa >= 60) & (sa <= 165) & (v >= 150)
+    lin = np.nonzero(q[..., 3].any(1))[0]
+    y0, y1 = lin.min(), lin.max()
+    pele[:y0 + int((y1 - y0) * 0.3)] = False
+    pele[y0 + int((y1 - y0) * 0.66):] = False
+    lab, n = ndimage.label(pele)
+    ys, xs = np.nonzero(pele)
+    if not len(xs):
+        return None
+    out = []
+    for lado in (-1, 1):
+        borda = xs.min() if lado < 0 else xs.max()
+        melhor = None
+        for k in range(1, n + 1):
+            kys, kxs = np.nonzero(lab == k)
+            if len(kxs) < 6:
+                continue
+            perto = (kxs.min() - borda <= 7) if lado < 0 else (borda - kxs.max() <= 7)
+            if perto and (melhor is None or kys.max() > melhor[1].max()):
+                melhor = (kxs, kys)
+        if melhor is None:
+            return None
+        bx, by = melhor
+        m = by >= by.max() - 5
+        out.append((bx[m].mean(), by[m].mean()))
+    return out
+
+
+def machados(d):
+    """dual machado (como o desenho de referência): cada punho segura o cabo
+    pela ponta de baixo e o machado aponta para fora do corpo, quase na
+    horizontal e um pouco para cima, com a lâmina na ponta de fora. De lado
+    o da frente aponta para a frente e o de trás fica escondido pelo corpo.
+    Devolve o `depois` do ro.montar: pinta no quadro já com a cabeça (os
+    punhos são achados no corpo sem arma)"""
+    global _MACHADOS
+    if '_MACHADOS' not in globals():
+        _MACHADOS = celulas('machados.png', 6, 1)[0]
+
+    def pintar_machados(q, cp, ox, oy):
+        ps = punhos(cp, d)
+        if ps is None:
+            return
+        ps = [(x + ox, y + oy) for x, y in ps]
+        comp = round(cp.shape[0] * 0.55)  # comprimento do machado
+
+        def empunhar(k, x, y, graus):
+            m = reduzir(_MACHADOS[k], comp / _MACHADOS[k].shape[0])
+            # a pega fica a 86% da altura (perto da ponta de baixo do cabo):
+            # gira em volta do centro e acha onde a pega foi parar
+            g = girar(m, graus)
+            a = np.radians(graus)
+            dy = m.shape[0] * 0.86 - m.shape[0] / 2
+            gx = g.shape[1] / 2 + dy * np.sin(a)
+            gy = g.shape[0] / 2 + dy * np.cos(a)
+            ro.pintar(q, g, int(round(x - gx)), int(round(y - gy)))
+
+        (xe, ye), (xd, yd) = ps
+        if d in ('S', 'N'):
+            k0, k1 = (0, 1) if d == 'S' else (2, 3)
+            empunhar(k0, xe, ye, 72)    # aponta para a esquerda, um pouco para cima
+            empunhar(k1, xd, yd, -72)   # e para a direita
+            frente = ps
+        else:
+            x, y = (xd, yd) if d == 'E' else (xe, ye)
+            empunhar(0 if d == 'E' else 1, x, y, -72 if d == 'E' else 72)
+            frente = [(x, y)]
+        # os punhos por cima do cabo
+        yy, xx = np.mgrid[:cp.shape[0], :cp.shape[1]]
+        perto = np.zeros(cp.shape[:2], bool)
+        for x, y in frente:
+            perto |= np.hypot(xx + ox - x, yy + oy - y) < 4.5
+        p = cp.copy()
+        p[..., 3] = np.where(perto, cp[..., 3], 0)
+        ro.pintar(q, p, ox, oy)
+    return pintar_machados
+
+
 def cabecas_ro(folha, linha):
     """cabeça do RO (S, SO, O, NO, N) -> frente, costas, direita (espelho), esquerda"""
     c = ro.cabecas(folha, linha)
@@ -211,13 +306,14 @@ def tingir(q, partes, cores):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False):
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, armar=None):
     """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
     cores: {parte|'cabelo': (matiz, x saturação, x valor)} para tingir;
     partes: as partes tingíveis desse corpo (padrão: as do espadachim);
     altura: px do corpo parado; ataque: (quadros da folha, quadro do impacto);
     igualar: a folha do ataque foi desenhada noutro tamanho — o 1º quadro do
-    ataque fica com a altura do corpo parado"""
+    ataque fica com a altura do corpo parado; armar(d) -> depois do ro.montar
+    que põe a arma na mão (andar)"""
     PARTES_CORPO = partes or PARTES_ESPADACHIM
     andar = celulas(f'{corpo}-andar.png', 8)
     # escala: corpo parado (frente) com `altura` px; a cabeça tem o tamanho de
@@ -235,8 +331,9 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
         # corpo da IA se inclina mais no golpe: procura o pescoço numa faixa larga
         # sobre: a cabeça desce 8 px no pescoço (o toco da IA é mais largo que o queixo de lado)
         ref.update(banda=11, perc=30, sobre=8)
-        anims['parado'][d] = [ro.montar(qs[0], cabs[d], ref, achar=pescoco_pele)]
-        anims['andar'][d] = [ro.montar(q, cabs[d], ref, achar=pescoco_pele) for q in qs]
+        depois = armar(d) if armar else None
+        anims['parado'][d] = [ro.montar(qs[0], cabs[d], ref, achar=pescoco_pele, depois=depois)]
+        anims['andar'][d] = [ro.montar(q, cabs[d], ref, achar=pescoco_pele, depois=depois) for q in qs]
         anims['correr'][d] = anims['andar'][d]
     tempos = {'andar': {'fps': 10}, 'correr': {'fps': 12}}
     if os.path.exists(os.path.join(ORIG, f'{corpo}-atacar.png')):
@@ -283,11 +380,10 @@ if __name__ == '__main__':
                cores={'calca': (110, 0.9, 1.2), 'cabelo': (18, 0.6, 0.85)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
     # dual machado no Médico e na Enfermeira (a da Marinha de calção azul-marinho
-    # e faixa azul); só a folha do andar. Os machados ficam na cintura, como na
-    # folha (colados por cima do corpo nas mãos ficavam errados)
-    personagem('pirata-medico', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO,
+    # e faixa azul); só a folha do andar, com um machado em cada punho
+    personagem('pirata-medico', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO, armar=machados,
                cores={'cabelo': (60, 0.45, 0.55)})
-    personagem('marinha-enfermeira', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO,
+    personagem('marinha-enfermeira', 'machado', 'cabeca-espetado.png', partes=PARTES_MACHADO, armar=machados,
                cores={'calca': (115, 1.3, 0.55), 'roupa': (110, 0.8, 0.8), 'cabelo': (150, 0.45, 0.8)})
     personagem('pirata-atiradora', 'atirador', 'cabeca-espetado.png', partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
                cores={'cabelo': (112, 0.55, 0.5)})

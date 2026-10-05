@@ -210,12 +210,14 @@ def achar_pescoco(cp, ref):
     return x + ref['dx'], y
 
 
-def montar(corpo, cabeca, ref, ancora='pescoco', braco_por_cima=False, achar=None):
+def montar(corpo, cabeca, ref, ancora='pescoco', braco_por_cima=False, achar=None, depois=None):
     """corpo + cabeça no pescoço achado neste quadro. ref: pescoco_parado() da
     mesma direção. ancora: 'pescoco' (parado/andar: o tronco fica no lugar e
     as pernas balançam) ou 'pe' (ataque/dano: os pés ficam no lugar).
     braco_por_cima: o que o corpo tem acima do pescoço (braço erguido) fica
-    na frente da cabeça. achar(cp, ref) -> (x, y): outro jeito de achar o pescoço"""
+    na frente da cabeça. achar(cp, ref) -> (x, y): outro jeito de achar o pescoço.
+    depois(q, cp, ox, oy): pinta mais coisas no quadro pronto (arma na mão);
+    cp é o corpo aparado e (ox, oy) onde ele foi pintado"""
     q = np.zeros((A, L, 4), np.uint8)
     cp = aparar(corpo)
     h = cp.shape[0]
@@ -231,6 +233,8 @@ def montar(corpo, cabeca, ref, ancora='pescoco', braco_por_cima=False, achar=Non
         pintar(q, cb, int(round(ox + nx - cb.shape[1] / 2)), oy + int(ny) - cb.shape[0] + ref.get('sobre', 5))
         if braco_por_cima and ny > 2:
             pintar(q, cp[:int(ny) - 1], ox, oy)
+    if depois:
+        depois(q, cp, ox, oy)
     return q
 
 
