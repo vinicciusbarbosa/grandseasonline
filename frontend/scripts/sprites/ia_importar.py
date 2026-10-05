@@ -168,7 +168,7 @@ def punhos(q, d):
 
 def machados(d):
     """dual machado (como o desenho de referência): cada punho segura o cabo
-    pela ponta de baixo e o machado aponta para fora do corpo, quase na
+    perto da ponta de baixo (a ponta sobra do outro lado da mão) e o machado aponta para fora do corpo, quase na
     horizontal e um pouco para cima, com a lâmina na ponta de fora. De lado
     o da frente aponta para a frente e o de trás fica escondido pelo corpo.
     Devolve o `depois` do ro.montar: pinta no quadro já com a cabeça (os
@@ -186,11 +186,11 @@ def machados(d):
 
         def empunhar(k, x, y, graus):
             m = reduzir(_MACHADOS[k], comp / _MACHADOS[k].shape[0])
-            # a pega fica a 86% da altura (perto da ponta de baixo do cabo):
-            # gira em volta do centro e acha onde a pega foi parar
+            # a pega fica a 70% da altura: a ponta do cabo sobra do outro lado
+            # do punho; gira em volta do centro e acha onde a pega foi parar
             g = girar(m, graus)
             a = np.radians(graus)
-            dy = m.shape[0] * 0.86 - m.shape[0] / 2
+            dy = m.shape[0] * 0.7 - m.shape[0] / 2
             gx = g.shape[1] / 2 + dy * np.sin(a)
             gy = g.shape[0] / 2 + dy * np.cos(a)
             ro.pintar(q, g, int(round(x - gx)), int(round(y - gy)))
@@ -198,18 +198,18 @@ def machados(d):
         (xe, ye), (xd, yd) = ps
         if d in ('S', 'N'):
             k0, k1 = (0, 1) if d == 'S' else (2, 3)
-            empunhar(k0, xe, ye, 72)    # aponta para a esquerda, um pouco para cima
-            empunhar(k1, xd, yd, -72)   # e para a direita
+            empunhar(k0, xe, ye, 66)    # aponta para a esquerda, um pouco para cima
+            empunhar(k1, xd, yd, -66)   # e para a direita
             frente = ps
         else:
             x, y = (xd, yd) if d == 'E' else (xe, ye)
-            empunhar(0 if d == 'E' else 1, x, y, -72 if d == 'E' else 72)
+            empunhar(0 if d == 'E' else 1, x, y, -66 if d == 'E' else 66)
             frente = [(x, y)]
         # os punhos por cima do cabo
         yy, xx = np.mgrid[:cp.shape[0], :cp.shape[1]]
         perto = np.zeros(cp.shape[:2], bool)
         for x, y in frente:
-            perto |= np.hypot(xx + ox - x, yy + oy - y) < 4.5
+            perto |= np.hypot(xx + ox - x, yy + oy - y) < 5
         p = cp.copy()
         p[..., 3] = np.where(perto, cp[..., 3], 0)
         ro.pintar(q, p, ox, oy)
