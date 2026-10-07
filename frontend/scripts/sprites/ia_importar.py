@@ -387,31 +387,49 @@ def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(
 PARTES_KATANA = {'roupa': (((165, 180), (0, 5)), 90, 256)}
 
 
+def cabecas_sorteadas(ids):
+    """teste: uma cabeça de cabecas/ (28, cabecas-variadas.png) sorteada para
+    cada personagem, sem repetir. O sorteio fica guardado em sorteio.json
+    (apague o arquivo para sortear de novo)"""
+    import random
+    arq = os.path.join(ORIG, 'cabecas', 'sorteio.json')
+    sorteio = json.load(open(arq)) if os.path.exists(arq) else {}
+    livres = [k for k in range(28) if k not in sorteio.values()]
+    random.shuffle(livres)
+    for pid in ids:
+        if pid not in sorteio:
+            sorteio[pid] = livres.pop()
+    json.dump(sorteio, open(arq, 'w'), indent=1)
+    return {pid: f'cabecas/cabeca-{k:02d}.png' for pid, k in sorteio.items()}
+
+
 if __name__ == '__main__':
+    CAB = cabecas_sorteadas(['pirata-capitao', 'pirata-lutador', 'marinha-soldado', 'pirata-atiradora', 'marinha-atirador'])
     # teste: o corpo novo fica no Capitão (o Espadachim volta ao do RO)
-    personagem('pirata-capitao', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6))
+    personagem('pirata-capitao', 'espadachim', CAB['pirata-capitao'], alternar=(4, 5, 6))
     # Arma de Luz (Pika Pika): o Capitão de mãos vazias, segurando a espada de
     # luz (o efeito do Effekseer vai na mão, pelas marcas de empunhadura)
-    personagem('pirata-capitao-luz', 'espadachim-luz', 'cabeca-espetado.png', braco_cima=True)
+    personagem('pirata-capitao-luz', 'espadachim-luz', CAB['pirata-capitao'], braco_cima=True)
     # variações de cor do mesmo personagem
     personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
-               cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75), 'cabelo': (112, 0.45, 0.42)})
+               cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75)})
     personagem('espadachim-verde', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
-               cores={'roupa': (60, 0.7, 0.8), 'calca': (16, 0.55, 1.35), 'cabelo': (24, 0.3, 1.2)})
-    # lutador novo (soco) nos dois lados: o da Marinha de calção azul; a cabeça
-    # é a do Capitão com outra cor de cabelo (cada um diferente)
-    personagem('pirata-lutador', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
+               cores={'roupa': (60, 0.7, 0.8), 'calca': (16, 0.55, 1.35)})
+    # lutador novo (soco) nos dois lados: o da Marinha de calção azul. As
+    # cabeças (Capitão, Lutador, Soldado, Atiradora, Atirador) são sorteadas;
+    # o samurai das katanas já vem com a dele
+    personagem('pirata-lutador', 'lutador', CAB['pirata-lutador'], partes=PARTES_LUTADOR, altura=72, igualar=True,
                trocar={'S': {5: 2}}, fecha_parado=True,
-               cores={'cabelo': (0, 0.25, 0.3)})
-    personagem('marinha-soldado', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
+               cores=None)
+    personagem('marinha-soldado', 'lutador', CAB['marinha-soldado'], partes=PARTES_LUTADOR, altura=72, igualar=True,
                trocar={'S': {5: 2}}, fecha_parado=True,
-               cores={'calca': (110, 0.9, 1.2), 'cabelo': (18, 0.6, 0.85)})
+               cores={'calca': (110, 0.9, 1.2)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
     # samurai das duas katanas no Médico e na Enfermeira (folhas já com a
     # cabeça); o da Marinha com a faixa da cintura azul-marinho
     personagem_completo('pirata-medico', 'katana', grade=True)
     personagem_completo('marinha-enfermeira', 'katana', grade=True, partes=PARTES_KATANA, cores={'roupa': (112, 0.9, 0.85)})
-    personagem('pirata-atiradora', 'atirador', 'cabeca-espetado.png', partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
-               cores={'cabelo': (112, 0.55, 0.5)})
-    personagem('marinha-atirador', 'atirador', 'cabeca-espetado.png', partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
-               cores={'roupa': (112, 2.2, 2.4), 'cabelo': (12, 0.45, 0.62)})
+    personagem('pirata-atiradora', 'atirador', CAB['pirata-atiradora'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
+               cores=None)
+    personagem('marinha-atirador', 'atirador', CAB['marinha-atirador'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
+               cores={'roupa': (112, 2.2, 2.4)})
