@@ -427,10 +427,11 @@ if __name__ == '__main__':
     # Arma de Luz (Pika Pika): o Capitão de mãos vazias, segurando a espada de
     # luz (o efeito do Effekseer vai na mão, pelas marcas de empunhadura)
     personagem('pirata-capitao-luz', 'espadachim-luz', CAB['pirata-capitao'], braco_cima=True)
+    # teste das folhas já com a cabeça desenhada: espadachim de sabre e atirador
+    personagem_completo('pirata-espadachim', 'espadachim2', altura=92)
+    personagem_completo('pirata-atiradora', 'atirador2', altura=92, ataque=(8, 3))
     # o 2º espadachim pirata (colete azul) e o espadachim da Marinha (colete
     # azul-marinho, calça clara); o 2º lutador da Marinha de calção azul-marinho
-    personagem('pirata-espadachim', 'espadachim', CAB['pirata-espadachim'], alternar=(4, 5, 6),
-               cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75)})
     personagem('marinha-almirante', 'espadachim', CAB['marinha-almirante'], alternar=(4, 5, 6),
                cores={'roupa': (112, 0.9, 0.55), 'calca': (110, 0.15, 1.6)})
     personagem('marinha-oficial', 'lutador', CAB['marinha-oficial'], partes=PARTES_LUTADOR, altura=72, igualar=True,
@@ -455,7 +456,5 @@ if __name__ == '__main__':
                cores={'roupa': (170, 1.6, 1.6)})
     personagem('marinha-enfermeira', 'espadachim', CAB['marinha-enfermeira'], alternar=(4, 5, 6),
                cores={'roupa': (100, 0.6, 1.25), 'calca': (110, 0.15, 1.6)})
-    personagem('pirata-atiradora', 'atirador', CAB['pirata-atiradora'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
-               cores=None)
     personagem('marinha-atirador', 'atirador', CAB['marinha-atirador'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
                cores={'roupa': (112, 2.2, 2.4)})
