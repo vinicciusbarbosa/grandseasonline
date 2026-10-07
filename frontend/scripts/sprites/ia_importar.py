@@ -137,6 +137,11 @@ def pescoco_pele(cp, ref):
     return (melhor[1], melhor[2]) if melhor else (ex, ey)
 
 
+# ataque: quadros em que o pescoço foi marcado à mão (x, y no corpo aparado).
+# Arma de Luz, 3º quadro: as mãos juntas sobem acima do pescoço e o toco do
+# pescoço fica escondido entre os braços
+PESCOCO_ATAQUE = {('espadachim-luz', 'S', 2): (17, 14), ('espadachim-luz', 'N', 2): (21.5, 13),
+                  ('espadachim-luz', 'E', 2): (16, 14), ('espadachim-luz', 'W', 2): (17.5, 13)}
 # chute: quadros em que o pescoço foi marcado à mão (x no corpo aparado)
 PESCOCO_CHUTE = {('S', 4): 59.5, ('N', 3): 21, ('N', 4): 21}
 
@@ -264,7 +269,7 @@ def tingir(q, partes, cores):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, alternar=()):
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, alternar=(), braco_cima=False):
     """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
     cores: {parte|'cabelo': (matiz, x saturação, x valor)} para tingir;
     partes: as partes tingíveis desse corpo (padrão: as do espadachim);
@@ -272,7 +277,9 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
     igualar: a folha do ataque foi desenhada noutro tamanho — o 1º quadro do
     ataque fica com a altura do corpo parado; alternar: quadros do andar em
     que o pé erguido é o mesmo da primeira metade do passo — de frente e de
-    costas as pernas são espelhadas (o passo passa a alternar os pés)"""
+    costas as pernas são espelhadas (o passo passa a alternar os pés);
+    braco_cima: no ataque os braços sobem acima do pescoço e ficam na frente
+    da cabeça"""
     PARTES_CORPO = partes or PARTES_ESPADACHIM
     andar = celulas(f'{corpo}-andar.png', 8)
     # escala: corpo parado (frente) com `altura` px; a cabeça tem o tamanho de
@@ -299,7 +306,9 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
     if os.path.exists(os.path.join(ORIG, f'{corpo}-atacar.png')):
         atacar = celulas(f'{corpo}-atacar.png', ataque[0])
         sa = altura / atacar[0][0].shape[0] if igualar else s
-        anims['atacar'] = {d: [ro.montar(tingir(reduzir(q, sa), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', achar=pescoco_pele) for q in atacar[i]] for i, d in enumerate(DIRS)}
+        anims['atacar'] = {d: [ro.montar(tingir(reduzir(q, sa), PARTES_CORPO, cores), cabs[d], refs[d], 'pe', braco_por_cima=braco_cima,
+                                        achar=(lambda cp, ref, p=PESCOCO_ATAQUE[(corpo, d, j)]: p) if (corpo, d, j) in PESCOCO_ATAQUE else pescoco_pele)
+                               for j, q in enumerate(atacar[i])] for i, d in enumerate(DIRS)}
         tempos['atacar'] = {'fps': 10 if ataque[0] == 6 else round(10 * ataque[0] / 6, 2), 'impacto': ataque[1]}
     # skills de akuma (6 quadros, 4 direções): 'conjurar' = Entei (braço para o
     # alto e arremesso), 'empurrar' = vaga-lumes (palmas para a frente)
@@ -374,6 +383,9 @@ PARTES_KATANA = {'roupa': (((165, 180), (0, 5)), 90, 256)}
 if __name__ == '__main__':
     # teste: o corpo novo fica no Capitão (o Espadachim volta ao do RO)
     personagem('pirata-capitao', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6))
+    # Arma de Luz (Pika Pika): o Capitão de mãos vazias, segurando a espada de
+    # luz (o efeito do Effekseer vai na mão, pelas marcas de empunhadura)
+    personagem('pirata-capitao-luz', 'espadachim-luz', 'cabeca-espetado.png', braco_cima=True)
     # variações de cor do mesmo personagem
     personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
                cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75), 'cabelo': (112, 0.45, 0.42)})

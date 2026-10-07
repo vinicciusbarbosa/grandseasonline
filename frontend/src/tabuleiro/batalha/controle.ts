@@ -88,6 +88,8 @@ export interface Palco {
    * clarão no contato; null sem o efeito
    */
   lightKick(p: Personagem): Promise<LightKick | null>
+  /** Arma de Luz no atirador: rajada de joias de luz até o alvo; false sem os efeitos */
+  rajadaLuz(p: Personagem, ate: THREE.Vector3, tiros: number): Promise<boolean>
   /**
    * Yasakani no Magatama do Effekseer: carga de luz em cada mão (braços
    * cruzados) e rajada de bolas de luz até os pontos; resolve quando metade
@@ -921,6 +923,8 @@ export class ControleBatalha {
     if (v.modo === 'especial') {
       const hits = resto.filter((x) => x.t === 'golpe').map((x) => this.palco.personagem((x as { alvo: string }).alvo)).filter((p): p is Personagem => !!p)
       await this.especial(s.id, a, origem, ate, e.casas.map((x) => this.palco.centro(x)), hits, direcaoEfeito(alvoCasa.l - c.casa.l, alvoCasa.c - c.casa.c))
+    } else if (v.modo === 'projetil' && v.efeito === 'bala' && a.forma === 'sabre' && (await this.palco.rajadaLuz(a, ate, v.tiros ?? 1))) {
+      // Arma de Luz ligada: o rifle atira joias de luz
     } else if (v.modo === 'projetil') {
       const tiros = v.tiros ?? 1
       const alvos = s.area === 'leque' ? e.casas.map((x) => this.palco.centro(x)) : Array(tiros).fill(ate)

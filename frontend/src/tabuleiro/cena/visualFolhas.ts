@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { Direcao, EstadoVisual, Haki, InfoAnim, NomeAnim, Visual } from './personagem'
+import type { Direcao, EstadoVisual, Haki, InfoAnim, NomeAnim, PontoLuz, Visual } from './personagem'
 import { atualizarLuz, materialIluminado } from './luzSprite'
 import { posicionarPixel } from './pixel'
 import { texturaSombra } from './texturas'
@@ -18,6 +18,21 @@ import { texturaSombra } from './texturas'
 
 /** `quadro`/`pe`: tamanho e pé próprios desta tira (golpes largos da LPC têm quadro maior) */
 type Folha = { arquivo: string; quadros: number; quadro?: [number, number]; pe?: [number, number] }
+
+/** marcas da Arma de Luz (luz.json, scripts/sprites/arma_luz.py): px do quadro */
+type MarcaLuz = { x: number; y: number; a?: number; c?: number; atras?: boolean }
+type DadosLuz = { tipo: 'espada' | 'punho'; anims: Partial<Record<NomeAnim, Partial<Record<Direcao, MarcaLuz[][]>>>> }
+
+async function lerJsonOpcional<T>(url: string): Promise<T | null> {
+  const u = recurso(url)
+  try {
+    if (u.startsWith('data:')) return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(u.split(',')[1]), (c) => c.charCodeAt(0)))) as T
+    const r = await fetch(u)
+    return r.ok ? ((await r.json()) as T) : null
+  } catch {
+    return null
+  }
+}
 
 type Manifesto = {
   quadro: [number, number]
@@ -88,6 +103,9 @@ export class VisualFolhas implements Visual {
   private readonly texturas = new Map<string, THREE.Texture>()
   private readonly sprite: THREE.Sprite
   private readonly sombra: THREE.Mesh
+  private luz: DadosLuz | null = null
+  /** o que foi mostrado no último quadro (para achar as marcas da Arma de Luz) */
+  private atual: { anim: NomeAnim; dir: Direcao; q: number; espelha: boolean; L: number; A: number; pe: [number, number]; camera: THREE.Camera } | null = null
 
   private constructor(base: string, man: Manifesto) {
     this.base = base
@@ -114,11 +132,37 @@ export class VisualFolhas implements Visual {
     // embutido na página: lê direto (algumas páginas bloqueiam fetch de data:)
     if (url.startsWith('data:')) {
       const texto = new TextDecoder().decode(Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0)))
-      return new VisualFolhas(base, JSON.parse(texto) as Manifesto)
+      const v = new VisualFolhas(base, JSON.parse(texto) as Manifesto)
+      v.luz = await lerJsonOpcional<DadosLuz>(`${base}luz.json`)
+      return v
     }
     const resp = await fetch(url)
     if (!resp.ok) throw new Error(`sem manifesto de ${personagem}`)
-    return new VisualFolhas(base, (await resp.json()) as Manifesto)
+    const v = new VisualFolhas(base, (await resp.json()) as Manifesto)
+    v.luz = await lerJsonOpcional<DadosLuz>(`${base}luz.json`)
+    return v
+  }
+
+  /** Arma de Luz: as marcas do quadro mostrado agora, no mundo */
+  pontosLuz() {
+    const at = this.atual
+    if (!this.luz || !at) return null
+    const lista = (this.luz.anims[at.anim] ?? this.luz.anims.parado)?.[at.dir]
+    const marcas = lista?.[Math.min(at.q, lista.length - 1)] ?? []
+    const sp = this.sprite
+    const m = at.camera.matrixWorld
+    const dir = new THREE.Vector3().setFromMatrixColumn(m, 0).normalize()
+    const cima = new THREE.Vector3().setFromMatrixColumn(m, 1).normalize()
+    const paraCamera = new THREE.Vector3().setFromMatrixColumn(m, 2).normalize()
+    const sx = Math.abs(sp.scale.x) / at.L
+    const sy = sp.scale.y / at.A
+    const pontos: PontoLuz[] = marcas.map((mk) => {
+      const x = at.espelha ? at.L - mk.x : mk.x
+      const pos = sp.position.clone().addScaledVector(dir, (x - at.pe[0]) * sx).addScaledVector(cima, (at.pe[1] - mk.y) * sy)
+      pos.addScaledVector(paraCamera, mk.atras ? -0.12 : 0.06)
+      return { pos, angulo: (at.espelha ? -1 : 1) * (mk.a ?? 0), comprimento: (mk.c ?? 0) * sy, atras: !!mk.atras }
+    })
+    return { tipo: this.luz.tipo, pontos }
   }
 
   /** chance de, a cada volta do parado, tocar uma variação (vento etc.) */
@@ -176,6 +220,7 @@ export class VisualFolhas implements Visual {
     const tira = this.tira(e.anim, dir, ciclo, e.haki)
     if (!tira) return
     const q = tira.quadros > 1 ? Math.min(tira.quadros - 1, Math.floor(fase * tira.quadros)) : 0
+    const animMostrada = this.man.anims[e.anim]?.[dir] ? e.anim : 'parado'
     const mat = this.sprite.material
     if (mat.map !== tira.t) {
       mat.map = tira.t
@@ -196,6 +241,7 @@ export class VisualFolhas implements Visual {
     atualizarLuz(mat, tira.t, espelha, peY, peY + (this.man.altura ?? 104) / A, e.luz)
     posicionarPixel(this.sprite, e.pos, L / this.densidade, A / this.densidade, camera, telaL, telaA, false, 0.45, desvio)
     if (e.escala && e.escala !== 1) this.sprite.scale.multiplyScalar(e.escala)
+    this.atual = { anim: animMostrada, dir, q: animMostrada === e.anim ? q : 0, espelha, L, A, pe: tira.pe, camera }
     this.sombra.position.set(e.pos.x, 0.012, e.pos.z)
     const s = 1 - Math.min(0.5, e.pos.y * 0.6)
     this.sombra.scale.set(s, s, 1)

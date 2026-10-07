@@ -223,11 +223,11 @@ class Malha {
   constructor(tex: THREE.Texture | null, mistura: number, ordem: number, zwrite = false) {
     const blending = mistura === 2 ? THREE.AdditiveBlending : mistura === 3 ? THREE.SubtractiveBlending : mistura === 4 ? THREE.MultiplyBlending : THREE.NormalBlending
     const mat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex } },
+      uniforms: { map: { value: tex }, brilho: { value: 1 } },
       vertexShader: `attribute vec4 cor; varying vec4 vCor; varying vec2 vUv;
         void main() { vCor = cor; vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: `uniform sampler2D map; varying vec4 vCor; varying vec2 vUv;
-        void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(t.rgb * vCor.rgb, t.a * vCor.a); }`,
+      fragmentShader: `uniform sampler2D map; uniform float brilho; varying vec4 vCor; varying vec2 vUv;
+        void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(t.rgb * vCor.rgb, min(1.0, t.a * vCor.a * brilho)); }`,
       transparent: true,
       depthWrite: zwrite,
       depthTest: true,
@@ -613,6 +613,15 @@ export class EfeitoEfk {
       ids.push(linha)
     }
     for (let j = 0; j < 2; j++) for (let k = 0; k < n; k++) m.quad(ids[j][k], ids[j][k + 1], ids[j + 1][k + 1], ids[j + 1][k])
+  }
+
+  /** multiplica a opacidade das partes que somam luz (halos), para o efeito
+   * continuar visível em tamanho bem pequeno */
+  set brilho(k: number) {
+    for (const m of this.malhas.values()) {
+      const mat = m.mesh.material as THREE.ShaderMaterial
+      if (mat.blending === THREE.AdditiveBlending) mat.uniforms.brilho.value = k
+    }
   }
 
   /** termina já (some no próximo quadro) */

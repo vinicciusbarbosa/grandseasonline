@@ -21,6 +21,9 @@ export type EstadoVisual = { anim: NomeAnim; tAnim: number; dir: Direcao; clarao
 /** Haki na arma: armamento (negro e roxo) ou o do Rei imbuído (negro e vermelho). */
 export type Haki = false | 'armamento' | 'rei'
 
+/** ponto da Arma de Luz no quadro atual (mundo): espada (ângulo na tela, comprimento) ou punho */
+export type PontoLuz = { pos: THREE.Vector3; angulo: number; comprimento: number; atras: boolean }
+
 export interface Visual {
   readonly info: Record<NomeAnim, InfoAnim>
   /** o que vai para a cena */
@@ -32,6 +35,8 @@ export interface Visual {
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number): void
   /** a animação foi desenhada para essa direção? (sem isso, cai no que houver) */
   tem?(anim: NomeAnim, dir: Direcao): boolean
+  /** Arma de Luz: onde a luz vai no quadro mostrado agora (null = sem marcas) */
+  pontosLuz?(): { tipo: 'espada' | 'punho'; pontos: PontoLuz[] } | null
 }
 const VEL_ANDAR = 1.25 // casas/s: um ciclo de passos por casa
 const VEL_CORRER = 3.1 // casas/s: ~2,5 casas por ciclo de passadas (0,8 s)

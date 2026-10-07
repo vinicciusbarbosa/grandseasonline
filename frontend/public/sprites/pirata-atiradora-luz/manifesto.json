@@ -1,0 +1,105 @@
+{
+ "quadro": [
+  150,
+  132
+ ],
+ "pe": [
+  75,
+  124
+ ],
+ "altura": 96,
+ "densidade": 0.82,
+ "tempos": {
+  "andar": {
+   "fps": 10
+  },
+  "correr": {
+   "fps": 12
+  },
+  "atacar": {
+   "fps": 13.33,
+   "impacto": 3
+  }
+ },
+ "fonte": "Gerado por IA no padr\u00e3o do Ragnarok (teste)",
+ "anims": {
+  "parado": {
+   "S": {
+    "arquivo": "parado_S.png",
+    "quadros": 1
+   },
+   "N": {
+    "arquivo": "parado_N.png",
+    "quadros": 1
+   },
+   "E": {
+    "arquivo": "parado_E.png",
+    "quadros": 1
+   },
+   "W": {
+    "arquivo": "parado_W.png",
+    "quadros": 1
+   }
+  },
+  "andar": {
+   "S": {
+    "arquivo": "andar_S.png",
+    "quadros": 8
+   },
+   "N": {
+    "arquivo": "andar_N.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "andar_E.png",
+    "quadros": 8
+   },
+   "W": {
+    "arquivo": "andar_W.png",
+    "quadros": 8
+   }
+  },
+  "correr": {
+   "S": {
+    "arquivo": "correr_S.png",
+    "quadros": 8
+   },
+   "N": {
+    "arquivo": "correr_N.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "correr_E.png",
+    "quadros": 8
+   },
+   "W": {
+    "arquivo": "correr_W.png",
+    "quadros": 8
+   }
+  },
+  "atacar": {
+   "S": {
+    "arquivo": "atacar_S.png",
+    "quadros": 8
+   },
+   "N": {
+    "arquivo": "atacar_N.png",
+    "quadros": 8
+   },
+   "E": {
+    "arquivo": "atacar_E.png",
+    "quadros": 8
+   },
+   "W": {
+    "arquivo": "atacar_W.png",
+    "quadros": 8
+   }
+  }
+ },
+ "apelidos": {
+  "SE": "E",
+  "NE": "E",
+  "SW": "W",
+  "NW": "W"
+ }
+}

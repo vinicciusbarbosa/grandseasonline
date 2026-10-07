@@ -348,6 +348,7 @@ export class CenaTabuleiro {
       Promise.all([carregarEfk('hiken'), carregarEfk('hiken-impacto')]).then(([c, i]) => (c && i ? this.hikenEfk(p, ate, c, i) : false)),
     higan: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('higan'), carregarEfk('higan-disparo'), carregarEfk('higan-impacto')]).then(([b, d, i]) => (b && d && i ? this.higanEfk(p, ate, b, d, i) : false)),
+    rajadaLuz: (p: Personagem, ate: THREE.Vector3, tiros: number) => this.rajadaLuz(p, ate, tiros),
     lightKick: (p: Personagem) =>
       Promise.all(['light-kick-carga', 'light-kick-rastro', 'light-kick-arco', 'light-kick-impacto'].map((n) => carregarEfk(n))).then(([c, r, a, i]) =>
         c && r && a && i ? this.lightKick(p, c, r, a, i) : null,
@@ -693,6 +694,91 @@ export class CenaTabuleiro {
     })
   }
 
+  /** Arma de Luz ligada: espadas de luz (ou cargas nos punhos) de cada personagem */
+  private readonly armasLuz = new Map<Personagem, EfeitoEfk[]>()
+  private dadosLuz: { espada: DadosEfk | null; carga: DadosEfk | null } | null = null
+
+  /**
+   * Arma de Luz (Pika Pika): a espada de luz do Kizaru (Effekseer) presa em
+   * cada marca do quadro mostrado agora — a empunhadura na mão, a lâmina no
+   * ângulo da pose —, ou a carga de luz do Yasakani nos punhos do lutador.
+   */
+  private atualizarArmasLuz() {
+    if (!this.dadosLuz) {
+      this.dadosLuz = { espada: null, carga: null }
+      const d = this.dadosLuz
+      void carregarEfk('espada-luz').then((x) => (d.espada = x))
+      void carregarEfk('yasakani-carga').then((x) => (d.carga = x))
+    }
+    const giro = new THREE.Quaternion()
+    const eixoZ = new THREE.Vector3(0, 0, 1)
+    for (const p of this.personagens) {
+      const marcas = p.forma === 'sabre' && !p.oculto ? p.visual.pontosLuz?.() : null
+      let efs = this.armasLuz.get(p)
+      if (!marcas) {
+        if (efs) {
+          for (const ef of efs) ef.encerrar()
+          this.armasLuz.delete(p)
+        }
+        continue
+      }
+      const dados = marcas.tipo === 'espada' ? this.dadosLuz.espada : this.dadosLuz.carga
+      if (!dados) continue
+      if (!efs) this.armasLuz.set(p, (efs = []))
+      while (efs.length < marcas.pontos.length) {
+        const ef = this.tocarEfk(marcas.tipo === 'espada' ? 'espada-luz' : 'yasakani-carga', dados, p.pos, 0.1)
+        // pequena no tabuleiro: o halo do efeito mais forte para a lâmina aparecer
+        if (marcas.tipo === 'espada') ef.brilho = 3
+        efs.push(ef)
+      }
+      efs.forEach((ef, i) => {
+        const pt = marcas.pontos[i]
+        ef.sprite.visible = !!pt
+        if (!pt) return
+        ef.sprite.position.copy(pt.pos)
+        if (marcas.tipo === 'espada') {
+          // a lâmina (+Y do efeito, 3,16 de comprimento) no plano da tela, girada como na pose
+          ef.sprite.quaternion.copy(this.camera.quaternion).multiply(giro.setFromAxisAngle(eixoZ, THREE.MathUtils.degToRad(-pt.angulo)))
+          ef.sprite.scale.setScalar(pt.comprimento / 3.16)
+        } else ef.sprite.scale.setScalar(p.visual.altura * 0.035)
+      })
+    }
+    for (const [p, efs] of this.armasLuz) {
+      if (!this.personagens.includes(p)) {
+        for (const ef of efs) ef.encerrar()
+        this.armasLuz.delete(p)
+      }
+    }
+  }
+
+  /**
+   * Tiros da Arma de Luz (atirador): rajada de joias de luz do Yasakani até o
+   * alvo, com clarão na boca do cano e impacto em cada uma. Resolve quando a
+   * última acerta; false sem os efeitos.
+   */
+  private async rajadaLuz(p: Personagem, ate: THREE.Vector3, tiros: number) {
+    const [bola, disparo, impacto] = await Promise.all(['yasakani-projetil', 'yasakani-disparo', 'yasakani-impacto'].map((n) => carregarEfk(n)))
+    if (!bola || !disparo || !impacto) return false
+    const k = p.visual.altura / 2
+    const dir = ate.clone().sub(p.pos).setY(0).normalize()
+    const boca = p.pos.clone().setY(p.visual.altura * 0.55).addScaledVector(dir, p.visual.altura * 0.35)
+    const n = 5 * tiros
+    await Promise.all(
+      Array.from({ length: n }, (_, i) => new Promise<void>((r) => setTimeout(() => {
+        const alvo = ate.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4))
+        this.tocarEfk('yasakani-disparo', disparo, boca, k * 0.3)
+        const b = this.tocarEfk('yasakani-projetil', bola, boca, k * 0.3, alvo)
+        const de = boca.clone()
+        void this.animarPor(de.distanceTo(alvo) / 16, (f) => b.sprite.position.lerpVectors(de, alvo, f)).then(() => {
+          b.encerrar()
+          this.tocarEfk('yasakani-impacto', impacto, alvo, k * 0.35)
+          r()
+        })
+      }, i * 60))),
+    )
+    return true
+  }
+
   /** efeitos presos a um ponto que anda (o pé no Light Kick): reposicionados a cada quadro */
   private presos: { ef: EfeitoEfk; onde: () => THREE.Vector3 }[] = []
 
@@ -854,7 +940,7 @@ export class CenaTabuleiro {
     const formas: Record<string, VisualFolhas> = {}
     // a fruta pode mudar na preparação: todos já carregam as duas formas
     void fruta
-    for (const [forma, folha] of [['lobo', 'ro-lobisomem'], ['agni', 'ro-agni']] as const) {
+    for (const [forma, folha] of [['lobo', 'ro-lobisomem'], ['agni', 'ro-agni'], ['sabre', `${id}-luz`]] as const) {
       try {
         formas[forma] = await VisualFolhas.carregar(folha)
       } catch {
@@ -887,6 +973,10 @@ export class CenaTabuleiro {
         p.escala = 1
         p.tinta = TINTA.gear
         if (soltar) void this.palco.efeito('vapor', 'normal', p.pos.clone().setY(p.visual.altura * (0.4 + Math.random() * 0.5)).add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0, 0)), { dur: 0.8, escala: 0.6 })
+      } else if (p.forma === 'sabre' && p.visual.pontosLuz?.()) {
+        // Arma de Luz com marcas: a luz vai na arma/punho (atualizarArmasLuz)
+        p.escala = 1
+        p.tinta = null
       } else if (p.forma === 'sabre') {
         p.escala = 1
         p.tinta = TINTA.sabre
@@ -1291,6 +1381,7 @@ export class CenaTabuleiro {
         this.cena.add(po.sprite)
       }
     }
+    this.atualizarArmasLuz()
     for (const po of this.poeiras) {
       po.atualizar(dt, this.camera, this.largura, this.altura, ESCALA_ARTE_ANTIGA)
       if (!po.vivo) this.cena.remove(po.sprite)

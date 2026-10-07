@@ -135,7 +135,7 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     elemento: 'luz',
     passiva: 'Intangível. Velocidade da luz: seus golpes não podem ser esquivados (só com observação).',
     skills: [
-      { id: 'sabre-luz', nome: 'Espada de Luz (Ama no Murakumo)', descricao: 'Liga a espada de luz por 3 vezes: +30% de ataque, golpes de luz (não gasta a vez).', energia: 20, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
+      { id: 'sabre-luz', nome: 'Arma de Luz', descricao: 'A arma vira luz por 3 vezes (espada de luz, rifle de luz, punhos de luz): +30% de ataque (não gasta a vez).', energia: 20, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
       { id: 'yasakani', nome: 'Chuva de Joias (Yasakani no Magatama)', descricao: 'Cruza os braços, carrega luz nas mãos e dispara uma rajada de joias de luz numa área 3×3 a até 6 casas.', energia: 40, recarga: 3, alcance: 6, area: 'explosao', mult: 0.85, elemento: 'luz', precisao: 100 },
       { id: 'chute-luz', nome: 'Chute da Luz', descricao: 'Chute na velocidade da luz: vai até o alvo (até 6 casas) e volta.', energia: 25, recarga: 1, alcance: 6, area: 'alvo', mult: 1.25, elemento: 'luz', precisao: 100 },
       { id: 'raio-luz', nome: 'Raio de Luz', descricao: 'Feixe em linha reta até 6 casas.', energia: 22, recarga: 1, alcance: 6, area: 'linha', mult: 0.9, elemento: 'luz', precisao: 100 },

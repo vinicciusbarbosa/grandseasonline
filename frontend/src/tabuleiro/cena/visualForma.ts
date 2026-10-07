@@ -35,6 +35,10 @@ export class VisualComForma implements Visual {
     return this.ativo.tem?.(anim, dir) ?? true
   }
 
+  pontosLuz() {
+    return this.ativo.pontosLuz?.() ?? null
+  }
+
   mostrar(e: EstadoVisual, camera: THREE.PerspectiveCamera, telaL: number, telaA: number) {
     const quer = (this.forma && this.formas[this.forma]) || this.base
     if (quer !== this.ativo) {
