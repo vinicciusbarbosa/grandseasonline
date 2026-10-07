@@ -1,0 +1,24 @@
+KIZARU — LASER CONTÍNUO DE LUZ
+
+Kizaru_Laser_Carga_Dedo.efkefc — carregar luz na ponta do dedo.
+Kizaru_Laser_Continuo.efkefc — laser reto e contínuo, frente em +Z.
+Kizaru_Laser_Disparo.efkefc — clarão curto na saída do laser.
+Kizaru_Laser_Contato.efkefc — brilho e centelhas opcionais no ponto atingido.
+
+Sem personagem, dedo ou mão modelados. Usar o encaixe do dedo do seu jogo.
+As raízes ficam imóveis. O código do jogo controla posição, direção, alcance,
+tempo de carga e duração do laser. Apenas brilhos e partículas se animam.
+
+O núcleo e o halo do laser são estáticos e retos. O glow é fino e uniforme
+ao longo do feixe; não há um halo concentrado que engrossa o meio.
+O laser mede oito unidades na escala padrão e aponta em +Z.
+Para alcance L, usar escala de Z igual a L/8.
+Carga e laser continuam ativos até o jogo encerrar suas instâncias.
+
+laser-controlador.js: controlador opcional de carga, disparo e contato.
+Tempo padrão de carga no exemplo: 0,9 segundo; pode ser alterado.
+
+Abrir .efkproj no Effekseer 1.80.7 para edição.
+Carregar .efkefc no jogo; .efk é a exportação binária legada.
+Manter Model/ e Texture/ junto aos arquivos.
+Ver INTEGRACAO.md para exemplos e orientação dos eixos.
