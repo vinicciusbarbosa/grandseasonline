@@ -191,12 +191,25 @@ def cabecas_ro(folha, linha):
     return {'S': c[0], 'N': c[4], 'W': c[2], 'E': ro.espelho(c[2])}
 
 
+def nitido(q, k=0.7):
+    """realça os detalhes depois de reduzir (olhos e boca somem no borrão)"""
+    rgb = q[..., :3].astype(np.float32)
+    borrado = cv2.GaussianBlur(rgb, (0, 0), 0.8)
+    q = q.copy()
+    q[..., :3] = np.clip(rgb + k * (rgb - borrado), 0, 255).astype(np.uint8)
+    return q
+
+
 def cabecas_ia(arq, altura):
-    """folha de cabeça da IA (frente, costas, direita, esquerda) com `altura` px.
+    """folha de cabeça da IA (frente, costas, direita, esquerda). As cabeças
+    da folha variada (cabecas/) foram desenhadas na mesma escala: todas
+    reduzidas pelo mesmo fator (rosto do mesmo tamanho; cabelo volumoso ou
+    rabo de cavalo ficam maiores, como no desenho). Nas outras, `altura` px.
     Cada cabeça ganha margem para o queixo ficar no meio (o montar centraliza)"""
     out = {}
     for d, q in zip(DIRS, celulas(arq, 4, 1)[0]):
-        q = reduzir(q, altura / q.shape[0])
+        fator = altura / 100 if arq.startswith('cabecas/') else altura / q.shape[0]
+        q = nitido(reduzir(q, fator))
         a = q[..., 3] > 0
         h = a.shape[0]
         # queixo = os pixels mais de baixo (de lado, a média da faixa de baixo
@@ -235,19 +248,22 @@ def tom_pele(q, s_max=160):
 
 
 def igualar_pele(cab, alvo, original):
-    """deixa a pele do rosto com o tom da pele do corpo (alvo). A pele é
-    achada na cabeça original (o cabelo laranja é mais saturado), antes do
-    cabelo ser tingido; `cab` é a cabeça já tingida"""
-    o = cv2.cvtColor(original[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
-    pele = (original[..., 3] > 0) & ((o[..., 0] <= 25) | (o[..., 0] >= 172)) & (o[..., 1] >= 20) & (o[..., 1] < 110) & (o[..., 2] >= 90)
+    """deixa a pele do rosto com o tom da pele do corpo (alvo: matiz,
+    saturação, valor). Só os pixels perto da cor da pele do rosto (no espaço
+    Lab) mudam — o cabelo loiro e os olhos ficam como estão —, e a diferença
+    de cor é somada, mantendo a sombra e o brilho do desenho"""
     th, ts, tv = tom_pele(original, 110)
-    hsv = cv2.cvtColor(cab[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
-    h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
-    h[pele] = (h[pele] + (alvo[0] - th)) % 180
-    sa[pele] = np.clip(sa[pele] * alvo[1] / ts, 0, 255)
-    v[pele] = np.clip(v[pele] * alvo[2] / tv, 0, 255)
+    hsv_px = lambda h, s_, v: cv2.cvtColor(np.uint8([[[h, s_, v]]]), cv2.COLOR_HSV2BGR)
+    lab_px = lambda bgr: cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB).astype(np.float32)[0, 0]
+    de = lab_px(hsv_px(th, ts, tv))
+    para = lab_px(hsv_px(*alvo))
+    lab = cv2.cvtColor(cab[..., :3], cv2.COLOR_BGR2LAB).astype(np.float32)
+    lab_o = cv2.cvtColor(original[..., :3], cv2.COLOR_BGR2LAB).astype(np.float32)
+    dist = np.linalg.norm(lab_o - de, axis=2)
+    peso = np.clip((20 - dist) / 8, 0, 1) * (original[..., 3] > 0)
+    lab += peso[..., None] * (para - de)
     out = cab.copy()
-    out[..., :3] = cv2.cvtColor(np.dstack([h, sa, v]).astype(np.uint8), cv2.COLOR_HSV2BGR)
+    out[..., :3] = cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
     return out
 
 
