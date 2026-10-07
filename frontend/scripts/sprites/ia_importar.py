@@ -269,7 +269,7 @@ def tingir(q, partes, cores):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, alternar=(), braco_cima=False):
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, alternar=(), braco_cima=False, trocar=None, fecha_parado=False):
     """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
     cores: {parte|'cabelo': (matiz, x saturação, x valor)} para tingir;
     partes: as partes tingíveis desse corpo (padrão: as do espadachim);
@@ -278,10 +278,17 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
     ataque fica com a altura do corpo parado; alternar: quadros do andar em
     que o pé erguido é o mesmo da primeira metade do passo — de frente e de
     costas as pernas são espelhadas (o passo passa a alternar os pés);
+    trocar: {dir: {quadro: quadro de onde copiar}} no andar (passo que repetia
+    o pé); fecha_parado: o último quadro do andar vira o parado (o 1º);
     braco_cima: no ataque os braços sobem acima do pescoço e ficam na frente
     da cabeça"""
     PARTES_CORPO = partes or PARTES_ESPADACHIM
     andar = celulas(f'{corpo}-andar.png', 8)
+    for i, d in enumerate(DIRS):
+        for j, de in (trocar or {}).get(d, {}).items():
+            andar[i][j] = andar[i][de]
+        if fecha_parado:
+            andar[i][-1] = andar[i][0]
     # escala: corpo parado (frente) com `altura` px; a cabeça tem o tamanho de
     # sempre (metade do corpo padrão), não cresce com um corpo maior
     s = altura / andar[0][0].shape[0]
@@ -394,8 +401,10 @@ if __name__ == '__main__':
     # lutador novo (soco) nos dois lados: o da Marinha de calção azul; a cabeça
     # é a do Capitão com outra cor de cabelo (cada um diferente)
     personagem('pirata-lutador', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
+               trocar={'S': {5: 2}}, fecha_parado=True,
                cores={'cabelo': (0, 0.25, 0.3)})
     personagem('marinha-soldado', 'lutador', 'cabeca-espetado.png', partes=PARTES_LUTADOR, altura=72, igualar=True,
+               trocar={'S': {5: 2}}, fecha_parado=True,
                cores={'calca': (110, 0.9, 1.2), 'cabelo': (18, 0.6, 0.85)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
     # samurai das duas katanas no Médico e na Enfermeira (folhas já com a
