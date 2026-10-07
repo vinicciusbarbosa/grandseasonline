@@ -88,6 +88,12 @@ export interface Palco {
    * clarão no contato; null sem o efeito
    */
   lightKick(p: Personagem): Promise<LightKick | null>
+  /**
+   * Yata no Kagami do Effekseer: quem lança vira luz e some; o raio sobe
+   * rebatendo quatro vezes acima do alvo e mergulha nele, explodindo. Resolve
+   * no impacto (o personagem volta depois); false sem os efeitos
+   */
+  yata(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Arma de Luz no atirador: rajada de joias de luz até o alvo; false sem os efeitos */
   rajadaLuz(p: Personagem, ate: THREE.Vector3, tiros: number): Promise<boolean>
   /**
@@ -158,7 +164,7 @@ const VISUAL: Record<string, Visual> = {
   'pheasant-beak': { efeito: 'gelo', modo: 'especial', escala: 1 },
   entei: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.6 },
   // Pika Pika (Kizaru)
-  'sabre-luz': { efeito: 'orbeLuz', modo: 'si', escala: 1.4 },
+  yata: { efeito: 'feixeLuz', modo: 'especial', escala: 1 },
   yasakani: { efeito: 'orbeLuz', modo: 'especial', escala: 0.5 },
   'chute-luz': { efeito: 'feixeLuz', modo: 'especial', escala: 1 },
   'raio-luz': { efeito: 'feixeLuz', modo: 'especial', escala: 0.8 },
@@ -1089,6 +1095,18 @@ export class ControleBatalha {
         )
         P.tremer(0.3)
         a.soltarPose()
+        break
+      }
+      case 'yata': {
+        // Yata no Kagami: fica amarelo, vira raio de luz (some), sobe rebatendo,
+        // mergulha no centro da área e explode; depois volta ao normal
+        const centro = casas.length ? casas.reduce((m, c) => m.add(c), new THREE.Vector3()).multiplyScalar(1 / casas.length) : ate
+        if (await P.yata(a, centro.clone().setY(0))) {
+          P.tremer(0.5)
+          break
+        }
+        void P.efeito('feixeLuz', 'normal', origem.clone().lerp(ate, 0.5), { dur: 0.4, escala: 0.6, alongar: Math.max(1, origem.distanceTo(ate) / 0.9), direcao: dir })
+        await esperar(300)
         break
       }
       case 'chute-luz': {

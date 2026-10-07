@@ -18,6 +18,8 @@ import ro_importar as ro
 ORIG = os.path.join(ro.RAIZ, 'scripts', 'modelos', 'ia')
 DIRS = ['S', 'N', 'E', 'W']  # ordem das linhas na folha
 ALTURA_CORPO = 66  # px do corpo sem cabeça (pose parada), como os corpos do RO
+# altura (px) da cabeça montada: ~42% do corpo parado (com metade ela ficava grande demais)
+TAM_CABECA = 28
 
 
 def celulas(arq, colunas, linhas=4, grade=False):
@@ -141,7 +143,9 @@ def pescoco_pele(cp, ref):
 # Arma de Luz, 3º quadro: as mãos juntas sobem acima do pescoço e o toco do
 # pescoço fica escondido entre os braços
 PESCOCO_ATAQUE = {('espadachim-luz', 'S', 2): (17, 14), ('espadachim-luz', 'N', 2): (21.5, 13),
-                  ('espadachim-luz', 'E', 2): (16, 14), ('espadachim-luz', 'W', 2): (17.5, 13)}
+                  ('espadachim-luz', 'E', 2): (16, 14), ('espadachim-luz', 'W', 2): (17.5, 13),
+                  # samurai, 5º quadro: o braço da espada sobe ao lado da cabeça
+                  ('samurai', 'S', 4): (44.5, 0), ('samurai', 'E', 4): (45, 1), ('samurai', 'W', 4): (48.5, 1)}
 # chute: quadros em que o pescoço foi marcado à mão (x no corpo aparado)
 PESCOCO_CHUTE = {('S', 4): 59.5, ('N', 3): 21, ('N', 4): 21}
 
@@ -225,6 +229,8 @@ def tom_pele(q, s_max=160):
     hsv = cv2.cvtColor(q[..., :3], cv2.COLOR_BGR2HSV).astype(np.float32)
     h, sa, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     m = (q[..., 3] > 0) & (h >= 3) & (h <= 22) & (sa >= 40) & (sa <= s_max) & (v >= 150)
+    if m.sum() < 5:  # pele mais morena/saturada: alarga a faixa
+        m = (q[..., 3] > 0) & (h >= 3) & (h <= 22) & (sa >= 40) & (v >= 110)
     return np.median(h[m]), np.median(sa[m]), np.median(v[m])
 
 
@@ -269,7 +275,7 @@ def tingir(q, partes, cores):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, alternar=(), braco_cima=False, trocar=None, fecha_parado=False):
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, alternar=(), braco_cima=False, trocar=None, fecha_parado=False, grade=False):
     """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
     cores: {parte|'cabelo': (matiz, x saturação, x valor)} para tingir;
     partes: as partes tingíveis desse corpo (padrão: as do espadachim);
@@ -283,7 +289,7 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
     braco_cima: no ataque os braços sobem acima do pescoço e ficam na frente
     da cabeça"""
     PARTES_CORPO = partes or PARTES_ESPADACHIM
-    andar = celulas(f'{corpo}-andar.png', 8)
+    andar = celulas(f'{corpo}-andar.png', 8, grade=grade)
     for i, d in enumerate(DIRS):
         for j, de in (trocar or {}).get(d, {}).items():
             andar[i][j] = andar[i][de]
@@ -292,7 +298,7 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
     # escala: corpo parado (frente) com `altura` px; a cabeça tem o tamanho de
     # sempre (metade do corpo padrão), não cresce com um corpo maior
     s = altura / andar[0][0].shape[0]
-    cabs = cabecas_ia(cabeca, round(ALTURA_CORPO * 0.5)) if isinstance(cabeca, str) else cabecas_ro(*cabeca)
+    cabs = cabecas_ia(cabeca, TAM_CABECA) if isinstance(cabeca, str) else cabecas_ro(*cabeca)
     # o rosto com o mesmo tom de pele do corpo (antes de tingir o cabelo)
     pele = tom_pele(andar[0][0])
     cabs = {d: igualar_pele(tingir(c, PARTES_CABECA, cores), pele, c) for d, c in cabs.items()}
@@ -404,12 +410,21 @@ def cabecas_sorteadas(ids):
 
 
 if __name__ == '__main__':
-    CAB = cabecas_sorteadas(['pirata-capitao', 'pirata-lutador', 'marinha-soldado', 'pirata-atiradora', 'marinha-atirador'])
+    CAB = cabecas_sorteadas(['pirata-capitao', 'pirata-lutador', 'marinha-soldado', 'pirata-atiradora', 'marinha-atirador',
+                             'pirata-medico', 'marinha-enfermeira', 'pirata-espadachim', 'marinha-almirante', 'marinha-oficial'])
     # teste: o corpo novo fica no Capitão (o Espadachim volta ao do RO)
     personagem('pirata-capitao', 'espadachim', CAB['pirata-capitao'], alternar=(4, 5, 6))
     # Arma de Luz (Pika Pika): o Capitão de mãos vazias, segurando a espada de
     # luz (o efeito do Effekseer vai na mão, pelas marcas de empunhadura)
     personagem('pirata-capitao-luz', 'espadachim-luz', CAB['pirata-capitao'], braco_cima=True)
+    # o 2º espadachim pirata (colete azul) e o espadachim da Marinha (colete
+    # azul-marinho, calça clara); o 2º lutador da Marinha de calção azul-marinho
+    personagem('pirata-espadachim', 'espadachim', CAB['pirata-espadachim'], alternar=(4, 5, 6),
+               cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75)})
+    personagem('marinha-almirante', 'espadachim', CAB['marinha-almirante'], alternar=(4, 5, 6),
+               cores={'roupa': (112, 0.9, 0.55), 'calca': (110, 0.15, 1.6)})
+    personagem('marinha-oficial', 'lutador', CAB['marinha-oficial'], partes=PARTES_LUTADOR, altura=72, igualar=True,
+               trocar={'S': {5: 2}}, fecha_parado=True, cores={'calca': (112, 0.9, 0.6)})
     # variações de cor do mesmo personagem
     personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
                cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75)})
@@ -425,10 +440,10 @@ if __name__ == '__main__':
                trocar={'S': {5: 2}}, fecha_parado=True,
                cores={'calca': (110, 0.9, 1.2)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
-    # samurai das duas katanas no Médico e na Enfermeira (folhas já com a
-    # cabeça); o da Marinha com a faixa da cintura azul-marinho
-    personagem_completo('pirata-medico', 'katana', grade=True)
-    personagem_completo('marinha-enfermeira', 'katana', grade=True, partes=PARTES_KATANA, cores={'roupa': (112, 0.9, 0.85)})
+    # samurai das duas katanas (corpo sem cabeça, com cabeça sorteada); o da
+    # Marinha com a faixa da cintura azul-marinho
+    personagem('pirata-medico', 'samurai', CAB['pirata-medico'], grade=True, igualar=True)
+    personagem('marinha-enfermeira', 'samurai', CAB['marinha-enfermeira'], grade=True, igualar=True, partes=PARTES_KATANA, cores={'roupa': (112, 0.9, 0.85)})
     personagem('pirata-atiradora', 'atirador', CAB['pirata-atiradora'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
                cores=None)
     personagem('marinha-atirador', 'atirador', CAB['marinha-atirador'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,

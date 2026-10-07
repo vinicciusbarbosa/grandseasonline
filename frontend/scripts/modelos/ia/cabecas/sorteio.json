@@ -3,5 +3,10 @@
  "pirata-lutador": 2,
  "marinha-soldado": 0,
  "pirata-atiradora": 15,
- "marinha-atirador": 23
+ "marinha-atirador": 23,
+ "pirata-medico": 5,
+ "marinha-enfermeira": 10,
+ "pirata-espadachim": 24,
+ "marinha-almirante": 4,
+ "marinha-oficial": 22
 }

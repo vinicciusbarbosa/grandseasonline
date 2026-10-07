@@ -196,7 +196,7 @@ if __name__ == '__main__':
     gravar('pirata-capitao-luz', capitao())
     for pid in ('pirata-medico', 'marinha-enfermeira'):
         gravar(pid, katanas(pid))
-    for pid in ('pirata-lutador', 'marinha-soldado'):
+    for pid in ('pirata-lutador', 'marinha-soldado', 'marinha-oficial'):
         gravar(pid, punhos(pid))
     for pid in ('pirata-atiradora', 'marinha-atirador'):
         rifle_de_luz(pid)

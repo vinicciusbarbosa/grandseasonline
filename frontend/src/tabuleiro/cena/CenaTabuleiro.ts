@@ -349,6 +349,8 @@ export class CenaTabuleiro {
     higan: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('higan'), carregarEfk('higan-disparo'), carregarEfk('higan-impacto')]).then(([b, d, i]) => (b && d && i ? this.higanEfk(p, ate, b, d, i) : false)),
     rajadaLuz: (p: Personagem, ate: THREE.Vector3, tiros: number) => this.rajadaLuz(p, ate, tiros),
+    yata: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all(['yata-feixe', 'yata-reflexo', 'yata-explosao'].map((n) => carregarEfk(n))).then(([f, r, x]) => (f && r && x ? this.yata(p, ate, f, r, x) : false)),
     lightKick: (p: Personagem) =>
       Promise.all(['light-kick-carga', 'light-kick-rastro', 'light-kick-arco', 'light-kick-impacto'].map((n) => carregarEfk(n))).then(([c, r, a, i]) =>
         c && r && a && i ? this.lightKick(p, c, r, a, i) : null,
@@ -777,6 +779,53 @@ export class CenaTabuleiro {
       }, i * 60))),
     )
     return true
+  }
+
+  /**
+   * Yata no Kagami (peças do Effekseer, como o yata-controlador.js do pacote):
+   * seis pontos — a mão de quem lança, quatro reflexões em zigue-zague acima
+   * do alvo (no plano da tela, alturas do efeito para um personagem de ~2
+   * unidades) e o impacto no chão. Cada trecho de feixe cresce de um ponto ao
+   * outro (quadros 10–22, 22–34, 34–46, 46–58 e o mergulho 66–72), com um
+   * clarão em cada reflexão e a explosão no quadro 72. Quem lança fica amarelo
+   * e some enquanto é raio; volta quando a explosão se apaga.
+   */
+  private yata(p: Personagem, ate: THREE.Vector3, feixe: DadosEfk, reflexo: DadosEfk, explosao: DadosEfk) {
+    const k = p.visual.altura / 2
+    const lado = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize()
+    const acima = (x: number, y: number) => ate.clone().addScaledVector(lado, x * k).setY(ate.y + y * k)
+    const pontos = [p.pos.clone().setY(p.visual.altura * 0.6), acima(2.1, 2.15), acima(-2.15, 3.65), acima(2.05, 5.15), acima(0, 6.65), ate.clone()]
+    const trechos: [number, number][] = [[10, 22], [22, 34], [34, 46], [46, 58], [66, 72]]
+    const ms = (q: number) => (q / 60) * 1000
+    // vira luz: amarelo forte, e some quando o raio sai
+    p.tinta = new THREE.Color(2.4, 2.1, 0.9)
+    setTimeout(() => (p.oculto = true), ms(10))
+    this.tocarEfk('yata-reflexo', reflexo, pontos[0], k)
+    trechos.forEach(([ini, fim], i) => {
+      setTimeout(() => {
+        const a = pontos[i]
+        const b = pontos[i + 1]
+        const dist = a.distanceTo(b)
+        const larg = k * (i === 4 ? 1.5 : 1)
+        const ef = this.tocarEfk('yata-feixe', feixe, a, 1)
+        ef.sprite.lookAt(b)
+        ef.sprite.scale.set(larg, larg, 0.001)
+        void this.animarPor((fim - ini) / 60, (f) => ef.sprite.scale.setZ(Math.max(0.001, dist * f)))
+        setTimeout(() => ef.encerrar(), ms((i < 4 ? 72 : 80) - ini))
+      }, ms(ini))
+    })
+    ;[22, 34, 46, 58].forEach((q, i) => setTimeout(() => this.tocarEfk('yata-reflexo', reflexo, pontos[i + 1], k), ms(q)))
+    return new Promise<boolean>((r) => {
+      setTimeout(() => {
+        this.tocarEfk('yata-explosao', explosao, ate, k)
+        r(true)
+      }, ms(72))
+      // volta ao normal quando a explosão se apaga
+      setTimeout(() => {
+        p.oculto = false
+        p.tinta = null
+      }, ms(130))
+    })
   }
 
   /** efeitos presos a um ponto que anda (o pé no Light Kick): reposicionados a cada quadro */

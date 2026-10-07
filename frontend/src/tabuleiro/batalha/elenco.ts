@@ -1,18 +1,17 @@
 /**
- * As duas tripulações do protótipo de teste: atributos, arma, Haki e
- * posição inicial. O `id` é também a pasta dos sprites (public/sprites/<id>/).
+ * As duas tripulações do protótipo de teste: classe, Haki, Akuma no Mi e
+ * posição inicial. O `id` é também a pasta dos sprites (public/sprites/<id>/);
+ * os nomes são sorteados a cada partida.
  *
- * Perfis de teste (cada um com um tipo de Haki, para comparar):
- *   Piratas — Espadachim: armamento; Lutador: armamento AVANÇADO;
- *   Atiradora: Haki do Rei (só em área); Capitão: Haki do Rei + armamento
- *   avançado (imbui o Rei no golpe) + observação.
- *   Marinha — Comandante: Haki do Rei + armamento avançado (imbui) +
- *   Logia; Oficial: armamento avançado + observação AVANÇADA (esquiva e
- *   revida); Soldado: armamento; Atirador: Haki do Rei (área).
- *   Akuma no Mi: Logia (Comandante, fumaça), Paramecia (Lutador pirata,
- *   borracha), Zoan (Soldado, bisão). Sem Haki (batem na Logia e não
- *   acertam): Enfermeira; o Atirador da Marinha só tem o Rei. Médico:
- *   só observação. Equilibrado por simulação (~52% para os piratas).
+ * Cada lado tem as quatro classes e uma repetida: piratas com dois
+ * espadachins (sabre), lutador, atirador e samurai (médico); Marinha com
+ * espadachim, dois lutadores, atirador e samurai (médico).
+ * Haki: o espadachim que comanda cada lado tem o Rei + armamento avançado
+ * (imbui o Rei no golpe); lutador pirata: armamento avançado; o lutador
+ * oficial da Marinha: armamento avançado + observação AVANÇADA (esquiva e
+ * revida); atiradores: Rei (só em área). Akuma no Mi: Logia (comandante da
+ * Marinha, fumaça), Paramecia (lutador pirata, borracha), Zoan (soldado,
+ * lobo). A samurai da Marinha não tem Haki.
  */
 
 import type { Direcao } from '../cena/personagem'
@@ -20,15 +19,24 @@ import type { TipoArma } from './armas'
 import { FRUTAS } from './armas'
 import type { Atributos, Combatente, Haki, Lado } from './regras'
 
-type Papel = 'capitao' | 'espadachim' | 'lutador' | 'atirador' | 'medico'
+/**
+ * Classe = tipo de arma: espadachim (sabre/espada), samurai (duas katanas),
+ * lutador (punhos e pernas), atirador (rifle e pistolas). Médico, cartógrafo
+ * etc. são profissões, à parte da classe.
+ */
+type Classe = 'espadachim' | 'samurai' | 'lutador' | 'atirador'
 
-const PAPEIS: Record<Papel, { hp: number; at: Atributos; arma: TipoArma; profissao?: 'medico' }> = {
-  capitao: { hp: 150, at: { atk: 26, def: 14, agl: 12, res: 12, pre: 12, dex: 12, con: 12 }, arma: 'espada' },
-  espadachim: { hp: 125, at: { atk: 30, def: 8, agl: 16, res: 8, pre: 16, dex: 16, con: 8 }, arma: 'espada' },
+const CLASSES: Record<Classe, { hp: number; at: Atributos; arma: TipoArma }> = {
+  espadachim: { hp: 135, at: { atk: 28, def: 10, agl: 14, res: 10, pre: 14, dex: 14, con: 10 }, arma: 'espada' },
+  samurai: { hp: 120, at: { atk: 30, def: 8, agl: 16, res: 8, pre: 16, dex: 16, con: 8 }, arma: 'espada' },
   lutador: { hp: 175, at: { atk: 24, def: 20, agl: 8, res: 16, pre: 8, dex: 6, con: 18 }, arma: 'maca' },
   atirador: { hp: 100, at: { atk: 22, def: 6, agl: 14, res: 6, pre: 18, dex: 14, con: 6 }, arma: 'espingarda' },
-  medico: { hp: 105, at: { atk: 14, def: 8, agl: 10, res: 8, pre: 10, dex: 8, con: 8 }, arma: 'adaga', profissao: 'medico' },
 }
+
+/** nomes sorteados a cada partida (piratas e Marinha), sem repetir */
+const NOMES = ['Dorian', 'Yuki', 'Brutus', 'Sven', 'Kenzo', 'Vargas', 'Hector', 'Ivo', 'Lucan', 'Akira', 'Rurik', 'Tomás', 'Kael', 'Bento', 'Mira', 'Otto', 'Ravi', 'Saga', 'Teodoro', 'Zeca', 'Iori', 'Gunnar', 'Lia', 'Marco']
+const sorteados = [...NOMES].sort(() => Math.random() - 0.5)
+const nome = (k: number) => sorteados[k % sorteados.length]
 
 const semHaki: Haki = { overall: 0, armamento: null, observacao: null, rei: false }
 const haki = (overall: number, arm: [number, boolean] | null, obs: [number, boolean] | null, rei = false): Haki => ({
@@ -41,7 +49,8 @@ const haki = (overall: number, arm: [number, boolean] | null, obs: [number, bool
 export type Membro = {
   id: string
   nome: string
-  papel: Papel
+  classe: Classe
+  profissao?: 'medico'
   lado: Lado
   casa: { l: number; c: number }
   dir: Direcao
@@ -54,25 +63,25 @@ export type Membro = {
 /** 5 piratas no navio de cima (linhas 0–4) contra 5 da Marinha (5–9), em
  * formações espelhadas (a de cima deslocada uma coluna vencia 68% das vezes). */
 export const TRIPULACOES: Membro[] = [
-  { id: 'pirata-capitao', nome: 'Capitão', papel: 'capitao', lado: 'piratas', casa: { l: 3, c: 9 }, dir: 'S', haki: haki(70, [6, true], [3, false], true) },
-  { id: 'pirata-espadachim', nome: 'Espadachim', papel: 'espadachim', lado: 'piratas', casa: { l: 4, c: 7 }, dir: 'S', haki: haki(35, [4, false], null) },
-  { id: 'pirata-lutador', nome: 'Lutador', papel: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'borracha' },
-  { id: 'pirata-atiradora', nome: 'Atiradora', papel: 'atirador', lado: 'piratas', casa: { l: 2, c: 6 }, dir: 'S', haki: haki(50, null, null, true) },
-  { id: 'pirata-medico', nome: 'Médico', papel: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, null, [3, false]) },
-  { id: 'marinha-almirante', nome: 'Comandante', papel: 'capitao', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true], null, true), akuma: 'fumaca', cargasLogia: 3 },
-  { id: 'marinha-oficial', nome: 'Oficial', papel: 'espadachim', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [3, true]) },
-  { id: 'marinha-soldado', nome: 'Soldado', papel: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'lobo' },
-  { id: 'marinha-atirador', nome: 'Atirador', papel: 'atirador', lado: 'marinha', casa: { l: 7, c: 6 }, dir: 'N', haki: haki(50, null, null, true) },
-  { id: 'marinha-enfermeira', nome: 'Enfermeira', papel: 'medico', lado: 'marinha', casa: { l: 7, c: 12 }, dir: 'N' },
+  { id: 'pirata-capitao', nome: nome(0), classe: 'espadachim', lado: 'piratas', casa: { l: 3, c: 9 }, dir: 'S', haki: haki(70, [6, true], [3, false], true) },
+  { id: 'pirata-espadachim', nome: nome(1), classe: 'espadachim', lado: 'piratas', casa: { l: 4, c: 7 }, dir: 'S', haki: haki(35, [4, false], null) },
+  { id: 'pirata-lutador', nome: nome(2), classe: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'borracha' },
+  { id: 'pirata-atiradora', nome: nome(3), classe: 'atirador', lado: 'piratas', casa: { l: 2, c: 6 }, dir: 'S', haki: haki(50, null, null, true) },
+  { id: 'pirata-medico', nome: nome(4), classe: 'samurai', profissao: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, null, [3, false]) },
+  { id: 'marinha-almirante', nome: nome(5), classe: 'espadachim', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true], null, true), akuma: 'fumaca', cargasLogia: 3 },
+  { id: 'marinha-oficial', nome: nome(6), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [3, true]) },
+  { id: 'marinha-soldado', nome: nome(7), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'lobo' },
+  { id: 'marinha-atirador', nome: nome(8), classe: 'atirador', lado: 'marinha', casa: { l: 7, c: 6 }, dir: 'N', haki: haki(50, null, null, true) },
+  { id: 'marinha-enfermeira', nome: nome(9), classe: 'samurai', profissao: 'medico', lado: 'marinha', casa: { l: 7, c: 12 }, dir: 'N' },
 ]
 
 export function combatentesIniciais(): Combatente[] {
   return TRIPULACOES.map((m) => {
-    const p = PAPEIS[m.papel]
+    const p = CLASSES[m.classe]
     return {
       id: m.id,
       nome: m.nome,
-      papel: m.papel,
+      papel: m.classe,
       lado: m.lado,
       casa: { ...m.casa },
       hp: p.hp,
@@ -81,7 +90,7 @@ export function combatentesIniciais(): Combatente[] {
       espirito: 0,
       at: { ...p.at },
       arma: p.arma,
-      profissao: p.profissao,
+      profissao: m.profissao,
       haki: structuredClone(m.haki ?? semHaki),
       akuma: m.akuma ? { fruta: m.akuma, transformado: 0 } : null,
       logia: m.cargasLogia ? { cargas: m.cargasLogia, max: m.cargasLogia } : null,

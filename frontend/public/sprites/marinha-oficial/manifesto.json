@@ -10,35 +10,34 @@
  "altura": 96,
  "densidade": 0.82,
  "tempos": {
-  "atacar": {
-   "fps": 9,
-   "impacto": 2
+  "andar": {
+   "fps": 10
   },
-  "dano": {
-   "fps": 7
+  "correr": {
+   "fps": 12
+  },
+  "atacar": {
+   "fps": 10,
+   "impacto": 3
   }
  },
- "fonte": "TESTE \u2014 arte do Ragnarok Online (Gravity); n\u00e3o vai para a vers\u00e3o final",
+ "fonte": "Gerado por IA no padr\u00e3o do Ragnarok (teste)",
  "anims": {
   "parado": {
    "S": {
     "arquivo": "parado_S.png",
     "quadros": 1
    },
-   "SE": {
-    "arquivo": "parado_SE.png",
+   "N": {
+    "arquivo": "parado_N.png",
     "quadros": 1
    },
    "E": {
     "arquivo": "parado_E.png",
     "quadros": 1
    },
-   "NE": {
-    "arquivo": "parado_NE.png",
-    "quadros": 1
-   },
-   "N": {
-    "arquivo": "parado_N.png",
+   "W": {
+    "arquivo": "parado_W.png",
     "quadros": 1
    }
   },
@@ -47,20 +46,16 @@
     "arquivo": "andar_S.png",
     "quadros": 8
    },
-   "SE": {
-    "arquivo": "andar_SE.png",
+   "N": {
+    "arquivo": "andar_N.png",
     "quadros": 8
    },
    "E": {
     "arquivo": "andar_E.png",
     "quadros": 8
    },
-   "NE": {
-    "arquivo": "andar_NE.png",
-    "quadros": 8
-   },
-   "N": {
-    "arquivo": "andar_N.png",
+   "W": {
+    "arquivo": "andar_W.png",
     "quadros": 8
    }
   },
@@ -69,66 +64,42 @@
     "arquivo": "correr_S.png",
     "quadros": 8
    },
-   "SE": {
-    "arquivo": "correr_SE.png",
+   "N": {
+    "arquivo": "correr_N.png",
     "quadros": 8
    },
    "E": {
     "arquivo": "correr_E.png",
     "quadros": 8
    },
-   "NE": {
-    "arquivo": "correr_NE.png",
+   "W": {
+    "arquivo": "correr_W.png",
     "quadros": 8
-   },
-   "N": {
-    "arquivo": "correr_N.png",
-    "quadros": 8
-   }
-  },
-  "dano": {
-   "S": {
-    "arquivo": "dano_S.png",
-    "quadros": 2
-   },
-   "SE": {
-    "arquivo": "dano_SE.png",
-    "quadros": 2
-   },
-   "E": {
-    "arquivo": "dano_E.png",
-    "quadros": 2
-   },
-   "NE": {
-    "arquivo": "dano_NE.png",
-    "quadros": 2
-   },
-   "N": {
-    "arquivo": "dano_N.png",
-    "quadros": 2
    }
   },
   "atacar": {
    "S": {
     "arquivo": "atacar_S.png",
-    "quadros": 5
-   },
-   "SE": {
-    "arquivo": "atacar_SE.png",
-    "quadros": 5
-   },
-   "E": {
-    "arquivo": "atacar_E.png",
-    "quadros": 5
-   },
-   "NE": {
-    "arquivo": "atacar_NE.png",
-    "quadros": 5
+    "quadros": 6
    },
    "N": {
     "arquivo": "atacar_N.png",
-    "quadros": 5
+    "quadros": 6
+   },
+   "E": {
+    "arquivo": "atacar_E.png",
+    "quadros": 6
+   },
+   "W": {
+    "arquivo": "atacar_W.png",
+    "quadros": 6
    }
   }
+ },
+ "apelidos": {
+  "SE": "E",
+  "NE": "E",
+  "SW": "W",
+  "NW": "W"
  }
 }
