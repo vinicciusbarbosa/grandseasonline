@@ -360,11 +360,14 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
     print(pid, {n: len(v['S']) for n, v in anims.items()})
 
 
-def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(6, 3), grade=False):
+def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(6, 3), grade=False, hd=2):
     """folhas que já vêm com a cabeça desenhada (sem encaixe de cabeça nem
     de pele): andar (8 quadros) e atacar. altura: px da figura parada de
     frente; o 1º quadro do ataque fica com a mesma altura. O quadro fica preso
-    pelo centro do tronco (o cabelo e as espadas não puxam a figura)"""
+    pelo centro do tronco (o cabelo e as espadas não puxam a figura).
+    hd: a folha é gravada em hd× (o rosto e os olhos ficam com o detalhe do
+    desenho; reduzir até o tamanho do tabuleiro borrava a expressão)"""
+    altura *= hd
     andar = celulas(f'{corpo}-andar.png', 8, grade=grade)
     s = altura / andar[0][0].shape[0]
     atacar = celulas(f'{corpo}-atacar.png', ataque[0]) if os.path.exists(os.path.join(ORIG, f'{corpo}-atacar.png')) else None
@@ -378,8 +381,8 @@ def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(
         cols = np.nonzero(faixa.any(0))[0]
         xs = np.nonzero(faixa)[1]
         cx = float(np.median(xs)) if len(xs) else q.shape[1] / 2
-        out = np.zeros((ro.A, ro.L, 4), np.uint8)
-        ro.pintar(out, q, int(round(ro.PE[0] - cx)), ro.PE[1] - h)
+        out = np.zeros((ro.A * hd, ro.L * hd, 4), np.uint8)
+        ro.pintar(out, q, int(round(ro.PE[0] * hd - cx)), ro.PE[1] * hd - h)
         return out
 
     anims = {'parado': {}, 'andar': {}, 'correr': {}}
@@ -395,7 +398,7 @@ def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(
     if atacar:
         anims['atacar'] = {d: [pronto(q, sa) for q in atacar[i]] for i, d in enumerate(DIRS)}
         tempos['atacar'] = {'fps': 10 if ataque[0] == 6 else round(10 * ataque[0] / 6, 2), 'impacto': ataque[1]}
-    ro.gravar(pid, anims, tempos, 0.82, 'Gerado por IA no padrão do Ragnarok (teste)')
+    ro.gravar(pid, anims, tempos, 0.82, 'Gerado por IA no padrão do Ragnarok (teste)', hd=hd)
     arq = os.path.join(ro.SPR, pid, 'manifesto.json')
     man = json.load(open(arq))
     man['apelidos'] = {'SE': 'E', 'NE': 'E', 'SW': 'W', 'NW': 'W'}

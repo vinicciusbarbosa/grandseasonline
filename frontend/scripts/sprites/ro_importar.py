@@ -246,7 +246,7 @@ def tingir(rgba, de_h=(0, 25), para_h=108, max_v=165, sat_min=40):
     return out
 
 
-def gravar(pid, anims, tempos, densidade, fonte, altura=96):
+def gravar(pid, anims, tempos, densidade, fonte, altura=96, hd=1):
     D = os.path.join(SPR, pid)
     os.makedirs(D, exist_ok=True)
     for f in os.listdir(D):
@@ -259,7 +259,9 @@ def gravar(pid, anims, tempos, densidade, fonte, altura=96):
             arq = f'{nome}_{d}.png'
             cv2.imwrite(os.path.join(D, arq), np.hstack(quadros))
             man[nome][d] = {'arquivo': arq, 'quadros': len(quadros)}
-    json.dump({'quadro': [L, A], 'pe': list(PE), 'altura': altura, 'densidade': densidade, 'tempos': tempos,
+    # hd: folha em resolução hd× (quadro, pé, altura e densidade escalam junto:
+    # o tamanho na tela é o mesmo, com hd× mais detalhe ao aproximar)
+    json.dump({'quadro': [L * hd, A * hd], 'pe': [PE[0] * hd, PE[1] * hd], 'altura': altura * hd, 'densidade': densidade * hd, 'tempos': tempos,
                'fonte': fonte, 'anims': man}, open(os.path.join(D, 'manifesto.json'), 'w'), indent=1)
 
 
