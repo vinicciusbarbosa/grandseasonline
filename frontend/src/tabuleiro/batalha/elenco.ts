@@ -3,15 +3,15 @@
  * posição inicial. O `id` é também a pasta dos sprites (public/sprites/<id>/);
  * os nomes são sorteados a cada partida.
  *
- * Cada lado tem as quatro classes e uma repetida: piratas com dois
- * espadachins (sabre), lutador, atirador e samurai (médico); Marinha com
- * espadachim, dois lutadores, atirador e samurai (médico).
+ * Cada lado tem as três classes e repetidas: piratas com dois espadachins,
+ * lutador e dois atiradores (um é o médico); Marinha com dois espadachins
+ * (um é o médico), dois lutadores e atirador.
  * Haki: o espadachim que comanda cada lado tem o Rei + armamento avançado
  * (imbui o Rei no golpe); lutador pirata: armamento avançado; o lutador
  * oficial da Marinha: armamento avançado + observação AVANÇADA (esquiva e
  * revida); atiradores: Rei (só em área). Akuma no Mi: Logia (comandante da
  * Marinha, fumaça), Paramecia (lutador pirata, borracha), Zoan (soldado,
- * lobo). A samurai da Marinha não tem Haki.
+ * lobo). O médico da Marinha não tem Haki.
  */
 
 import type { Direcao } from '../cena/personagem'
@@ -20,15 +20,14 @@ import { FRUTAS } from './armas'
 import type { Atributos, Combatente, Haki, Lado } from './regras'
 
 /**
- * Classe = tipo de arma: espadachim (sabre/espada), samurai (duas katanas),
- * lutador (punhos e pernas), atirador (rifle e pistolas). Médico, cartógrafo
+ * Classe = tipo de arma: espadachim (sabre/espada), lutador (punhos e
+ * pernas), atirador (rifle e pistolas). Médico, cartógrafo
  * etc. são profissões, à parte da classe.
  */
-type Classe = 'espadachim' | 'samurai' | 'lutador' | 'atirador'
+type Classe = 'espadachim' | 'lutador' | 'atirador'
 
 const CLASSES: Record<Classe, { hp: number; at: Atributos; arma: TipoArma }> = {
   espadachim: { hp: 135, at: { atk: 28, def: 10, agl: 14, res: 10, pre: 14, dex: 14, con: 10 }, arma: 'espada' },
-  samurai: { hp: 120, at: { atk: 30, def: 8, agl: 16, res: 8, pre: 16, dex: 16, con: 8 }, arma: 'espada' },
   lutador: { hp: 175, at: { atk: 24, def: 20, agl: 8, res: 16, pre: 8, dex: 6, con: 18 }, arma: 'maca' },
   atirador: { hp: 100, at: { atk: 22, def: 6, agl: 14, res: 6, pre: 18, dex: 14, con: 6 }, arma: 'espingarda' },
 }
@@ -67,12 +66,12 @@ export const TRIPULACOES: Membro[] = [
   { id: 'pirata-espadachim', nome: nome(1), classe: 'espadachim', lado: 'piratas', casa: { l: 4, c: 7 }, dir: 'S', haki: haki(35, [4, false], null) },
   { id: 'pirata-lutador', nome: nome(2), classe: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'borracha' },
   { id: 'pirata-atiradora', nome: nome(3), classe: 'atirador', lado: 'piratas', casa: { l: 2, c: 6 }, dir: 'S', haki: haki(50, null, null, true) },
-  { id: 'pirata-medico', nome: nome(4), classe: 'samurai', profissao: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, null, [3, false]) },
+  { id: 'pirata-medico', nome: nome(4), classe: 'atirador', profissao: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, null, [3, false]) },
   { id: 'marinha-almirante', nome: nome(5), classe: 'espadachim', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true], null, true), akuma: 'fumaca', cargasLogia: 3 },
   { id: 'marinha-oficial', nome: nome(6), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [3, true]) },
   { id: 'marinha-soldado', nome: nome(7), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'lobo' },
   { id: 'marinha-atirador', nome: nome(8), classe: 'atirador', lado: 'marinha', casa: { l: 7, c: 6 }, dir: 'N', haki: haki(50, null, null, true) },
-  { id: 'marinha-enfermeira', nome: nome(9), classe: 'samurai', profissao: 'medico', lado: 'marinha', casa: { l: 7, c: 12 }, dir: 'N' },
+  { id: 'marinha-enfermeira', nome: nome(9), classe: 'espadachim', profissao: 'medico', lado: 'marinha', casa: { l: 7, c: 12 }, dir: 'N' },
 ]
 
 export function combatentesIniciais(): Combatente[] {

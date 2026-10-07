@@ -67,29 +67,6 @@ def angulo(de, para):
     return float(np.degrees(np.arctan2(v[0], -v[1])))
 
 
-def katanas(pid):
-    """as espadas de luz por cima das katanas: uma por lâmina achada"""
-    luz = {}
-    for anim in ('andar', 'atacar'):
-        luz[anim] = {}
-        for d, qs in folha(pid, anim):
-            fr = []
-            for q in qs:
-                pts = [{'x': round(float(a[0]), 1), 'y': round(float(a[1]), 1), 'a': round(angulo(a, b), 1),
-                        'c': round(comp * 1.12, 1)} for a, b, comp in laminas(q)]
-                # lâmina escondida neste quadro (atrás do corpo, cruzada): a do quadro anterior
-                if fr and len(pts) < len(fr[-1]):
-                    pts += fr[-1][len(pts):]
-                fr.append(pts)
-            # o 1º quadro sem as duas: as do último
-            if fr and len(fr[0]) < max(len(p) for p in fr):
-                fr[0] = max(fr, key=len)
-            luz[anim][d] = fr
-    luz['correr'] = luz['andar']
-    luz['parado'] = {d: v[:1] for d, v in luz['andar'].items()}
-    return {'tipo': 'espada', 'anims': luz}
-
-
 def punhos(pid):
     """lutador: as duas pontas do corpo na altura dos braços (os punhos)"""
     luz = {}
@@ -194,9 +171,7 @@ def gravar(pid, dados):
 
 if __name__ == '__main__':
     gravar('pirata-capitao-luz', capitao())
-    for pid in ('pirata-medico', 'marinha-enfermeira'):
-        gravar(pid, katanas(pid))
     for pid in ('pirata-lutador', 'marinha-soldado', 'marinha-oficial'):
         gravar(pid, punhos(pid))
-    for pid in ('pirata-atiradora', 'marinha-atirador'):
+    for pid in ('pirata-atiradora', 'marinha-atirador', 'pirata-medico'):
         rifle_de_luz(pid)

@@ -143,9 +143,7 @@ def pescoco_pele(cp, ref):
 # Arma de Luz, 3º quadro: as mãos juntas sobem acima do pescoço e o toco do
 # pescoço fica escondido entre os braços
 PESCOCO_ATAQUE = {('espadachim-luz', 'S', 2): (17, 14), ('espadachim-luz', 'N', 2): (21.5, 13),
-                  ('espadachim-luz', 'E', 2): (16, 14), ('espadachim-luz', 'W', 2): (17.5, 13),
-                  # samurai, 5º quadro: o braço da espada sobe ao lado da cabeça
-                  ('samurai', 'S', 4): (44.5, 0), ('samurai', 'E', 4): (45, 1), ('samurai', 'W', 4): (48.5, 1)}
+                  ('espadachim-luz', 'E', 2): (16, 14), ('espadachim-luz', 'W', 2): (17.5, 13)}
 # chute: quadros em que o pescoço foi marcado à mão (x no corpo aparado)
 PESCOCO_CHUTE = {('S', 4): 59.5, ('N', 3): 21, ('N', 4): 21}
 
@@ -405,10 +403,6 @@ def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(
     print(pid, {n: len(v['S']) for n, v in anims.items()})
 
 
-# samurai das duas katanas: a faixa vinho da cintura
-PARTES_KATANA = {'roupa': (((165, 180), (0, 5)), 90, 256)}
-
-
 def cabecas_sorteadas(ids):
     """teste: uma cabeça de cabecas/ (28, cabecas-variadas.png) sorteada para
     cada personagem, sem repetir. O sorteio fica guardado em sorteio.json
@@ -447,8 +441,7 @@ if __name__ == '__main__':
     personagem('espadachim-verde', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
                cores={'roupa': (60, 0.7, 0.8), 'calca': (16, 0.55, 1.35)})
     # lutador novo (soco) nos dois lados: o da Marinha de calção azul. As
-    # cabeças (Capitão, Lutador, Soldado, Atiradora, Atirador) são sorteadas;
-    # o samurai das katanas já vem com a dele
+    # cabeças são sorteadas
     personagem('pirata-lutador', 'lutador', CAB['pirata-lutador'], partes=PARTES_LUTADOR, altura=72, igualar=True,
                trocar={'S': {5: 2}}, fecha_parado=True,
                cores=None)
@@ -456,10 +449,12 @@ if __name__ == '__main__':
                trocar={'S': {5: 2}}, fecha_parado=True,
                cores={'calca': (110, 0.9, 1.2)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
-    # samurai das duas katanas (corpo sem cabeça, com cabeça sorteada); o da
-    # Marinha com a faixa da cintura azul-marinho
-    personagem('pirata-medico', 'samurai', CAB['pirata-medico'], grade=True, igualar=True)
-    personagem('marinha-enfermeira', 'samurai', CAB['marinha-enfermeira'], grade=True, igualar=True, partes=PARTES_KATANA, cores={'roupa': (112, 0.9, 0.85)})
+    # os médicos (profissão): atirador de capa vinho nos piratas, espadachim
+    # de colete azul-claro na Marinha
+    personagem('pirata-medico', 'atirador', CAB['pirata-medico'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
+               cores={'roupa': (170, 1.6, 1.6)})
+    personagem('marinha-enfermeira', 'espadachim', CAB['marinha-enfermeira'], alternar=(4, 5, 6),
+               cores={'roupa': (100, 0.6, 1.25), 'calca': (110, 0.15, 1.6)})
     personagem('pirata-atiradora', 'atirador', CAB['pirata-atiradora'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
                cores=None)
     personagem('marinha-atirador', 'atirador', CAB['marinha-atirador'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
