@@ -154,6 +154,28 @@ def pescoco_topo(cp, ref):
     return float(np.nonzero((lab == k).any(0))[0].mean()), y
 
 
+def trocar_pernas(q, corte=0.7):
+    """espelha as pernas do joelho para baixo em volta do meio dos pés: o pé
+    que estava erguido passa a ser o outro. Só a faixa das pernas (a espada
+    pendurada ao lado fica onde está)"""
+    q = q.copy()
+    h = q.shape[0]
+    y0 = int(h * corte)
+    pes = q[h - 10:, :, 3] > 20
+    xs = np.nonzero(pes.any(0))[0]
+    if not len(xs):
+        return q
+    cx = (xs.min() + xs.max()) / 2
+    w = int(np.ceil(max(cx - xs.min(), xs.max() - cx))) + 2
+    x0, x1 = int(round(cx - w)), int(round(cx + w))
+    if x0 < 0 or x1 > q.shape[1]:
+        q = np.pad(q, ((0, 0), (max(0, -x0), max(0, x1 - q.shape[1])), (0, 0)))
+        d = max(0, -x0)
+        x0, x1 = x0 + d, x1 + d
+    q[y0:, x0:x1] = q[y0:, x0:x1][:, ::-1]
+    return q
+
+
 def cabecas_ro(folha, linha):
     """cabeça do RO (S, SO, O, NO, N) -> frente, costas, direita (espelho), esquerda"""
     c = ro.cabecas(folha, linha)
@@ -242,13 +264,15 @@ def tingir(q, partes, cores):
     return out
 
 
-def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False):
+def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altura=ALTURA_CORPO, ataque=(6, 3), igualar=False, alternar=()):
     """cabeca: ('cabecas-N.png', linha) do RO ou 'arquivo.png' gerado por IA.
     cores: {parte|'cabelo': (matiz, x saturação, x valor)} para tingir;
     partes: as partes tingíveis desse corpo (padrão: as do espadachim);
     altura: px do corpo parado; ataque: (quadros da folha, quadro do impacto);
     igualar: a folha do ataque foi desenhada noutro tamanho — o 1º quadro do
-    ataque fica com a altura do corpo parado"""
+    ataque fica com a altura do corpo parado; alternar: quadros do andar em
+    que o pé erguido é o mesmo da primeira metade do passo — de frente e de
+    costas as pernas são espelhadas (o passo passa a alternar os pés)"""
     PARTES_CORPO = partes or PARTES_ESPADACHIM
     andar = celulas(f'{corpo}-andar.png', 8)
     # escala: corpo parado (frente) com `altura` px; a cabeça tem o tamanho de
@@ -262,6 +286,8 @@ def personagem(pid, corpo, cabeca, densidade=0.82, cores=None, partes=None, altu
     refs = {}
     for i, d in enumerate(DIRS):
         qs = [tingir(reduzir(q, s), PARTES_CORPO, cores) for q in andar[i]]
+        if d in ('S', 'N'):
+            qs = [trocar_pernas(q) if j in alternar else q for j, q in enumerate(qs)]
         ref = refs[d] = ro.pescoco_parado(qs[0])
         # corpo da IA se inclina mais no golpe: procura o pescoço numa faixa larga
         # sobre: a cabeça desce 8 px no pescoço (o toco da IA é mais largo que o queixo de lado)
@@ -347,11 +373,11 @@ PARTES_KATANA = {'roupa': (((165, 180), (0, 5)), 90, 256)}
 
 if __name__ == '__main__':
     # teste: o corpo novo fica no Capitão (o Espadachim volta ao do RO)
-    personagem('pirata-capitao', 'espadachim', 'cabeca-espetado.png')
+    personagem('pirata-capitao', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6))
     # variações de cor do mesmo personagem
-    personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png',
+    personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
                cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75), 'cabelo': (112, 0.45, 0.42)})
-    personagem('espadachim-verde', 'espadachim', 'cabeca-espetado.png',
+    personagem('espadachim-verde', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
                cores={'roupa': (60, 0.7, 0.8), 'calca': (16, 0.55, 1.35), 'cabelo': (24, 0.3, 1.2)})
     # lutador novo (soco) nos dois lados: o da Marinha de calção azul; a cabeça
     # é a do Capitão com outra cor de cabelo (cada um diferente)
