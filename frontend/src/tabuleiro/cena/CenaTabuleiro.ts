@@ -349,6 +349,10 @@ export class CenaTabuleiro {
     higan: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('higan'), carregarEfk('higan-disparo'), carregarEfk('higan-impacto')]).then(([b, d, i]) => (b && d && i ? this.higanEfk(p, ate, b, d, i) : false)),
     rajadaLuz: (p: Personagem, ate: THREE.Vector3, tiros: number) => this.rajadaLuz(p, ate, tiros),
+    laser: (p: Personagem, fim: THREE.Vector3, contatos: THREE.Vector3[]) =>
+      Promise.all(['laser-carga', 'laser-continuo', 'laser-disparo', 'laser-contato'].map((n) => carregarEfk(n))).then(([c, l, d, x]) =>
+        c && l && d && x ? this.laser(p, fim, contatos, c, l, d, x) : false,
+      ),
     yata: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all(['yata-feixe', 'yata-reflexo', 'yata-explosao'].map((n) => carregarEfk(n))).then(([f, r, x]) => (f && r && x ? this.yata(p, ate, f, r, x) : false)),
     lightKick: (p: Personagem) =>
@@ -779,6 +783,40 @@ export class CenaTabuleiro {
       }, i * 60))),
     )
     return true
+  }
+
+  /**
+   * Laser de Luz (efeitos do Effekseer, feitos para um personagem de ~2
+   * unidades): a carga fica na ponta do dedo por 0,9 s; no disparo, clarão no
+   * dedo e o laser contínuo (+Z, 8 de comprimento no editor) esticado até o
+   * fim da linha, com o brilho de contato em cada alvo atingido. O laser fica
+   * aceso ~1 s e apaga.
+   */
+  private laser(p: Personagem, fim: THREE.Vector3, contatos: THREE.Vector3[], carga: DadosEfk, laser: DadosEfk, disparo: DadosEfk, contato: DadosEfk) {
+    const k = p.visual.altura / 2
+    const dir = fim.clone().sub(p.pos).setY(0).normalize()
+    const dedo = p.pos.clone().setY(p.visual.altura * 0.6).addScaledVector(dir, p.visual.altura * 0.3)
+    const c = this.tocarEfk('laser-carga', carga, dedo, k * 0.45)
+    return new Promise<boolean>((r) => {
+      setTimeout(() => {
+        c.encerrar()
+        this.tocarEfk('laser-disparo', disparo, dedo, k * 0.5)
+        const l = this.tocarEfk('laser-continuo', laser, dedo, 1)
+        l.sprite.lookAt(fim)
+        const larg = k * 0.45
+        l.sprite.scale.set(larg, larg, dedo.distanceTo(fim) / 8)
+        const brilhos = contatos.map((pt) => {
+          const ef = this.tocarEfk('laser-contato', contato, pt, k * 0.45)
+          ef.sprite.lookAt(pt.clone().add(pt.clone().sub(dedo)))
+          return ef
+        })
+        r(true)
+        setTimeout(() => {
+          l.encerrar()
+          for (const b of brilhos) b.encerrar()
+        }, 1000)
+      }, 900)
+    })
   }
 
   /**

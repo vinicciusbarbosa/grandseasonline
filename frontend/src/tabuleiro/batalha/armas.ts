@@ -138,7 +138,7 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
       { id: 'yata', nome: 'Yata no Kagami', descricao: 'Vira um raio de luz: sobe rebatendo no ar e mergulha no chão numa área 3×3 a até 6 casas, explodindo.', energia: 35, recarga: 3, alcance: 6, area: 'explosao', mult: 1.2, elemento: 'luz', precisao: 100 },
       { id: 'yasakani', nome: 'Chuva de Joias (Yasakani no Magatama)', descricao: 'Cruza os braços, carrega luz nas mãos e dispara uma rajada de joias de luz numa área 3×3 a até 6 casas.', energia: 40, recarga: 3, alcance: 6, area: 'explosao', mult: 0.85, elemento: 'luz', precisao: 100 },
       { id: 'chute-luz', nome: 'Chute da Luz', descricao: 'Chute na velocidade da luz: vai até o alvo (até 6 casas) e volta.', energia: 25, recarga: 1, alcance: 6, area: 'alvo', mult: 1.25, elemento: 'luz', precisao: 100 },
-      { id: 'raio-luz', nome: 'Raio de Luz', descricao: 'Feixe em linha reta até 6 casas.', energia: 22, recarga: 1, alcance: 6, area: 'linha', mult: 0.9, elemento: 'luz', precisao: 100 },
+      { id: 'raio-luz', nome: 'Raio de Luz', descricao: 'Carrega luz na ponta do dedo e dispara um laser em linha reta até 6 casas.', energia: 22, recarga: 1, alcance: 6, area: 'linha', mult: 0.9, elemento: 'luz', precisao: 100 },
     ],
   },
   gelo: {

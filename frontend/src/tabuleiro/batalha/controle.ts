@@ -89,6 +89,12 @@ export interface Palco {
    */
   lightKick(p: Personagem): Promise<LightKick | null>
   /**
+   * Laser de Luz do Effekseer: carga no dedo (~0,9 s), clarão do disparo e o
+   * laser contínuo até `fim`, com o brilho de contato em cada alvo. Resolve
+   * quando o laser acende (o feixe some sozinho depois); false sem os efeitos
+   */
+  laser(p: Personagem, fim: THREE.Vector3, contatos: THREE.Vector3[]): Promise<boolean>
+  /**
    * Yata no Kagami do Effekseer: quem lança vira luz e some; o raio sobe
    * rebatendo quatro vezes acima do alvo e mergulha nele, explodindo. Resolve
    * no impacto (o personagem volta depois); false sem os efeitos
@@ -1140,6 +1146,15 @@ export class ControleBatalha {
       }
       case 'raio-luz': {
         const fim = casas.length ? casas[casas.length - 1] : ate
+        // Laser de Luz (Effekseer): aponta o dedo, carrega e dispara o laser
+        const pose = (q: number) => a.posar('empurrar', q)
+        pose(2)
+        if (await P.laser(a, fim.clone().setY(origem.y), hits.map((h) => P.peito(h)))) {
+          P.tremer(0.25)
+          setTimeout(() => a.soltarPose(), 1100)
+          break
+        }
+        a.soltarPose()
         const meio = origem.clone().lerp(fim, 0.5)
         void P.efeito('feixeLuz', 'normal', meio, { dur: 0.45, escala: 0.6, alongar: Math.max(1, origem.distanceTo(fim) / 0.9), direcao: fim.clone().sub(origem) })
         for (const h of hits) void P.efeito('luz', 'normal', P.peito(h), { dur: 0.4, escala: 1 })
