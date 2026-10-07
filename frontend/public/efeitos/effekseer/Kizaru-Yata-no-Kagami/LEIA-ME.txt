@@ -1,0 +1,26 @@
+KIZARU — YATA NO KAGAMI
+
+Efeito completo: Kizaru_Yata_no_Kagami.efkefc
+Quatro reflexões no ar, concentração no alto, descida rápida e explosão.
+Inclui glow dourado, núcleo branco, clarões de reflexão, filamentos,
+centelhas, três ondas de choque no chão e partículas do impacto.
+Não contém personagem. A raiz fica fixa na origem do impacto no chão.
+
+Arquivos separados para controlar a trajetória pelo jogo:
+  Kizaru_Yata_Feixe_Trecho.efkefc — feixe local +Z, comprimento unitário.
+  Kizaru_Yata_Reflexo.efkefc — clarão em cada reflexão.
+  Kizaru_Yata_Explosao.efkefc — explosão no local do contato.
+  yata-controlador.js — controlador opcional com seis pontos mundiais.
+
+Abrir os .efkproj no Effekseer 1.80.7 para edição.
+Os .efk são exportações binárias legadas.
+Manter Model/ e Texture/ ao lado dos .efkefc.
+
+Sequência a 60 quadros/s:
+  Reflexões: quadros 22, 34, 46 e 58.
+  Descida: quadros 66 a 72 (0,1 segundo).
+  Impacto: quadro 72 (1,2 segundo).
+  Dissipação completa: até aproximadamente 2,5 segundos.
+
+Ver INTEGRACAO.md para os eixos, os pontos e o uso no runtime WebGL.
+O brilho faz parte dos assets; a prévia não depende de bloom externo.
