@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { COLUNAS, METADE, VAO, tiposMetade } from '../tabuleiro'
 import type { TipoCasa } from './texturas'
-import { ancora, balaustre, cabrestante, corda, escada, janela, lanterna as lanternaFerro, pinha, porta, roloCorda, timao, tubo } from './detalhes'
+import { ancora, balaustre, figuraDragao, figuraLeao, cabrestante, corda, escada, janela, lanterna as lanternaFerro, pinha, porta, roloCorda, timao, tubo } from './detalhes'
 import { sortearJollyRoger, type JollyRoger } from './jollyRoger'
 import { fundirEstaticos } from './fundir'
 import { trocarPorModelo } from './props'
@@ -962,9 +962,10 @@ function montarNavio(cima: boolean, M: Materiais, luzes: THREE.PointLight[], pan
   gurupes.castShadow = true
   g.add(gurupes)
   const pontaG = pontaBase.clone().addScaledVector(dirG, 6.0)
-  const figura = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.9, 10), lambert(null, cima ? 0xc9a24a : 0xe8e4d8))
-  figura.rotation.z = -Math.PI / 2 - 0.4
-  figura.position.set(PROA - 0.2, borda(PROA) - 0.75, 0)
+  // figura de proa esculpida: o leão no de cima, o dragão marinho no de baixo
+  const figura = cima ? figuraLeao(M.mastro) : figuraDragao(M.mastro)
+  figura.scale.setScalar(1.25)
+  figura.position.set(PROA - 0.15, borda(PROA) - 0.55, 0)
   g.add(figura)
 
   // mastros (no castelo de proa e no tombadilho, fora das casas)

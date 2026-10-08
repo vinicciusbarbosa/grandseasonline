@@ -399,3 +399,149 @@ export function lanterna(ferro: Mat, vidro: Mat) {
   g.add(argola)
   return g
 }
+
+const pintado = (cor: number) => new THREE.MeshLambertMaterial({ color: cor })
+const peca = <T extends THREE.BufferGeometry>(geo: T, mat: Mat, x = 0, y = 0, z = 0) => {
+  const m = sombra(new THREE.Mesh(geo, mat))
+  m.position.set(x, y, z)
+  return m
+}
+
+/**
+ * Figura de proa: cabeça de leão esculpida e pintada, com a juba em pétalas
+ * em volta (como a do Sunny). Olha para +X; a base (o pescoço na roda de
+ * proa) fica na origem.
+ */
+export function figuraLeao(madeira: Mat) {
+  const g = new THREE.Group()
+  const amarelo = pintado(0xf0c24a)
+  const claro = pintado(0xfbe39a)
+  const juba = pintado(0xd8742a)
+  const juba2 = pintado(0xb8561e)
+  const escuro = pintado(0x2a160c)
+  const cab = new THREE.Group()
+  cab.position.set(0.15, 0.25, 0)
+  // juba: duas voltas de pétalas apontando para fora, no plano YZ
+  for (const [n, r, comp, mat, x] of [
+    [14, 0.42, 0.42, juba, -0.12],
+    [11, 0.3, 0.32, juba2, -0.02],
+  ] as const) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (x > -0.05 ? 0.2 : 0)
+      // pétala arredondada (elipsoide comprido no raio, achatado na frente-trás)
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), mat)
+      p.scale.set(0.12, comp, 0.26)
+      p.position.set(x, Math.sin(a) * (r + comp * 0.25), Math.cos(a) * (r + comp * 0.25))
+      p.rotation.x = Math.PI / 2 - a
+      p.castShadow = true
+      cab.add(p)
+    }
+  }
+  // cara, focinho, bochechas, nariz, olhos, sobrancelhas, orelhas, boca
+  const cara = peca(new THREE.SphereGeometry(0.36, 24, 18), amarelo, 0.08, 0, 0)
+  cara.scale.set(0.85, 1, 1)
+  cab.add(cara)
+  const focinho = peca(new THREE.SphereGeometry(0.17, 18, 14), claro, 0.34, -0.1, 0)
+  focinho.scale.set(0.9, 0.75, 1.15)
+  cab.add(focinho)
+  for (const s of [-1, 1]) {
+    cab.add(peca(new THREE.SphereGeometry(0.11, 14, 10), claro, 0.36, -0.14, s * 0.1))
+    const olho = peca(new THREE.SphereGeometry(0.045, 10, 8), escuro, 0.33, 0.1, s * 0.13)
+    cab.add(olho)
+    const sob = peca(new THREE.BoxGeometry(0.06, 0.035, 0.14), juba2, 0.34, 0.17, s * 0.12)
+    sob.rotation.x = s * 0.35
+    cab.add(sob)
+    const orelha = peca(new THREE.SphereGeometry(0.09, 12, 10), amarelo, 0.0, 0.31, s * 0.22)
+    orelha.scale.set(0.5, 1, 1)
+    cab.add(orelha)
+    cab.add(peca(new THREE.SphereGeometry(0.05, 10, 8), juba2, 0.04, 0.31, s * 0.22))
+  }
+  const nariz = peca(new THREE.SphereGeometry(0.06, 12, 10), escuro, 0.47, -0.04, 0)
+  nariz.scale.set(0.8, 0.7, 1.2)
+  cab.add(nariz)
+  const boca = peca(new THREE.TorusGeometry(0.07, 0.014, 6, 16, Math.PI), escuro, 0.45, -0.21, 0)
+  boca.rotation.set(0, Math.PI / 2, Math.PI)
+  cab.add(boca)
+  g.add(cab)
+  // suporte: voluta esculpida que prende a cabeça na roda de proa
+  const voluta = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 10, 24, Math.PI * 1.3), madeira)
+  voluta.rotation.y = Math.PI / 2
+  voluta.position.set(-0.15, -0.28, 0)
+  voluta.castShadow = true
+  g.add(voluta)
+  g.add(peca(new THREE.CylinderGeometry(0.1, 0.16, 0.5, 14), madeira, -0.2, -0.05, 0))
+  return g
+}
+
+/**
+ * Figura de proa: cabeça de dragão marinho, de bocarra aberta, chifres,
+ * barbatanas nas laterais e olhos acesos. Olha para +X; base na origem.
+ */
+export function figuraDragao(madeira: Mat) {
+  const g = new THREE.Group()
+  const escama = pintado(0x2e7a6a)
+  const escama2 = pintado(0x1e5248)
+  const ventre = pintado(0xd8c890)
+  const osso = pintado(0xf2ead2)
+  const olhoM = new THREE.MeshBasicMaterial({ color: 0xffd040 })
+  const cab = new THREE.Group()
+  cab.position.set(0.1, 0.22, 0)
+  cab.rotation.z = 0.12
+  // crânio alongado e focinho
+  const cranio = peca(new THREE.SphereGeometry(0.26, 22, 16), escama, 0, 0.04, 0)
+  cranio.scale.set(1.25, 0.9, 0.95)
+  cab.add(cranio)
+  const focinho = peca(new THREE.CylinderGeometry(0.1, 0.17, 0.42, 16), escama, 0.36, 0.0, 0)
+  focinho.rotation.z = -Math.PI / 2
+  focinho.scale.set(1, 1, 0.85)
+  cab.add(focinho)
+  cab.add(peca(new THREE.SphereGeometry(0.1, 14, 10), escama, 0.57, 0.0, 0))
+  // mandíbula aberta, com o ventre claro e dentes
+  const mand = new THREE.Group()
+  mand.position.set(0.05, -0.12, 0)
+  mand.rotation.z = -0.38
+  const queixo = peca(new THREE.CylinderGeometry(0.07, 0.13, 0.5, 14), ventre, 0.25, 0, 0)
+  queixo.rotation.z = -Math.PI / 2
+  queixo.scale.set(1, 1, 0.8)
+  mand.add(queixo)
+  for (let i = 0; i < 4; i++)
+    for (const s of [-1, 1]) {
+      const d = peca(new THREE.ConeGeometry(0.022, 0.08, 6), osso, 0.12 + i * 0.1, 0.07, s * (0.07 - i * 0.008))
+      mand.add(d)
+      const d2 = peca(new THREE.ConeGeometry(0.022, 0.08, 6), osso, 0.18 + i * 0.1, -0.07, s * (0.07 - i * 0.008))
+      d2.rotation.z = Math.PI
+      cab.add(d2)
+    }
+  cab.add(mand)
+  // olhos, sobrolho, chifres, crista e barbatanas
+  for (const s of [-1, 1]) {
+    cab.add(peca(new THREE.SphereGeometry(0.045, 10, 8), olhoM, 0.2, 0.12, s * 0.16))
+    const sob = peca(new THREE.BoxGeometry(0.16, 0.04, 0.06), escama2, 0.19, 0.17, s * 0.16)
+    sob.rotation.x = s * 0.4
+    cab.add(sob)
+    const chifre = peca(new THREE.ConeGeometry(0.045, 0.42, 10), osso, -0.12, 0.3, s * 0.12)
+    chifre.rotation.set(s * 0.3, 0, 0.9)
+    cab.add(chifre)
+    // barbatana lateral em leque
+    for (let i = 0; i < 4; i++) {
+      const b = peca(new THREE.ConeGeometry(0.035, 0.32 - i * 0.04, 6), escama2, -0.18 - i * 0.04, -0.02 + i * 0.05, s * 0.24)
+      b.rotation.set(s * (1.1 + i * 0.12), 0, 1.2 - i * 0.15)
+      cab.add(b)
+    }
+  }
+  for (let i = 0; i < 5; i++) {
+    const c = peca(new THREE.ConeGeometry(0.04, 0.2 - i * 0.02, 6), escama2, -0.05 - i * 0.1, 0.27 - i * 0.03, 0)
+    c.rotation.z = 0.6 + i * 0.1
+    c.scale.set(1, 1, 0.4)
+    cab.add(c)
+  }
+  g.add(cab)
+  // pescoço curvo descendo até a roda de proa, com o ventre claro
+  const curva = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-0.35, -0.55, 0), new THREE.Vector3(-0.3, 0.05, 0), new THREE.Vector3(0.0, 0.18, 0))
+  g.add(sombra(new THREE.Mesh(new THREE.TubeGeometry(curva, 16, 0.15, 14, false), escama)))
+  const curva2 = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-0.27, -0.55, 0), new THREE.Vector3(-0.2, 0.0, 0), new THREE.Vector3(0.05, 0.1, 0))
+  const ventreM = sombra(new THREE.Mesh(new THREE.TubeGeometry(curva2, 16, 0.1, 10, false), ventre))
+  g.add(ventreM)
+  g.add(peca(new THREE.CylinderGeometry(0.12, 0.18, 0.3, 14), madeira, -0.36, -0.6, 0))
+  return g
+}
