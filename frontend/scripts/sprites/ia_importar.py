@@ -467,3 +467,11 @@ if __name__ == '__main__':
                cores={'roupa': (100, 0.6, 1.25), 'calca': (110, 0.15, 1.6)})
     personagem_completo('marinha-atirador', 'atirador2', altura=92, ataque=(8, 3), partes=PARTES_ATIRADOR2,
                         cores={'capa': (110, 3.4, 1.0)})
+
+    # Haki de armamento (arma e braço negros) nas folhas novas: tem de vir
+    # depois, porque gravar() apaga as variantes
+    import haki_folhas
+    for pid in ('pirata-espadachim', 'pirata-capitao'):
+        haki_folhas.gerar('espada', pid)
+    for pid in ('pirata-lutador', 'marinha-soldado', 'marinha-oficial'):
+        haki_folhas.gerar('punho', pid)
