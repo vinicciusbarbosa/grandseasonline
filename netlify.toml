@@ -1,0 +1,10 @@
+# Site de teste do front (Netlify): cada push no branch publica de novo.
+# O build tira public/efeitos (os pacotes originais do Effekseer, ~430 MB):
+# o jogo usa só as versões convertidas em public/sprites/efk.
+[build]
+  base = "frontend"
+  command = "npm run build:site"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"

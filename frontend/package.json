@@ -8,6 +8,7 @@
     "dev:mp": "vite --mode mp",
     "multiplayer": "tsc -b && vite build --mode mp && vite preview --mode mp",
     "build": "tsc -b && vite build",
+    "build:site": "tsc -b && vite build && rm -rf dist/efeitos",
     "lint": "oxlint",
     "preview": "vite preview",
     "build:teste": "vite build --config vite.teste.config.ts"
