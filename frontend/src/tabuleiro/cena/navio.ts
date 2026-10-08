@@ -3,6 +3,7 @@ import { COLUNAS, METADE, VAO, tiposMetade } from '../tabuleiro'
 import type { TipoCasa } from './texturas'
 import { ancora, balaustre, cabrestante, corda, escada, janela, lanterna as lanternaFerro, pinha, porta, roloCorda, timao, tubo } from './detalhes'
 import { sortearJollyRoger, type JollyRoger } from './jollyRoger'
+import { fundirEstaticos } from './fundir'
 import { trocarPorModelo } from './props'
 import { recurso } from './visualFolhas'
 import {
@@ -219,7 +220,10 @@ function lanterna(M: Materiais, x: number, z: number, alt: number, luzes: THREE.
   l.position.set(x, alt + 0.08, z)
   l.scale.setScalar(1.15)
   g.add(p, tampa, l)
+  // a luz não entra no sombreamento (cada luz pontual pesava em todo pixel de
+  // todo material): fica só para a luz quente nos personagens perto dela
   const luz = new THREE.PointLight(0xffb040, 3.0, 4.5, 1.6)
+  luz.visible = false
   luz.position.set(x, alt + 0.4, z)
   g.add(luz)
   luzes.push(luz)
@@ -261,6 +265,7 @@ function bandeira(M: Materiais, x: number, z: number, tex: THREE.Texture) {
   const pano = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }))
   pano.position.set(-1.0, 3.3, 0)
   pano.userData.ondula = geo
+  pano.userData.oclusor = true
   g.add(pano)
   g.position.set(x, 0, z)
   return { g, pano }
@@ -275,6 +280,8 @@ export type Navios = {
   contornos: THREE.Vector2[][]
   /** o grupo de cada navio (a faixa de espuma no casco vai dentro dele) */
   navios: THREE.Group[]
+  /** o que faz sombra nos personagens (velas, mastros, cestos, bandeiras): os raios do sol só testam isso */
+  oclusores: THREE.Object3D[]
 }
 
 // ===================================================================== navio
@@ -604,8 +611,9 @@ function portinholas(M: Materiais, g: THREE.Group, est: Estilo, comCanhoes: bool
         const gc = new THREE.Group()
         gc.add(cano)
         gc.position.set(x, y, z + lado * 0.22)
-        // só o cano do canhão baixado, com a boca para fora do casco (no modelo, -Z)
-        g.add(trocarPorModelo(gc, 'canhao', { peca: 'Cannon_' }))
+        // só o cano do canhão baixado (versão simplificada, cano.glb), com a boca
+        // para fora do casco (no modelo, -Z)
+        g.add(trocarPorModelo(gc, 'cano', { peca: 'Cannon_' }))
       }
       // fechada, na bateria de baixo
       const yb = -0.42
@@ -648,6 +656,7 @@ function velaQuadrada(M: Materiais, tex: THREE.Texture, larg: number, alt: numbe
   geo.computeVertexNormals()
   const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }))
   m.castShadow = true
+  m.userData.oclusor = true
   const borda: THREE.Vector3[] = []
   const lx = larg / 2
   const ly = alt / 2
@@ -703,6 +712,7 @@ function velaPlana(M: Materiais, tex: THREE.Texture, pts: [number, number][]) {
   geo.computeVertexNormals()
   const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }))
   m.castShadow = true
+  m.userData.oclusor = true
   const borda: THREE.Vector3[] = []
   for (let i = 0; i <= N; i++) borda.push(ponto(i / N, 0))
   for (let j = 1; j <= N; j++) borda.push(ponto(1, j / N))
@@ -718,6 +728,7 @@ function mastroNavio(M: Materiais, g: THREE.Group, x: number, base: number, alt:
   const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, alt, 28, 4), M.mastro)
   m.position.set(x, base + alt / 2, 0)
   m.castShadow = true
+  m.userData.oclusor = true
   g.add(m)
   const raioEm = (y: number) => 0.3 - (0.14 * y) / alt
   // cintas de corda embaixo e abraçadeiras de ferro subindo o mastro
@@ -753,6 +764,7 @@ function mastroNavio(M: Materiais, g: THREE.Group, x: number, base: number, alt:
   )
   cesto.position.set(x, yc, 0)
   cesto.castShadow = true
+  cesto.userData.oclusor = true
   g.add(cesto)
   const aro = new THREE.Mesh(new THREE.TorusGeometry(0.79, 0.03, 8, 48), M.amurada)
   aro.rotation.x = Math.PI / 2
@@ -1020,6 +1032,8 @@ export function montarNavios(): Navios {
   for (const cima of [true, false]) {
     const zc = cima ? -VAO / 2 - METADE / 2 : VAO / 2 + METADE / 2
     const navio = montarNavio(cima, M, luzes, panos, cima ? bandeiras[0] : bandeiras[1])
+    // as ~900 peças paradas viram uma malha por material (ver fundir.ts)
+    fundirEstaticos(navio)
     navio.position.set(0, 0, zc)
     // o de cima com a proa para a direita; o de baixo, para a esquerda
     if (!cima) navio.rotation.y = Math.PI
@@ -1046,5 +1060,9 @@ export function montarNavios(): Navios {
     p.rotation.z = (r() - 0.5) * 0.05
     grupo.add(p)
   }
-  return { grupo, luzes, panos, contornos, navios }
+  const oclusores: THREE.Object3D[] = []
+  grupo.traverse((o) => {
+    if (o.userData.oclusor) oclusores.push(o)
+  })
+  return { grupo, luzes, panos, contornos, navios, oclusores }
 }

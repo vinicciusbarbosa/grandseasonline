@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { recurso } from './visualFolhas'
 
 /**
@@ -46,16 +47,31 @@ function carregar(nome: string, peca?: string) {
       .loadAsync(recurso(`${import.meta.env.BASE_URL}modelos/props/${nome}.glb`))
       .then((g) => {
         g.scene.updateMatrixWorld(true)
-        const raiz = new THREE.Group()
+        // tudo numa malha só (os modelos têm um material): o canhão vinha em 53
+        // peças. Parafusos e enfeites miúdos não aparecem nessa distância.
+        const geos: THREE.BufferGeometry[] = []
+        let map: THREE.Texture | null = null
         g.scene.traverse((o) => {
-          if (!(o instanceof THREE.Mesh) || (peca && !o.name.startsWith(peca))) return
-          const map = (o.material as THREE.MeshStandardMaterial).map
-          const m = new THREE.Mesh(o.geometry, new THREE.MeshLambertMaterial({ map }))
-          m.applyMatrix4(o.matrixWorld)
-          m.castShadow = true
-          m.receiveShadow = true
-          raiz.add(m)
+          if (!(o instanceof THREE.Mesh) || (peca && !o.name.startsWith(peca)) || /^(Screw|Decoration)/.test(o.name)) return
+          map ??= (o.material as THREE.MeshStandardMaterial).map
+          const geo = new THREE.BufferGeometry()
+          for (const a of ['position', 'normal', 'uv']) if (o.geometry.getAttribute(a)) geo.setAttribute(a, o.geometry.getAttribute(a).clone())
+          geo.setIndex(o.geometry.index ? o.geometry.index.clone() : [...Array(geo.getAttribute('position').count).keys()])
+          geo.applyMatrix4(o.matrixWorld)
+          // os .glb simplificados vêm sem normal (props_glb.py --reduzir)
+          if (!geo.getAttribute('normal')) geo.computeVertexNormals()
+          geos.push(geo)
         })
+        const raiz = new THREE.Group()
+        const junta = geos.length ? mergeGeometries(geos, false) : null
+        if (junta) {
+          const m = new THREE.Mesh(junta, new THREE.MeshLambertMaterial({ map }))
+          // peça solta (o cano na portinhola) não faz sombra: cairia só no casco
+          m.castShadow = !peca
+          // receber sombra manchava as superfícies curvas (acne da sombra no cano)
+          m.receiveShadow = false
+          raiz.add(m)
+        }
         if (peca && raiz.children.length) alinharEixo(raiz)
         return raiz.children.length ? raiz : null
       })
@@ -72,6 +88,7 @@ function carregar(nome: string, peca?: string) {
  * multiplica a cor da textura (as caixas do kit vêm escuras e acinzentadas).
  */
 export function trocarPorModelo(alvo: THREE.Group, nome: string, op: { peca?: string; giro?: number; tinta?: [number, number, number] } = {}) {
+  alvo.userData.modelo = true
   // caixa no espaço do próprio alvo (ele ainda nem está na cena)
   const caixa = new THREE.Box3()
   alvo.traverse((o) => {

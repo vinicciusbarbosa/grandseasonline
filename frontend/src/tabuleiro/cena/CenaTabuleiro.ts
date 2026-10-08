@@ -139,6 +139,8 @@ export class CenaTabuleiro {
   private readonly pan = new THREE.Vector3()
   /** direção para o sol (para saber quem está na sombra das velas/mastro) */
   private readonly dirSol = new THREE.Vector3()
+  /** quadros até redesenhar o mapa de sombras */
+  private quadrosSombra = 0
   private readonly luzes = new Map<Personagem, LuzPersonagem>()
   private readonly raioSol = new THREE.Raycaster()
   /** ZOOM_TUDO = tabuleiro inteiro; 1 = arte 1:1; até ZOOM_MAX */
@@ -161,6 +163,9 @@ export class CenaTabuleiro {
     this.renderer.setPixelRatio(1)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.BasicShadowMap
+    // só o navio faz sombra e quase nada nele se mexe (as bandeiras, devagar):
+    // o mapa de sombras é redesenhado a cada poucos quadros, não em todos
+    this.renderer.shadowMap.autoUpdate = false
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     const cv = this.renderer.domElement
     cv.style.width = '100%'
@@ -1566,6 +1571,10 @@ export class CenaTabuleiro {
       const a = 0.06 * tremor * (1 / this.zoom + 0.3)
       this.camera.position.add(new THREE.Vector3((Math.random() - 0.5) * a, (Math.random() - 0.5) * a, (Math.random() - 0.5) * a))
     }
+    if (this.quadrosSombra-- <= 0) {
+      this.renderer.shadowMap.needsUpdate = true
+      this.quadrosSombra = 5
+    }
     this.renderer.render(this.cena, this.camera)
     if (this.efeitos.length) this.atualizarSilhuetas()
     if (this.efeitos.length || this.rendererFx.info.render.calls) this.rendererFx.render(this.cenaFx, this.camera)
@@ -1607,14 +1616,20 @@ export class CenaTabuleiro {
       luz = { sombra: 0, quente: new THREE.Color(0, 0, 0) }
       this.luzes.set(p, luz)
     }
-    // pés, cintura e cabeça: fração dos três que está coberta
-    let cobertos = 0
-    for (const h of [0.25, 0.9, 1.6]) {
-      this.raioSol.set(p.pos.clone().setY(p.pos.y + h), this.dirSol)
-      this.raioSol.far = 40
-      if (this.raioSol.intersectObject(this.navios.grupo, true).length) cobertos++
+    // pés, cintura e cabeça: fração dos três que está coberta. Os raios só
+    // testam velas, mastros e bandeiras (o resto do navio não faz sombra no
+    // convés), e só quando o personagem sai do lugar
+    if (!luz.onde || luz.onde.distanceToSquared(p.pos) > 1e-4) {
+      luz.onde = p.pos.clone()
+      let cobertos = 0
+      for (const h of [0.25, 0.9, 1.6]) {
+        this.raioSol.set(p.pos.clone().setY(p.pos.y + h), this.dirSol)
+        this.raioSol.far = 40
+        if (this.raioSol.intersectObjects(this.navios.oclusores, false).length) cobertos++
+      }
+      luz.coberto = cobertos / 3
     }
-    luz.sombra = THREE.MathUtils.lerp(luz.sombra, cobertos / 3, 1 - Math.exp(-dt * 10))
+    luz.sombra = THREE.MathUtils.lerp(luz.sombra, luz.coberto ?? 0, 1 - Math.exp(-dt * 10))
     const q = new THREE.Color(0, 0, 0)
     const pos = new THREE.Vector3()
     for (const l of this.navios.luzes) {

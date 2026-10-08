@@ -17,6 +17,9 @@ export type LuzPersonagem = {
   sombra: number
   /** luz quente das lanternas próximas (soma, já com intensidade) */
   quente: THREE.Color
+  /** onde a sombra foi calculada por último e quanto estava coberto (só recalcula ao mover) */
+  onde?: THREE.Vector3
+  coberto?: number
 }
 
 export const LUZ_NEUTRA: LuzPersonagem = { sombra: 0, quente: new THREE.Color(0, 0, 0) }

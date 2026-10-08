@@ -232,7 +232,7 @@ export function criarMar(contornos: THREE.Vector2[][], dirSol: THREE.Vector3) {
       }
     `,
   })
-  const mar = new THREE.Mesh(new THREE.PlaneGeometry(120, 90, 300, 225), mat)
+  const mar = new THREE.Mesh(new THREE.PlaneGeometry(120, 90, 180, 135), mat)
   mar.rotation.x = -Math.PI / 2
   mar.position.y = NIVEL_MAR
 
