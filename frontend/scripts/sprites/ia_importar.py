@@ -406,6 +406,10 @@ def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(
     print(pid, {n: len(v['S']) for n, v in anims.items()})
 
 
+# partes da folha espadachim2 (matiz OpenCV 0–180, saturação mínima, valor máximo)
+PARTES_CAPITAO = {'colete': ([(0, 6), (170, 180)], 110, 256), 'cabelo': ([(7, 19)], 150, 256), 'calca': ([(100, 125)], 60, 256)}
+
+
 def cabecas_sorteadas(ids):
     """teste: uma cabeça de cabecas/ (28, cabecas-variadas.png) sorteada para
     cada personagem, sem repetir. O sorteio fica guardado em sorteio.json
@@ -425,8 +429,10 @@ def cabecas_sorteadas(ids):
 if __name__ == '__main__':
     CAB = cabecas_sorteadas(['pirata-capitao', 'pirata-lutador', 'marinha-soldado', 'pirata-atiradora', 'marinha-atirador',
                              'pirata-medico', 'marinha-enfermeira', 'pirata-espadachim', 'marinha-almirante', 'marinha-oficial'])
-    # teste: o corpo novo fica no Capitão (o Espadachim volta ao do RO)
-    personagem('pirata-capitao', 'espadachim', CAB['pirata-capitao'], alternar=(4, 5, 6))
+    # o Capitão é espadachim de sabre como o outro (a folha nova, com a cabeça
+    # desenhada), mas de cabelo preto e colete e calça escuros
+    personagem_completo('pirata-capitao', 'espadachim2', altura=92, partes=PARTES_CAPITAO,
+                        cores={'colete': (0, 0.15, 0.35), 'cabelo': (0, 0.0, 0.3), 'calca': (110, 0.3, 0.6)})
     # Arma de Luz (Pika Pika): o Capitão de mãos vazias, segurando a espada de
     # luz (o efeito do Effekseer vai na mão, pelas marcas de empunhadura)
     personagem('pirata-capitao-luz', 'espadachim-luz', CAB['pirata-capitao'], braco_cima=True)

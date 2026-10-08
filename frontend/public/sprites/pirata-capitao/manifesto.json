@@ -1,14 +1,14 @@
 {
  "quadro": [
-  150,
-  132
+  300,
+  264
  ],
  "pe": [
-  75,
-  124
+  150,
+  248
  ],
- "altura": 96,
- "densidade": 0.82,
+ "altura": 192,
+ "densidade": 1.64,
  "tempos": {
   "andar": {
    "fps": 10
@@ -92,78 +92,6 @@
    },
    "W": {
     "arquivo": "atacar_W.png",
-    "quadros": 6
-   }
-  },
-  "conjurar": {
-   "S": {
-    "arquivo": "conjurar_S.png",
-    "quadros": 6
-   },
-   "N": {
-    "arquivo": "conjurar_N.png",
-    "quadros": 6
-   },
-   "E": {
-    "arquivo": "conjurar_E.png",
-    "quadros": 6
-   },
-   "W": {
-    "arquivo": "conjurar_W.png",
-    "quadros": 6
-   }
-  },
-  "empurrar": {
-   "S": {
-    "arquivo": "empurrar_S.png",
-    "quadros": 6
-   },
-   "N": {
-    "arquivo": "empurrar_N.png",
-    "quadros": 6
-   },
-   "E": {
-    "arquivo": "empurrar_E.png",
-    "quadros": 6
-   },
-   "W": {
-    "arquivo": "empurrar_W.png",
-    "quadros": 6
-   }
-  },
-  "cruzar": {
-   "S": {
-    "arquivo": "cruzar_S.png",
-    "quadros": 6
-   },
-   "N": {
-    "arquivo": "cruzar_N.png",
-    "quadros": 6
-   },
-   "E": {
-    "arquivo": "cruzar_E.png",
-    "quadros": 6
-   },
-   "W": {
-    "arquivo": "cruzar_W.png",
-    "quadros": 6
-   }
-  },
-  "chutar": {
-   "S": {
-    "arquivo": "chutar_S.png",
-    "quadros": 6
-   },
-   "N": {
-    "arquivo": "chutar_N.png",
-    "quadros": 6
-   },
-   "E": {
-    "arquivo": "chutar_E.png",
-    "quadros": 6
-   },
-   "W": {
-    "arquivo": "chutar_W.png",
     "quadros": 6
    }
   }
