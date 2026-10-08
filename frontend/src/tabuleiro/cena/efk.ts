@@ -373,6 +373,8 @@ export type OpcoesEfk = {
   camera: THREE.Camera
   /** a cada quadro (60 fps) do efeito */
   aoQuadro?: (q: number) => void
+  /** acelera (ou atrasa) o efeito: 2 = toca no dobro da velocidade do editor */
+  velocidade?: number
 }
 
 /** Um efeito do Effekseer tocando na cena. */
@@ -430,7 +432,7 @@ export class EfeitoEfk {
 
   atualizar(dt: number) {
     if (!this.vivo) return
-    this.q += Math.min(0.05, dt) * 60
+    this.q += Math.min(0.05, dt) * 60 * (this.op.velocidade ?? 1)
     const q = Math.floor(this.q)
     if (q !== this.qAnt) {
       for (let k = this.qAnt + 1; k <= q; k++) this.op.aoQuadro?.(k)

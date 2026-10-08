@@ -14,6 +14,8 @@ import { EfeitoEfk, carregarEfk, type DadosEfk } from './efk'
 
 /** altura de quem lança no efeito do Effekseer (unidades do editor): o efeito escala por ela */
 const ALTURA_EFK = 5
+/** o corte básico (Sword Slash) toca mais rápido que no editor */
+const VELOCIDADE_CORTE = 2.5
 /** escala do gelo do Ice Time (aplicar e congelado) */
 const ESCALA_GELO = 0.5
 /** s até o gelo do Ice Time terminar de crescer (aí entram os cristais do congelado) */
@@ -462,8 +464,8 @@ export class CenaTabuleiro {
   }
 
   /** efeito do Effekseer tocando num ponto (opcionalmente virado para outro) */
-  private tocarEfk(nome: string, dados: DadosEfk, onde: THREE.Vector3, escala: number, alvo?: THREE.Vector3) {
-    const ef = new EfeitoEfk(nome, dados, { origem: onde.clone(), alvo, escala, camera: this.camera })
+  private tocarEfk(nome: string, dados: DadosEfk, onde: THREE.Vector3, escala: number, alvo?: THREE.Vector3, velocidade = 1) {
+    const ef = new EfeitoEfk(nome, dados, { origem: onde.clone(), alvo, escala, camera: this.camera, velocidade })
     ef.sprite.position.copy(onde)
     if (alvo) ef.sprite.lookAt(alvo)
     this.efeitos.push(ef)
@@ -477,7 +479,8 @@ export class CenaTabuleiro {
    * um golpe de cima para baixo.
    */
   private corteEfk(p: Personagem, ate: THREE.Vector3, dados: DadosEfk) {
-    const ef = this.tocarEfk('corte-ciano', dados, ate, 0.3)
+    // no editor o corte leva 0,6 s; um golpe de espada é bem mais seco (~0,25 s)
+    const ef = this.tocarEfk('corte-ciano', dados, ate, 0.3, undefined, VELOCIDADE_CORTE)
     ef.sprite.quaternion.copy(this.camera.quaternion)
     // espelha conforme o lado de onde vem o golpe (na tela)
     const de = p.pos.clone().project(this.camera)
