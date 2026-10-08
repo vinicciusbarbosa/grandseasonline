@@ -407,6 +407,7 @@ def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(
 
 
 # partes da folha espadachim2 (matiz OpenCV 0–180, saturação mínima, valor máximo)
+PARTES_ATIRADOR2 = {'capa': ([(36, 82)], 10, 200), 'cabelo': ([(0, 12)], 80, 115)}
 PARTES_CAPITAO = {'colete': ([(0, 6), (170, 180)], 110, 256), 'cabelo': ([(7, 19)], 150, 256), 'calca': ([(100, 125)], 60, 256)}
 
 
@@ -461,9 +462,11 @@ if __name__ == '__main__':
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
     # os médicos (profissão): atirador de capa vinho nos piratas, espadachim
     # de colete azul-claro na Marinha
-    personagem('pirata-medico', 'atirador', CAB['pirata-medico'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
-               cores={'roupa': (170, 1.6, 1.6)})
+    # os outros atiradores com a folha nova da atiradora (cabeça desenhada):
+    # o médico de cabelo preto; o do outro navio de capa azul-marinho
+    personagem_completo('pirata-medico', 'atirador2', altura=92, ataque=(8, 3), partes=PARTES_ATIRADOR2,
+                        cores={'cabelo': (0, 0.2, 0.45)})
     personagem('marinha-enfermeira', 'espadachim', CAB['marinha-enfermeira'], alternar=(4, 5, 6),
                cores={'roupa': (100, 0.6, 1.25), 'calca': (110, 0.15, 1.6)})
-    personagem('marinha-atirador', 'atirador', CAB['marinha-atirador'], partes=PARTES_ATIRADOR, ataque=(8, 3), igualar=True,
-               cores={'roupa': (112, 2.2, 2.4)})
+    personagem_completo('marinha-atirador', 'atirador2', altura=92, ataque=(8, 3), partes=PARTES_ATIRADOR2,
+                        cores={'capa': (110, 3.4, 1.0)})
