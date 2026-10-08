@@ -16,6 +16,8 @@ import { EfeitoEfk, carregarEfk, type DadosEfk } from './efk'
 const ALTURA_EFK = 5
 /** o corte básico (Sword Slash) toca mais rápido que no editor */
 const VELOCIDADE_CORTE = 2.5
+/** o X do Corte Duplo também toca mais rápido que no editor */
+const VELOCIDADE_CORTE_X = 1.8
 /** escala do gelo do Ice Time (aplicar e congelado) */
 const ESCALA_GELO = 0.5
 /** s até o gelo do Ice Time terminar de crescer (aí entram os cristais do congelado) */
@@ -337,6 +339,14 @@ export class CenaTabuleiro {
      * a cena em código (cena/entei.ts). Resolve no impacto.
      */
     corte: (p: Personagem, ate: THREE.Vector3) => carregarEfk('corte-ciano').then((d) => (d ? this.corteEfk(p, ate, d) : false)),
+    corteX: (p: Personagem, ate: THREE.Vector3) => carregarEfk('corte-x').then((d) => (d ? this.corteXEfk(p, ate, d) : false)),
+    rajadaCorte: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all(['rajada-projetil', 'rajada-disparo', 'rajada-impacto'].map((n) => carregarEfk(n))).then(([pr, d, i]) => (pr && d && i ? this.rajadaCorteEfk(p, ate, pr, d, i) : false)),
+    perfurante: (p: Personagem, ate: THREE.Vector3, alvos: Personagem[]) =>
+      Promise.all(['perfurante-projetil', 'perfurante-disparo', 'perfurante-perfuracao', 'perfurante-dissipacao'].map((n) => carregarEfk(n))).then(([pr, d, f, x]) =>
+        pr && d && f && x ? this.perfuranteEfk(p, ate, alvos, pr, d, f, x) : false,
+      ),
+    tatsumaki: (p: Personagem) => carregarEfk('tatsumaki').then((d) => (d ? this.tatsumakiEfk(p, d) : false)),
     iceTime: (p: Personagem, alvo: Personagem | null, ate: THREE.Vector3) =>
       carregarEfk('ice-time-contato').then((contato) => (contato ? this.iceTimeEfk(p, alvo, ate, contato) : false)),
     partisan: (p: Personagem, ate: THREE.Vector3) =>
@@ -493,6 +503,79 @@ export class CenaTabuleiro {
     ef.sprite.rotateZ(para.x < de.x ? 0.5 : -0.5)
     if (para.x < de.x) ef.sprite.scale.x *= -1
     return new Promise<boolean>((r) => setTimeout(() => r(true), 120))
+  }
+
+  /**
+   * Corte Duplo (Effekseer): o X amarelo no peito do alvo, virado para a
+   * câmera como o corte básico; tocado mais rápido que no editor.
+   */
+  private corteXEfk(p: Personagem, ate: THREE.Vector3, dados: DadosEfk) {
+    const ef = this.tocarEfk('corte-x', dados, ate, 0.55, undefined, VELOCIDADE_CORTE_X)
+    ef.sprite.quaternion.copy(this.camera.quaternion)
+    const de = p.pos.clone().project(this.camera)
+    const para = ate.clone().project(this.camera)
+    if (para.x < de.x) ef.sprite.scale.x *= -1
+    return new Promise<boolean>((r) => setTimeout(() => r(true), 140))
+  }
+
+  /** um efeito do Effekseer saindo de `de` e voando em linha até `para` (a frente +Z vira para lá) */
+  private voar(nome: string, dados: DadosEfk, de: THREE.Vector3, para: THREE.Vector3, escala: number, velocidade: number, aoPassar?: (f: number) => void) {
+    const ef = this.tocarEfk(nome, dados, de, escala, para)
+    return this.animarPor(Math.max(0.12, de.distanceTo(para) / velocidade), (f) => {
+      ef.sprite.position.lerpVectors(de, para, f)
+      aoPassar?.(f)
+    }).then(() => ef)
+  }
+
+  /**
+   * Corte Voador (Effekseer): a meia-lua azul sai de quem corta (clarão de
+   * disparo), voa em linha reta até a última casa e se desfaz no impacto.
+   */
+  private rajadaCorteEfk(p: Personagem, ate: THREE.Vector3, projetil: DadosEfk, disparo: DadosEfk, impacto: DadosEfk) {
+    const alto = p.visual.altura * 0.5
+    const dir = ate.clone().setY(0).sub(p.pos.clone().setY(0)).normalize()
+    const de = p.pos.clone().setY(alto).addScaledVector(dir, 0.45)
+    const para = ate.clone().setY(alto)
+    this.tocarEfk('rajada-disparo', disparo, de, 0.5)
+    return this.voar('rajada-projetil', projetil, de, para, 0.6, 8).then((ef) => {
+      ef.encerrar()
+      this.tocarEfk('rajada-impacto', impacto, para, 0.6)
+      return true
+    })
+  }
+
+  /**
+   * Estocada Perfurante (Effekseer): o corte dourado atravessa a linha
+   * inteira; um clarão de perfuração em cada alvo, na hora em que passa por
+   * ele, e a dissipação no fim do alcance.
+   */
+  private perfuranteEfk(p: Personagem, ate: THREE.Vector3, alvos: Personagem[], projetil: DadosEfk, disparo: DadosEfk, perfuracao: DadosEfk, dissipacao: DadosEfk) {
+    const alto = p.visual.altura * 0.5
+    const dir = ate.clone().setY(0).sub(p.pos.clone().setY(0)).normalize()
+    const de = p.pos.clone().setY(alto).addScaledVector(dir, 0.4)
+    const para = ate.clone().setY(alto).addScaledVector(dir, 0.3)
+    const total = de.distanceTo(para)
+    const pendentes = alvos.map((a) => ({ a, f: Math.min(1, a.pos.clone().setY(alto).sub(de).dot(dir) / total) }))
+    this.tocarEfk('perfurante-disparo', disparo, de, 0.7)
+    return this.voar('perfurante-projetil', projetil, de, para, 0.75, 10, (f) => {
+      for (const x of pendentes.filter((y) => y.f <= f)) {
+        pendentes.splice(pendentes.indexOf(x), 1)
+        this.tocarEfk('perfurante-perfuracao', perfuracao, x.a.pos.clone().setY(alto), 0.7)
+      }
+    }).then((ef) => {
+      ef.encerrar()
+      this.tocarEfk('perfurante-dissipacao', dissipacao, para, 0.75, para.clone().add(dir))
+      return true
+    })
+  }
+
+  /**
+   * Tornado de Lâminas (Effekseer, Tatsumaki): o tornado nos pés de quem gira,
+   * do tamanho das casas em volta; o golpe entra quando o vento já se formou.
+   */
+  private tatsumakiEfk(p: Personagem, dados: DadosEfk) {
+    this.tocarEfk('tatsumaki', dados, p.pos.clone().setY(0.02), 0.5)
+    return new Promise<boolean>((r) => setTimeout(() => r(true), 650))
   }
 
   /**

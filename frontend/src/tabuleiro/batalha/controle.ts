@@ -112,6 +112,14 @@ export interface Palco {
   hotarubi(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** corte básico de espada do Effekseer; resolve no golpe, false sem o efeito */
   corte(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Corte Duplo do Effekseer (X amarelo no alvo); resolve no golpe, false sem o efeito */
+  corteX(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Corte Voador do Effekseer (meia-lua azul até o fim da linha); resolve na chegada, false sem o efeito */
+  rajadaCorte(p: Personagem, ate: THREE.Vector3): Promise<boolean>
+  /** Estocada Perfurante do Effekseer (corte dourado atravessando os alvos); resolve no fim, false sem o efeito */
+  perfurante(p: Personagem, ate: THREE.Vector3, alvos: Personagem[]): Promise<boolean>
+  /** Tornado de Lâminas do Effekseer (Tatsumaki nos pés); resolve quando o vento se forma, false sem o efeito */
+  tatsumaki(p: Personagem): Promise<boolean>
   /** Ice Time do Effekseer (contato + cristais no alvo); resolve no golpe, false sem o efeito */
   iceTime(p: Personagem, alvo: Personagem | null, ate: THREE.Vector3): Promise<boolean>
   /** Partisan do Effekseer: formação de lanças e disparo até o alvo; resolve quando metade acerta, false sem o efeito */
@@ -141,10 +149,10 @@ const JOGADOR: Lado = 'piratas'
 type Visual = { efeito: TipoEfeito; modo: 'perto' | 'projetil' | 'area' | 'si' | 'especial'; escala?: number; tiros?: number }
 const VISUAL: Record<string, Visual> = {
   corte: { efeito: 'impacto', modo: 'especial' },
-  'corte-duplo': { efeito: 'impacto', modo: 'perto' },
-  'corte-voador': { efeito: 'corte', modo: 'projetil', escala: 1.1 },
-  'estocada-perfurante': { efeito: 'impacto', modo: 'area' },
-  'tornado-laminas': { efeito: 'tornado', modo: 'si', escala: 2.6 },
+  'corte-duplo': { efeito: 'impacto', modo: 'especial' },
+  'corte-voador': { efeito: 'corte', modo: 'especial', escala: 1.1 },
+  'estocada-perfurante': { efeito: 'impacto', modo: 'especial' },
+  'tornado-laminas': { efeito: 'tornado', modo: 'especial', escala: 2.6 },
   pancada: { efeito: 'impacto', modo: 'perto' },
   esmagar: { efeito: 'impacto', modo: 'perto', escala: 1.3 },
   'onda-choque': { efeito: 'onda', modo: 'si', escala: 3.2 },
@@ -205,8 +213,6 @@ const FORMAS: Record<string, 'sabre' | 'agni'> = { luz: 'sabre', fogo: 'agni' }
  */
 type FxFolha = { folha: string; onde: 'si' | 'alvo' | 'casas'; chao?: boolean; largura?: number }
 const FOLHA_SKILL: Record<string, FxFolha[]> = {
-  'corte-duplo': [{ folha: 'corte-arco', onde: 'alvo' }],
-  'estocada-perfurante': [{ folha: 'corte-arco', onde: 'casas' }],
   garras: [{ folha: 'garra', onde: 'alvo', largura: 1.1 }],
   esmagar: [{ folha: 'explosao-terra', onde: 'alvo', chao: true }],
   'martelada-titanica': [{ folha: 'explosao-terra', onde: 'alvo', chao: true, largura: 2.2 }, { folha: 'tremor', onde: 'alvo', chao: true }],
@@ -1178,6 +1184,39 @@ export class ControleBatalha {
         if (!(await P.pheasant(a, ate))) await esperar(400)
         P.tremer(0.35)
         setTimeout(() => a.soltarPose(), 250)
+        break
+      }
+      case 'corte-duplo': {
+        // o X amarelo (Effekseer); sem ele, dois impactos
+        if (!(await P.corteX(a, ate))) {
+          void P.efeito('impacto', 'normal', ate, { dur: 0.35, escala: 0.9 })
+          await esperar(120)
+          void P.efeito('impacto', 'normal', ate, { dur: 0.35, escala: 0.9 })
+          await esperar(150)
+        }
+        break
+      }
+      case 'corte-voador': {
+        // a meia-lua azul voa até a última casa da linha
+        const fim = casas.length ? casas[casas.length - 1] : ate
+        if (!(await P.rajadaCorte(a, fim))) await P.efeito('corte', 'normal', origem, { para: fim, dur: 0.3, escala: 1.1 })
+        break
+      }
+      case 'estocada-perfurante': {
+        // o corte dourado atravessa a linha, com um clarão em cada alvo
+        const fim = casas.length ? casas[casas.length - 1] : ate
+        if (!(await P.perfurante(a, fim, hits))) {
+          for (const x of casas) void P.efeito('impacto', 'normal', x.clone().setY(0.5), { dur: 0.5 })
+          await esperar(300)
+        }
+        break
+      }
+      case 'tornado-laminas': {
+        // o Tatsumaki nos pés; sem ele, o tornado desenhado
+        if (!(await P.tatsumaki(a))) {
+          void P.efeito('tornado', 'normal', origem, { dur: 0.7, escala: 2.6 })
+          await esperar(250)
+        }
         break
       }
       case 'corte': {
