@@ -1,0 +1,23 @@
+ENEL — EL THOR
+
+Efeito de eletricidade azul e branca para Effekseer 1.80.7.
+Corpo de plasma com curvas suaves, faixas de energia envolvendo a descarga,
+ramificações de partículas Ribbon, carga, clarão e ondas de impacto.
+Inclui a descarga horizontal e uma variante que desce do alto.
+
+Arquivos:
+Enel_El_Thor             sequência pronta: carga + descarga + impacto
+Enel_El_Thor_Carga       carga na mão; permanece até stop()
+Enel_El_Thor_Descarga    descarga; eixo +Z; comprimento padrão 8
+Enel_El_Thor_Impacto     impacto separado; chão no plano XZ
+Enel_El_Thor_Celeste    sequência vertical; raiz no chão; altura padrão 8
+
+Cada efeito tem .efkproj editável, .efkefc para runtime e .efk legado.
+Manter Model/ e Texture/ junto dos arquivos de efeito.
+As raízes são fixas; o jogo controla posição, orientação e escala.
+Os arquivos contêm somente o efeito. Integração e exemplos em INTEGRACAO.md.
+
+O acabamento usa amostragem mais densa e interpolação curva nos raios;
+o glow aditivo está incluído. Não depende de bloom externo.
+Modelos: aproximadamente 59 MiB, compartilhados entre os cinco efeitos.
+Prévia e verificação: Effekseer WebGL, três ângulos.
