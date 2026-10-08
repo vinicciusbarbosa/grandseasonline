@@ -17,7 +17,7 @@ const ALTURA_EFK = 5
 /** o corte básico (Sword Slash) toca mais rápido que no editor */
 const VELOCIDADE_CORTE = 2.5
 /** o X do Corte Duplo também toca mais rápido que no editor */
-const VELOCIDADE_CORTE_X = 1.8
+const VELOCIDADE_CORTE_X = 1.2
 /** escala do gelo do Ice Time (aplicar e congelado) */
 const ESCALA_GELO = 0.5
 /** s até o gelo do Ice Time terminar de crescer (aí entram os cristais do congelado) */
