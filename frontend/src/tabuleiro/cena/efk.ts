@@ -383,6 +383,8 @@ export class EfeitoEfk {
   readonly cinematico = true
   private q = 0
   private qAnt = -1
+  /** parou de gerar: o que já nasceu termina a vida e o efeito acaba */
+  private soltando = false
   private readonly raiz: Inst
   private readonly malhas = new Map<No, Malha>()
   private readonly nome: string
@@ -447,10 +449,11 @@ export class EfeitoEfk {
   private passo(i: Inst) {
     i.idade = this.q - i.nasc
     if (i.pai && !i.no.eterno && i.idade >= i.vida) i.vivo = false
+    if (i.pai && i.no.eterno && this.soltando && !this.temVivos(i)) i.vivo = false
     if (i.vivo) i.calcular(this.alongar)
     i.no.filhos.forEach((fn, k) => {
       const g = i.geracao[k]
-      while (i.vivo && g.n < fn.max && i.idade >= g.prox) {
+      while (i.vivo && !this.soltando && g.n < fn.max && i.idade >= g.prox) {
         const f = new Inst(fn, i, i.nasc + g.prox, g.n)
         i.filhos[k].push(f)
         g.n++
@@ -622,6 +625,11 @@ export class EfeitoEfk {
       const mat = m.mesh.material as THREE.ShaderMaterial
       if (mat.blending === THREE.AdditiveBlending) mat.uniforms.brilho.value = k
     }
+  }
+
+  /** para de gerar e deixa o que já nasceu terminar (efeitos que geram sem parar) */
+  soltar() {
+    this.soltando = true
   }
 
   /** termina já (some no próximo quadro) */

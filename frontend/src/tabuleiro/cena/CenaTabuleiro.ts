@@ -1021,13 +1021,13 @@ export class CenaTabuleiro {
     this.cenaFx.add(ef.sprite)
   }
 
-  /** visual do personagem, com os corpos transformados (lobisomem da Zoan do Lobo, espírito de fogo do Corpo de Chamas) */
+  /** visual do personagem, com o corpo transformado da Arma de Luz (no Corpo de Chamas o corpo é o mesmo, pegando fogo) */
   private async visualCom(id: string, fruta?: string) {
     const base = await VisualFolhas.carregar(id)
     const formas: Record<string, VisualFolhas> = {}
     // a fruta pode mudar na preparação: todos já carregam as duas formas
     void fruta
-    for (const [forma, folha] of [['agni', 'ro-agni'], ['sabre', `${id}-luz`]] as const) {
+    for (const [forma, folha] of [['sabre', `${id}-luz`]] as const) {
       try {
         formas[forma] = await VisualFolhas.carregar(folha)
       } catch {
@@ -1037,8 +1037,41 @@ export class CenaTabuleiro {
     return Object.keys(formas).length ? new VisualComForma(base, formas) : base
   }
 
+  /**
+   * Corpo de Chamas: o fogo que envolve o alvo no Hidaruma, gerando sem parar
+   * nos pés do personagem enquanto a skill durar; no fim, as chamas que já
+   * nasceram terminam e o fogo apaga
+   */
+  private readonly emChamas = new Map<Personagem, EfeitoEfk | null>()
+
+  private atualizarEmChamas() {
+    for (const p of this.personagens) {
+      const ef = this.emChamas.get(p)
+      if (p.forma === 'agni') {
+        if (ef === undefined) {
+          this.emChamas.set(p, null)
+          void carregarEfk('em-chamas').then((d) => {
+            if (!d || this.emChamas.get(p) !== null) return
+            if (p.forma !== 'agni') return void this.emChamas.delete(p)
+            this.emChamas.set(p, this.tocarEfk('em-chamas', d, p.pos.clone().setY(0.02), p.visual.altura / ALTURA_EFK))
+          })
+        }
+      } else if (ef !== undefined) {
+        ef?.soltar()
+        this.emChamas.delete(p)
+      }
+    }
+    for (const [p, ef] of this.emChamas) {
+      if (!this.personagens.includes(p)) {
+        ef?.soltar()
+        this.emChamas.delete(p)
+      } else if (ef) ef.sprite.position.copy(p.pos).setY(0.02)
+    }
+  }
+
   private atualizarFormas(dt: number) {
     this.atualizarHakiLigado(dt)
+    this.atualizarEmChamas()
     this.tForma += dt
     const soltar = this.tForma > 0.2
     if (soltar) this.tForma = 0
@@ -1051,7 +1084,6 @@ export class CenaTabuleiro {
       } else if (p.forma === 'agni') {
         p.escala = 1
         p.tinta = null
-        if (soltar) void this.palco.efeito('chama', 'normal', p.pos.clone().setY(p.visual.altura * (0.2 + Math.random() * 0.7)).add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0, 0)), { dur: 0.6, escala: 0.5 })
       } else if (p.forma === 'zoan') {
         p.escala = 1.3
         p.tinta = TINTA.zoan
