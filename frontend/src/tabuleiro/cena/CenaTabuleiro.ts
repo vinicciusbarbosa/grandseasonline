@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { casaEm, centroCasa, mesmaCasa, COLUNAS, METADE, type Casa } from '../tabuleiro'
 import { criarMar } from './mar'
-import { montarNavios } from './navio'
+import { faixaLinhaDagua, montarNavios } from './navio'
 import { Assador } from '../boneco/assador'
 import { CAPITAES } from '../boneco/boneco'
 import { Personagem } from './personagem'
@@ -196,8 +196,9 @@ export class CenaTabuleiro {
 
     this.navios = montarNavios()
     this.cena.add(this.navios.grupo)
-    this.mar = criarMar(this.navios.cascos)
+    this.mar = criarMar(this.navios.contornos, this.dirSol)
     this.cena.add(this.mar.mar)
+    for (const n of this.navios.navios) n.add(this.mar.espumaCasco(faixaLinhaDagua()))
 
     this.matAlcance = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(160,230,255,0.95)', 'rgba(90,170,230,0.28)'), transparent: true, depthWrite: false })
     this.matAlvo = new THREE.MeshBasicMaterial({ map: texturaMoldura('rgba(255,90,70,1)', 'rgba(240,50,30,0.55)'), transparent: true, depthWrite: false })

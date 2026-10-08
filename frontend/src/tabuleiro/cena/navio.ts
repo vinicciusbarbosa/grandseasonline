@@ -323,8 +323,10 @@ export type Navios = {
   grupo: THREE.Group
   luzes: THREE.PointLight[]
   panos: THREE.Mesh[]
-  /** retângulos dos cascos no plano XZ (para a espuma do mar) */
-  cascos: THREE.Vector4[]
+  /** contorno de cada casco na linha d'água, no plano XZ do mundo (x, z) */
+  contornos: THREE.Vector2[][]
+  /** o grupo de cada navio (a faixa de espuma no casco vai dentro dele) */
+  navios: THREE.Group[]
 }
 
 // ===================================================================== navio
@@ -419,6 +421,67 @@ function cascoGeo() {
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
   geo.setIndex(idx)
   geo.computeVertexNormals()
+  return geo
+}
+
+// ================================================================ linha d'água
+
+/** altura da água (o plano do mar) */
+export const NIVEL_MAR = -0.8
+
+/** meia boca do casco na altura y (0 abaixo da quilha) */
+function larguraEm(x: number, y: number) {
+  const t = borda(x)
+  const f = fundo(x)
+  const s = (t - y) / (t - f)
+  return s > 1 ? 0 : boca(x) * secao(Math.max(0, s))
+}
+
+/** volta do casco na altura y (local: popa → proa num lado, proa → popa no outro) */
+function voltaEm(y: number, n: number, folga = 0) {
+  const pts: THREE.Vector2[] = []
+  for (const lado of [1, -1])
+    for (let i = 0; i <= n; i++) {
+      const k = lado > 0 ? i / n : 1 - i / n
+      const x = POPA + (PROA - POPA) * k
+      const w = larguraEm(x, y)
+      pts.push(new THREE.Vector2(x, lado * (w > 0 ? w + folga : 0)))
+    }
+  return pts
+}
+
+/**
+ * Faixa colada no casco em volta da linha d'água (de `abaixo` a `acima` do
+ * mar), seguindo a curva do casco em cada altura: é onde a onda bate e a
+ * espuma sobe. UV: x = volta (unidades), y = altura acima do mar.
+ */
+export function faixaLinhaDagua(abaixo = 0.25, acima = 0.7) {
+  const N = 110
+  const NIV = 10
+  const pos: number[] = []
+  const uv: number[] = []
+  const idx: number[] = []
+  const porVolta = (N + 1) * 2
+  for (let j = 0; j <= NIV; j++) {
+    const y = NIVEL_MAR - abaixo + ((abaixo + acima) * j) / NIV
+    const pts = voltaEm(y, N, 0.02)
+    let s = 0
+    pts.forEach((p, i) => {
+      if (i) s += p.distanceTo(pts[i - 1])
+      pos.push(p.x, y, p.y)
+      uv.push(s, y - NIVEL_MAR)
+    })
+  }
+  for (let j = 0; j < NIV; j++)
+    for (let i = 0; i < porVolta; i++) {
+      const a = j * porVolta + i
+      const b = j * porVolta + ((i + 1) % porVolta)
+      idx.push(a, b, a + porVolta, b, b + porVolta, a + porVolta)
+    }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  geo.setIndex(idx)
   return geo
 }
 
@@ -901,7 +964,8 @@ export function montarNavios(): Navios {
   const grupo = new THREE.Group()
   const luzes: THREE.PointLight[] = []
   const panos: THREE.Mesh[] = []
-  const cascos: THREE.Vector4[] = []
+  const contornos: THREE.Vector2[][] = []
+  const navios: THREE.Group[] = []
   for (const cima of [true, false]) {
     const zc = cima ? -VAO / 2 - METADE / 2 : VAO / 2 + METADE / 2
     const navio = montarNavio(cima, M, luzes, panos)
@@ -918,10 +982,10 @@ export function montarNavios(): Navios {
     tab.position.set(0, 0.001, zc)
     tab.receiveShadow = true
     grupo.add(tab)
-    // a espuma acompanha o casco (a ponta da proa é mais fina que a curva)
-    const x0 = cima ? POPA : -PROA + 1.8
-    const x1 = cima ? PROA - 1.8 : -POPA
-    cascos.push(new THREE.Vector4(x0, zc - MEIA, x1, zc + MEIA))
+    // contorno do casco na água, no mundo (a Marinha é girada 180°)
+    const sx = cima ? 1 : -1
+    contornos.push(voltaEm(NIVEL_MAR, 90).map((p) => new THREE.Vector2(p.x * sx, zc + p.y * sx)))
+    navios.push(navio)
   }
   // pranchas de abordagem sobre o vão
   const r = rng(5)
@@ -931,5 +995,5 @@ export function montarNavios(): Navios {
     p.rotation.z = (r() - 0.5) * 0.05
     grupo.add(p)
   }
-  return { grupo, luzes, panos, cascos }
+  return { grupo, luzes, panos, contornos, navios }
 }
