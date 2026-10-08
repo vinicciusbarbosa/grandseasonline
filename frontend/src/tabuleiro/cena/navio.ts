@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { COLUNAS, METADE, VAO, tiposMetade } from '../tabuleiro'
+import type { TipoCasa } from './texturas'
+import { recurso } from './visualFolhas'
 import {
   rng,
   texturaBarril,
@@ -435,6 +437,48 @@ function faixaGeo(y: number, alt: number, xMin = POPA, xMax = PROA - 0.3) {
   return geo
 }
 
+/**
+ * Casas do tabuleiro com as tábuas pintadas (public/sprites/piso/tabuas.png:
+ * 4×4 casas de 128 px vistas de cima). Enquanto a imagem carrega fica a
+ * madeira desenhada em código. Madeira: uma das tábuas comuns sorteada
+ * (as manchadas/rachadas mais raras); grade: a grade de ferro; amarela (as
+ * colunas das pontas): a tábua com o tom amarelo por cima.
+ */
+const PISO_COMUNS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 0, 1, 2, 3, 4, 5, 6, 7, 15]
+const PISO_RAROS = [11, 10, 14]
+const PISO_GRADE = 12
+function pisoPintado(tex: THREE.CanvasTexture, tipos: TipoCasa[][], semente: number) {
+  const img = new Image()
+  img.onload = () => {
+    const T = 128
+    const linhas = tipos.length
+    const colunas = tipos[0].length
+    const c = document.createElement('canvas')
+    c.width = colunas * T
+    c.height = linhas * T
+    const g = c.getContext('2d')!
+    const r = rng(semente)
+    for (let l = 0; l < linhas; l++) {
+      for (let k = 0; k < colunas; k++) {
+        const tipo = tipos[l][k]
+        const i = tipo === 'grade' ? PISO_GRADE : r() < 0.08 ? PISO_RAROS[Math.floor(r() * PISO_RAROS.length)] : PISO_COMUNS[Math.floor(r() * PISO_COMUNS.length)]
+        g.drawImage(img, (i % 4) * T, Math.floor(i / 4) * T, T, T, k * T, l * T, T, T)
+        if (tipo === 'amarela') {
+          g.fillStyle = 'rgba(226,206,110,0.45)'
+          g.fillRect(k * T, l * T, T, T)
+        }
+      }
+    }
+    tex.image = c
+    // pintura (não é pixel art): suaviza ao afastar
+    tex.magFilter = THREE.LinearFilter
+    tex.minFilter = THREE.LinearMipmapLinearFilter
+    tex.generateMipmaps = true
+    tex.needsUpdate = true
+  }
+  img.src = recurso(`${import.meta.env.BASE_URL}sprites/piso/tabuas.png`)
+}
+
 /** piso plano seguindo a planta do casco, de x0 a x1, na altura y */
 function pisoGeo(x0: number, x1: number, y: number, recuo = 0.12) {
   const pts: THREE.Vector2[] = []
@@ -821,7 +865,9 @@ export function montarNavios(): Navios {
     if (!cima) navio.rotation.y = Math.PI
     grupo.add(navio)
     // tabuleiro (fixo no mundo, por cima do convés)
-    const tex = texturaTabuleiro(COLUNAS, METADE, tiposMetade(cima), TEXELS, cima ? 101 : 202)
+    const tipos = tiposMetade(cima)
+    const tex = texturaTabuleiro(COLUNAS, METADE, tipos, TEXELS, cima ? 101 : 202)
+    pisoPintado(tex, tipos, cima ? 101 : 202)
     const tab = new THREE.Mesh(new THREE.PlaneGeometry(COLUNAS, METADE), new THREE.MeshLambertMaterial({ map: tex }))
     tab.rotation.x = -Math.PI / 2
     tab.position.set(0, 0.001, zc)
