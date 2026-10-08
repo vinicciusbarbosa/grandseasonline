@@ -1,0 +1,10 @@
+ZORO — TATSUMAKI
+
+Abra Zoro_Tatsumaki.efkproj no Effekseer para editar.
+Use Zoro_Tatsumaki.efkefc no runtime do jogo.
+Zoro_Tatsumaki_Continuo permanece ativo até handle.stop().
+Zoro_Tatsumaki_Onda_Chao contém a pressão no solo isolada.
+
+Origem na base, Y para cima, XZ no solo. Só o efeito, sem personagem.
+Mantenha Model/ e Texture/ junto dos arquivos.
+Veja INTEGRACAO.md para coordenadas, escala e uso.

@@ -1,0 +1,11 @@
+RAJADA DE CORTE AZUL
+
+Rajada em meia-lua com glow azul/ciano e cauda de energia. Sem personagem.
+
+Rajada_Corte_Azul_3_Casas: sequencia completa, avanca 3 unidades para +Z.
+Rajada_Corte_Azul_Projetil: raiz fixa, para o jogo mover entre as casas.
+Rajada_Corte_Azul_Disparo: flash do lancamento.
+Rajada_Corte_Azul_Impacto: contato/dissipacao.
+
+Mantenha Model/ e Texture/. .efkproj para editar; .efkefc para runtime.
+Leia INTEGRACAO.md: escala, alcance, controlador e tocador do jogo.

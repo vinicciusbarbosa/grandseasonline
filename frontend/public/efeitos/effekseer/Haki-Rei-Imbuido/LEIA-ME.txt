@@ -1,0 +1,20 @@
+HAKI DO REI IMBUÍDO — FLUXO E IMPACTO
+
+Efeitos para ataques imbuídos com Haki do Rei, sem personagens.
+Raios de partículas Ribbon: núcleo negro, bordas vermelhas luminosas,
+glow difuso, curvas irregulares, bifurcações e regeneração rápida.
+O impacto contém clarão de contato, pressão no ar e centelhas.
+
+Haki_Rei_Imbuido_Fluxo: emissão curta do corpo; origem nos pés.
+Haki_Rei_Imbuido_Impacto: explosão; origem no ponto atingido.
+Haki_Rei_Imbuido_Onda_Chao: pressão no solo; origem no chão.
+Haki_Rei_Imbuido_Demonstracao: sequência para conferir o conjunto.
+
+Cada efeito tem .efkproj editável no Effekseer 1.80.7,
+.efkefc para runtime e .efk legado.
+Manter Model/ e Texture/ junto dos arquivos de efeito.
+
+As raízes permanecem fixas. O jogo controla os encaixes e o instante
+do contato. Direções, origens e caminhos dos raios variam em runtime.
+Todos os efeitos são finitos. Integração e exemplos em INTEGRACAO.md.
+Os dois modelos de pressão somam aproximadamente 12,8 MiB.
