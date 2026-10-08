@@ -68,9 +68,10 @@ function carregar(nome: string, peca?: string) {
 /**
  * Troca o que está dentro de `alvo` pelo modelo, encaixado na caixa do prop de
  * código (a maior medida igual, assentado no mesmo chão, centrado);
- * `giro` vira o modelo em Y antes (para apontar como o de código).
+ * `giro` vira o modelo em Y antes (para apontar como o de código); `tinta`
+ * multiplica a cor da textura (as caixas do kit vêm escuras e acinzentadas).
  */
-export function trocarPorModelo(alvo: THREE.Group, nome: string, op: { peca?: string; giro?: number } = {}) {
+export function trocarPorModelo(alvo: THREE.Group, nome: string, op: { peca?: string; giro?: number; tinta?: [number, number, number] } = {}) {
   // caixa no espaço do próprio alvo (ele ainda nem está na cena)
   const caixa = new THREE.Box3()
   alvo.traverse((o) => {
@@ -83,6 +84,13 @@ export function trocarPorModelo(alvo: THREE.Group, nome: string, op: { peca?: st
   void carregar(nome, op.peca).then((modelo) => {
     if (!modelo || caixa.isEmpty()) return
     const m = modelo.clone()
+    if (op.tinta)
+      m.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.material = (o.material as THREE.MeshLambertMaterial).clone()
+          o.material.color.setRGB(...op.tinta!)
+        }
+      })
     m.rotation.y = op.giro ?? 0
     m.updateMatrixWorld(true)
     const t = new THREE.Box3().setFromObject(m)
