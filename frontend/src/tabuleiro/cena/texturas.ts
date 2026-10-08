@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { desenharJollyRoger, type JollyRoger } from './jollyRoger'
 
 /**
  * Texturas em pixel art desenhadas à mão (no canvas, pixel a pixel) para o
@@ -266,8 +267,8 @@ export function texturaCorda() {
   return textura(c, true)
 }
 
-/** Vela de pano com a caveira; `cor` é o tom do pano. Bordas rasgadas em alfa. */
-export function texturaVela(cor: [number, number, number], caveira: [number, number, number], semente: number) {
+/** Vela de pano com a Jolly Roger; `cor` é o tom do pano. Bordas rasgadas em alfa. */
+export function texturaVela(cor: [number, number, number], bandeira: JollyRoger, semente: number) {
   const w = 96
   const h = 112
   const { c, g } = tela(w, h)
@@ -289,31 +290,8 @@ export function texturaVela(cor: [number, number, number], caveira: [number, num
     g.fillStyle = hex(cor[0] * 0.6, cor[1] * 0.6, cor[2] * 0.6)
     g.fillRect(0, y, w, 1)
   }
-  // caveira e ossos cruzados
-  const cx = w / 2
-  const cy = h * 0.42
-  g.fillStyle = hex(...caveira)
-  for (const s of [-1, 1]) {
-    for (let i = -22; i <= 22; i++) {
-      const x = cx + i
-      const y = cy + 10 + i * 0.45 * s
-      g.fillRect(Math.round(x), Math.round(y), 2, 3)
-    }
-    for (const [ox, oy] of [[-23, -10], [23, 10]]) {
-      g.beginPath()
-      g.arc(cx + ox * 1, cy + 10 + oy * s * 0.45 * (ox > 0 ? 1 : 1) , 3, 0, Math.PI * 2)
-      g.fill()
-    }
-  }
-  g.beginPath()
-  g.ellipse(cx, cy - 4, 13, 12, 0, 0, Math.PI * 2)
-  g.fill()
-  g.fillRect(cx - 8, cy + 4, 16, 8)
-  g.fillStyle = hex(cor[0] * 0.3, cor[1] * 0.3, cor[2] * 0.3)
-  g.fillRect(cx - 8, cy - 5, 6, 6)
-  g.fillRect(cx + 2, cy - 5, 6, 6)
-  g.fillRect(cx - 1, cy + 2, 2, 3)
-  for (let i = -6; i <= 5; i += 3) g.fillRect(cx + i, cy + 8, 1, 4)
+  // a Jolly Roger do bando
+  desenharJollyRoger(g, bandeira, w / 2, h * 0.4, 12, cor)
   // rasgos na barra de baixo e furinhos
   g.globalCompositeOperation = 'destination-out'
   for (let x = 0; x < w; x++) {

@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { COLUNAS, METADE, VAO, tiposMetade } from '../tabuleiro'
 import type { TipoCasa } from './texturas'
 import { ancora, balaustre, cabrestante, corda, escada, janela, lanterna as lanternaFerro, pinha, porta, roloCorda, timao, tubo } from './detalhes'
+import { sortearJollyRoger, type JollyRoger } from './jollyRoger'
 import { trocarPorModelo } from './props'
 import { recurso } from './visualFolhas'
 import {
@@ -19,7 +20,7 @@ import {
 /**
  * Os dois navios do combate, lado a lado (como na referência): o de cima com
  * o castelo de popa, mastro e vela vermelha; o de baixo com a amurada da
- * frente, canhão e a bandeira azul. Cada convés carrega meio tabuleiro 5×20.
+ * frente e os canhões. Cada convés carrega meio tabuleiro 5×20.
  */
 
 const TEXELS = 48 // texels por unidade do mundo (uma casa = 48)
@@ -40,54 +41,6 @@ function caixa(w: number, h: number, d: number, mat: THREE.Material | THREE.Mate
   m.castShadow = true
   m.receiveShadow = true
   return m
-}
-
-/** Vela lisa (sem caveira): dobras verticais, costuras e uma faixa colorida. */
-function texturaVelaLisa(cor: [number, number, number], faixa: [number, number, number]) {
-  const w = 96
-  const h = 112
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const g = c.getContext('2d')!
-  for (let x = 0; x < w; x++) {
-    const k = 0.84 + Math.sin((x / w) * Math.PI * 3.2) * 0.1 - Math.pow(Math.abs(x / w - 0.5) * 2, 3) * 0.2
-    const q = Math.round(k * 6) / 6
-    g.fillStyle = `rgb(${cor[0] * q},${cor[1] * q},${cor[2] * q})`
-    g.fillRect(x, 0, 1, h)
-  }
-  g.fillStyle = `rgba(0,0,0,0.12)`
-  for (let y = 18; y < h; y += 22) g.fillRect(0, y, w, 1)
-  g.fillStyle = `rgb(${faixa.join(',')})`
-  g.fillRect(0, h * 0.62, w, 9)
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.magFilter = THREE.NearestFilter
-  return t
-}
-
-/** Bandeira da Marinha: branca, gaivota azul e a faixa azul embaixo. */
-function texturaBandeiraMarinha() {
-  const c = document.createElement('canvas')
-  c.width = 96
-  c.height = 72
-  const g = c.getContext('2d')!
-  g.fillStyle = '#eef0f4'
-  g.fillRect(0, 0, 96, 72)
-  g.fillStyle = '#2c4f9e'
-  g.fillRect(0, 56, 96, 10)
-  g.strokeStyle = '#2c4f9e'
-  g.lineWidth = 6
-  g.lineCap = 'round'
-  g.beginPath()
-  g.moveTo(22, 36)
-  g.quadraticCurveTo(36, 16, 48, 32)
-  g.quadraticCurveTo(60, 16, 74, 36)
-  g.stroke()
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.magFilter = THREE.NearestFilter
-  return t
 }
 
 const lambert = (map: THREE.Texture | null, cor = 0xffffff, extra: THREE.MeshLambertMaterialParameters = {}) =>
@@ -334,7 +287,7 @@ export type Navios = {
  * vergas, velas e cordame. O convés onde ficam as casas continua plano em y = 0.
  *
  * Coordenadas locais do navio: proa para +X, tabuleiro em x ∈ [-10, 10],
- * z ∈ [-2.5, 2.5]. O da Marinha é girado 180° (proa para o outro lado).
+ * z ∈ [-2.5, 2.5]. O de baixo é girado 180° (proa para o outro lado).
  */
 
 type Estilo = {
@@ -624,28 +577,36 @@ function corrimao(M: Materiais, g: THREE.Group) {
     }
 }
 
-/** portinholas com canhões saindo (bateria de cima) e fechadas (de baixo) */
-function portinholas(M: Materiais, g: THREE.Group, est: Estilo) {
+/** portinholas com canhões saindo (bateria de cima, só no lado de fora do navio de baixo) e fechadas (de baixo) */
+function portinholas(M: Materiais, g: THREE.Group, est: Estilo, comCanhoes: boolean) {
   const escuro = new THREE.MeshLambertMaterial({ color: 0x140c08 })
   for (const lado of [-1, 1]) {
     for (let x = -9; x <= 9; x += 2.25) {
       const y = 0.18
       const s = (borda(x) - y) / (borda(x) - fundo(x))
       const z = lado * (boca(x) * secao(s) + 0.03)
-      const furo = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.04), escuro)
-      furo.position.set(x, y, z)
-      g.add(furo)
       const moldura = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.06, 0.06), est.faixa)
       moldura.position.set(x, y + 0.19, z)
       g.add(moldura)
-      const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.55, 10), M.ferro)
-      cano.rotation.x = Math.PI / 2
-      cano.castShadow = true
-      const gc = new THREE.Group()
-      gc.add(cano)
-      gc.position.set(x, y, z + lado * 0.22)
-      // só o cano do canhão baixado, com a boca para fora do casco (no modelo, -Z)
-      g.add(trocarPorModelo(gc, 'canhao', { peca: 'Cannon_', giro: lado > 0 ? Math.PI : 0 }))
+      // o lado +Z fica virado para o outro navio (no vão), e o navio de cima não
+      // mostra canhões: portinholas fechadas
+      if (lado > 0 || !comCanhoes) {
+        const fechada = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.05), est.faixa2)
+        fechada.position.set(x, y, z)
+        g.add(fechada)
+      } else {
+        const furo = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.04), escuro)
+        furo.position.set(x, y, z)
+        g.add(furo)
+        const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.55, 10), M.ferro)
+        cano.rotation.x = Math.PI / 2
+        cano.castShadow = true
+        const gc = new THREE.Group()
+        gc.add(cano)
+        gc.position.set(x, y, z + lado * 0.22)
+        // só o cano do canhão baixado, com a boca para fora do casco (no modelo, -Z)
+        g.add(trocarPorModelo(gc, 'canhao', { peca: 'Cannon_' }))
+      }
       // fechada, na bateria de baixo
       const yb = -0.42
       const sb = (borda(x + 1.1) - yb) / (borda(x + 1.1) - fundo(x + 1.1))
@@ -846,27 +807,20 @@ function mastroNavio(M: Materiais, g: THREE.Group, x: number, base: number, alt:
   return new THREE.Vector3(x, base + alt, 0)
 }
 
-function montarNavio(cima: boolean, M: Materiais, luzes: THREE.PointLight[], panos: THREE.Mesh[]) {
+function montarNavio(cima: boolean, M: Materiais, luzes: THREE.PointLight[], panos: THREE.Mesh[], jr: JollyRoger) {
   const g = new THREE.Group()
-  const est: Estilo = cima
-    ? {
-        casco: lambert(texturaMadeira(64, 64, 5, 64 / 6, 12), 0xffffff, { side: THREE.DoubleSide }),
-        espelho: lambert(texturaMadeira(64, 64, 6, 64 / 6, 21)),
-        faixa: lambert(null, 0x1e140e),
-        faixa2: lambert(null, 0x6b1d1a),
-        vela: texturaVela([168, 36, 40], [238, 226, 206], 31),
-        velasAbertas: true,
-        bandeira: texturaVela([30, 26, 26], [236, 232, 220], 51),
-      }
-    : {
-        casco: lambert(texturaMadeira(64, 64, 3, 64 / 6, 13), 0xffffff, { side: THREE.DoubleSide }),
-        espelho: lambert(texturaMadeira(64, 64, 3, 64 / 6, 22)),
-        faixa: lambert(null, 0x2c4f9e),
-        faixa2: lambert(null, 0xe8e4d8),
-        vela: texturaVelaLisa([238, 234, 224], [44, 72, 160]),
-        velasAbertas: true,
-        bandeira: texturaBandeiraMarinha(),
-      }
+  // os dois são navios piratas, cada um com a Jolly Roger do seu bando (vela e
+  // bandeira) e o friso pintado na cor do pano
+  const friso = new THREE.Color(...jr.pano.map((v) => v / 255))
+  const est: Estilo = {
+    casco: lambert(texturaMadeira(64, 64, cima ? 5 : 3, 64 / 6, cima ? 12 : 13), 0xffffff, { side: THREE.DoubleSide }),
+    espelho: lambert(texturaMadeira(64, 64, cima ? 6 : 3, 64 / 6, cima ? 21 : 22)),
+    faixa: lambert(null, 0x1e140e),
+    faixa2: lambert(null, friso.getHex()),
+    vela: texturaVela(jr.pano, jr, cima ? 31 : 37),
+    velasAbertas: true,
+    bandeira: texturaVela(jr.bandeira, jr, cima ? 51 : 57),
+  }
   const sombra = (m: THREE.Mesh) => {
     m.castShadow = true
     m.receiveShadow = true
@@ -880,7 +834,7 @@ function montarNavio(cima: boolean, M: Materiais, luzes: THREE.PointLight[], pan
   g.add(new THREE.Mesh(faixaGeo(-0.62, 0.1), est.faixa))
   g.add(new THREE.Mesh(faixaGeo(0.46, 0.08, POPA, 10.5), est.faixa2))
   corrimao(M, g)
-  portinholas(M, g, est)
+  portinholas(M, g, est, !cima)
 
   // convés principal (em volta do tabuleiro) e os dois elevados
   const piso = new THREE.Mesh(pisoGeo(POPA + 0.1, PROA - 1.2, -0.003), M.convesMargem)
@@ -916,9 +870,11 @@ function montarNavio(cima: boolean, M: Materiais, luzes: THREE.PointLight[], pan
     braco.position.set(frente + 0.07, 1.27, z)
     g.add(l, braco)
   }
-  // balaustradas na frente dos elevados
-  g.add(amurada(M, FIM_TAB + 0.1, -boca(FIM_TAB) + 0.25, FIM_TAB + 0.1, boca(FIM_TAB) - 0.25, 0.55).translateY(ALT_PROA))
-  g.add(amurada(M, -FIM_TAB - 0.1, -boca(-FIM_TAB) + 0.25, -FIM_TAB - 0.1, boca(-FIM_TAB) - 0.25, 0.6).translateY(ALT_POPA))
+  // balaustradas na frente dos elevados: param antes das escadas (z = ±2.8),
+  // deixando a passagem de quem sobe aberta
+  const passagem = 2.48
+  g.add(amurada(M, FIM_TAB + 0.1, -passagem, FIM_TAB + 0.1, passagem, 0.55).translateY(ALT_PROA))
+  g.add(amurada(M, -FIM_TAB - 0.1, -passagem, -FIM_TAB - 0.1, passagem, 0.6).translateY(ALT_POPA))
   // escadas encostadas nas paredes, nas laterais (fora do tabuleiro), com
   // pernas, degraus e corrimão do lado de fora
   for (const z of [-2.8, 2.8]) {
@@ -1057,11 +1013,15 @@ export function montarNavios(): Navios {
   const panos: THREE.Mesh[] = []
   const contornos: THREE.Vector2[][] = []
   const navios: THREE.Group[] = []
+  // uma Jolly Roger inventada para cada bando, nova a cada partida
+  const sorte = rng((Math.random() * 2 ** 31) | 0)
+  const b0 = sortearJollyRoger(sorte)
+  const bandeiras = [b0, sortearJollyRoger(sorte, b0.pano)]
   for (const cima of [true, false]) {
     const zc = cima ? -VAO / 2 - METADE / 2 : VAO / 2 + METADE / 2
-    const navio = montarNavio(cima, M, luzes, panos)
+    const navio = montarNavio(cima, M, luzes, panos, cima ? bandeiras[0] : bandeiras[1])
     navio.position.set(0, 0, zc)
-    // piratas com a proa para a direita; a Marinha, para a esquerda
+    // o de cima com a proa para a direita; o de baixo, para a esquerda
     if (!cima) navio.rotation.y = Math.PI
     grupo.add(navio)
     // tabuleiro (fixo no mundo, por cima do convés)
@@ -1073,7 +1033,7 @@ export function montarNavios(): Navios {
     tab.position.set(0, 0.001, zc)
     tab.receiveShadow = true
     grupo.add(tab)
-    // contorno do casco na água, no mundo (a Marinha é girada 180°)
+    // contorno do casco na água, no mundo (o de baixo é girado 180°)
     const sx = cima ? 1 : -1
     contornos.push(voltaEm(NIVEL_MAR, 90).map((p) => new THREE.Vector2(p.x * sx, zc + p.y * sx)))
     navios.push(navio)
