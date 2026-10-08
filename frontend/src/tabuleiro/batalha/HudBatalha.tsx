@@ -6,7 +6,7 @@ import { MOVIMENTO_POR_VEZ } from './regras'
  * HUD da batalha com a cara de Grand Seas (One Piece, náutico):
  *   laterais      — retratos em escotilhas com aro de latão, placas de madeira
  *                   com vida/energia/espírito; a escotilha ganha um contorno
- *                   de Haki do Rei animado quando o Rei (imbuído ou em área)
+ *                   de Haki do Rei animado quando o Rei em área
  *                   está liberado para aquele pirata;
  *   topo          — faixa de pergaminho "Sua vez" com ampulheta e pegadas;
  *   esquerda      — tábuas de ação: Haki, Atacar, Skills, Profissão, Passar;
@@ -148,7 +148,7 @@ function Pips({ n, max, c, forma = 'losango' }: { n: number; max: number; c: str
 function Icones({ f }: { f: FichaHud }) {
   const ic: [string, string, string][] = []
   if (f.fruta) ic.push([f.fruta.tipo === 'logia' ? 'L' : f.fruta.tipo === 'zoan' ? 'Z' : 'P', '#ffcf5a', f.fruta.nome])
-  if (f.armamento?.ligado) ic.push(['A', f.rei?.ligado ? cor.rei : cor.arm, f.rei?.ligado ? 'Haki do Rei imbuído ligado' : 'Haki de armamento ligado'])
+  if (f.armamento?.ligado) ic.push(['A', f.armamento.imbuido ? cor.rei : cor.arm, f.armamento.imbuido ? 'Haki de armamento com o Rei imbuído ligado' : 'Haki de armamento ligado'])
   if (f.observacao?.ligado) ic.push(['O', cor.obs, 'Observação ligada'])
   if (f.atordoado) ic.push(['✶', '#ff5a6e', 'Atordoado: perde a vez'])
   if (f.queimando) ic.push(['🔥', '#ff8a3a', 'Queimando'])
@@ -164,8 +164,8 @@ function Icones({ f }: { f: FichaHud }) {
   )
 }
 
-/** O Haki do Rei (imbuído ou em área) está liberado para este pirata? */
-const reiLiberado = (f: FichaHud) => f.hp > 0 && ((f.podeRei && !f.rei?.ligado) || f.podeHaoshoku)
+/** O Haki do Rei em área está liberado para este pirata? */
+const reiLiberado = (f: FichaHud) => f.hp > 0 && f.podeHaoshoku
 
 function Quadro({ f, sel, onClick, direita }: { f: FichaHud; sel?: boolean; onClick?: () => void; direita?: boolean }) {
   const morto = f.hp <= 0
@@ -234,27 +234,17 @@ function CartasHaki({ f, c, preparo }: { f: FichaHud; c: ControleBatalha; prepar
       {f.armamento &&
         carta(
           'arm',
-          f.armamento.avancado ? 'Armamento avançado' : 'Haki de armamento',
-          `Braço e arma negros: ${f.armamento.avancado ? '×1,55 e fura 35% da defesa' : '×1,4 e fura 15% da defesa'}; toca a Logia. Gasta 1 uso por ataque; recupera com espírito.`,
-          cor.arm,
+          f.armamento.imbuido ? 'Armamento: Rei imbuído' : f.armamento.avancado ? 'Armamento avançado' : 'Haki de armamento',
+          f.armamento.imbuido
+            ? 'Nível 3: o Haki do Rei vai junto em todo golpe: ×1,55 e fura 35% da defesa, dano ×1,35 a mais, pode chocar com outro Rei. Gasta 1 uso por ataque; recupera com espírito.'
+            : `Braço e arma negros: ${f.armamento.avancado ? '×1,55 e fura 35% da defesa' : '×1,4 e fura 15% da defesa'}; toca a Logia. Gasta 1 uso por ataque; recupera com espírito.`,
+          f.armamento.imbuido ? cor.rei : cor.arm,
           f.armamento.ligado,
           f.armamento.usos > 0,
           () => c.alternarArmamento(f.id),
           <>
-            <Pips n={f.armamento.usos} max={f.armamento.max} c={cor.arm} /> <small style={{ color: '#c8b8e0' }}>usos</small>
+            <Pips n={f.armamento.usos} max={f.armamento.max} c={f.armamento.imbuido ? cor.rei : cor.arm} /> <small style={{ color: '#c8b8e0' }}>usos</small>
           </>,
-        )}
-      {f.rei &&
-        f.armamento?.avancado &&
-        carta(
-          'rei',
-          'Rei imbuído',
-          'O Haki do Rei na arma: dano ×1,35, pode atordoar e chocar com outro Rei. Gasta 40 de espírito por ataque.',
-          cor.rei,
-          f.rei.ligado,
-          f.podeRei,
-          () => c.alternarRei(f.id),
-          <small style={{ color: '#ffb0b8' }}>✦ 40 de espírito por ataque (tem {f.espirito})</small>,
         )}
       {f.observacao &&
         carta(
@@ -341,6 +331,8 @@ const FRUTAS_OP: [string, string][] = [
   ['gelo', 'Logia: Gelo (Hie)'],
 ]
 const NIVEL = ['—', 'normal', 'avançado']
+/** armamento: o nível 3 é o Haki do Rei imbuído no golpe */
+const NIVEL_ARMAMENTO = [...NIVEL, 'Rei imbuído']
 
 function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
   const sel: React.CSSProperties = { font: 'inherit', fontSize: 12, background: '#fbf1d6', color: '#3a2410', border: '1px solid #8a6a3a', padding: '3px' }
@@ -360,7 +352,7 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
               <td>Akuma</td>
               <td>Armamento</td>
               <td>Observação</td>
-              <td>Rei</td>
+              <td title="Haki do Rei em área (o imbuído é o nível 3 do armamento)">Rei (área)</td>
               <td>Overall</td>
             </tr>
           </thead>
@@ -382,7 +374,7 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
                 {(['armamento', 'observacao'] as const).map((campo) => (
                   <td key={campo}>
                     <select value={k[campo]} onChange={(ev) => c.mudarConfig(k.id, campo, Number(ev.target.value))} style={sel}>
-                      {NIVEL.map((n, i) => (
+                      {(campo === 'armamento' ? NIVEL_ARMAMENTO : NIVEL).map((n, i) => (
                         <option key={i} value={i}>
                           {n}
                         </option>
@@ -503,7 +495,7 @@ function PainelTreino({ t, c }: { t: NonNullable<RetratoBatalha['treino']>; c: C
       <label style={rotulo}>
         Armamento
         <select value={t.armamento} onChange={(ev) => c.mudarTreino('armamento', Number(ev.target.value))} style={sel}>
-          {NIVEL.map((n, i) => (
+          {NIVEL_ARMAMENTO.map((n, i) => (
             <option key={i} value={i}>
               {n}
             </option>
@@ -511,7 +503,7 @@ function PainelTreino({ t, c }: { t: NonNullable<RetratoBatalha['treino']>; c: C
         </select>
       </label>
       <label style={{ ...rotulo, alignItems: 'center' }}>
-        Rei
+        Rei (área)
         <input type="checkbox" checked={t.rei} onChange={(ev) => c.mudarTreino('rei', ev.target.checked)} />
       </label>
       <label style={rotulo}>

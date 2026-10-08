@@ -25,7 +25,7 @@ import { TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, type Con
 import { proximaAcao } from './ia'
 import {
   HAOSHOKU,
-  REI_IMBUIDO,
+  reiImbuido,
   hakiPreparacao,
   tempoDaVez,
   aplicar,
@@ -120,6 +120,10 @@ export interface Palco {
   perfurante(p: Personagem, ate: THREE.Vector3, alvos: Personagem[]): Promise<boolean>
   /** Tornado de Lâminas do Effekseer (Tatsumaki nos pés); resolve quando o vento se forma, false sem o efeito */
   tatsumaki(p: Personagem): Promise<boolean>
+  /** Haki do Rei imbuído (Effekseer): o fluxo subindo pelo corpo de quem ataca; false sem o efeito */
+  imbuidoFluxo(p: Personagem): Promise<boolean>
+  /** Haki do Rei imbuído (Effekseer): a explosão de raios no ponto atingido e a onda no chão embaixo; false sem o efeito */
+  imbuidoImpacto(ponto: THREE.Vector3, chao: THREE.Vector3): Promise<boolean>
   /** Ice Time do Effekseer (contato + cristais no alvo); resolve no golpe, false sem o efeito */
   iceTime(p: Personagem, alvo: Personagem | null, ate: THREE.Vector3): Promise<boolean>
   /** Partisan do Effekseer: formação de lanças e disparo até o alvo; resolve quando metade acerta, false sem o efeito */
@@ -240,7 +244,7 @@ export type RetratoBatalha = {
   animando: boolean
   auto: boolean
   /** modo treino: um pirata e um boneco alvo, para testar skills e sprites */
-  treino: { fruta: string; arma: TipoArma; alvoFruta: string; armamento: 0 | 1 | 2; rei: boolean } | null
+  treino: { fruta: string; arma: TipoArma; alvoFruta: string; armamento: 0 | 1 | 2 | 3; rei: boolean } | null
   config: (Config & { nome: string; lado: Lado })[]
   turno: number
   vez: Lado
@@ -250,11 +254,11 @@ export type RetratoBatalha = {
   vencedor: Lado | null
   tripulacao: FichaHud[]
   inimigos: FichaHud[]
-  selecionado: (FichaHud & { skills: SkillHud[]; skill: string | null; previa: boolean; usarArmamento: boolean; usarRei: boolean; podeArmamento: boolean; podeRei: boolean; podeHaoshoku: boolean }) | null
+  selecionado: (FichaHud & { skills: SkillHud[]; skill: string | null; previa: boolean; usarArmamento: boolean; podeArmamento: boolean; podeHaoshoku: boolean }) | null
   log: { t: number; texto: string }[]
   dica: string
 }
-export type HakiHud = { usos: number; max: number; avancado: boolean; ligado: boolean }
+export type HakiHud = { usos: number; max: number; avancado: boolean; ligado: boolean; /** armamento nível 3 (Rei imbuído no golpe) */ imbuido?: boolean }
 export type FichaHud = {
   id: string
   nome: string
@@ -276,7 +280,6 @@ export type FichaHud = {
   queimando: boolean
   transformado: number
   /** dá para ligar o Rei imbuído / soltar o Haki do Rei em área agora */
-  podeRei: boolean
   podeHaoshoku: boolean
 }
 
@@ -306,7 +309,7 @@ export class ControleBatalha {
 
   // ------------------------------------------------------------ treino
   /** modo treino (?treino na URL): um pirata contra um boneco alvo que não morre */
-  private treino: { fruta: string; arma: TipoArma; alvoFruta: string; armamento: 0 | 1 | 2; rei: boolean } | null = null
+  private treino: { fruta: string; arma: TipoArma; alvoFruta: string; armamento: 0 | 1 | 2 | 3; rei: boolean } | null = null
   static readonly TREINO_JOGADOR = 'pirata-capitao'
   static readonly TREINO_ALVO = 'marinha-soldado'
 
@@ -394,17 +397,16 @@ export class ControleBatalha {
         c.arma = t.arma
         c.haki = {
           overall: 80,
-          armamento: t.armamento ? { usos: 9, max: 9, avancado: t.armamento === 2 } : null,
+          armamento: t.armamento ? { usos: 9, max: 9, avancado: t.armamento >= 2, imbuido: t.armamento === 3 } : null,
           observacao: null,
           rei: t.rei,
         }
-        if (!t.armamento) c.armamentoLigado = c.reiLigado = false
-        if (!t.rei || t.armamento !== 2) c.reiLigado = false
+        if (!t.armamento) c.armamentoLigado = false
       } else c.haki = { overall: 0, armamento: null, observacao: null, rei: false }
       const p = this.palco.personagem(c.id)
       if (p) {
         p.vida = c.hp
-        p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
+        p.haki = reiImbuido(c) ? 'rei' : c.armamentoLigado ? 'armamento' : false
         p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
       }
     }
@@ -434,7 +436,7 @@ export class ControleBatalha {
     const r = Math.random
     for (const k of this.config) {
       k.akuma = r() < 0.45 ? frutas[Math.floor(r() * frutas.length)] : ''
-      k.armamento = Math.floor(r() * 3) as 0 | 1 | 2
+      k.armamento = Math.floor(r() * 4) as 0 | 1 | 2 | 3
       k.observacao = Math.floor(r() * 3) as 0 | 1 | 2
       k.rei = r() < 0.25
       const base = k.armamento || k.observacao || k.rei ? 20 + k.armamento * 12 + k.observacao * 10 + (k.rei ? 20 : 0) : 0
@@ -480,19 +482,20 @@ export class ControleBatalha {
     for (const c of this.estado.combatentes) {
       const p = this.palco.personagem(c.id)
       if (!p) continue
-      p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
+      p.haki = reiImbuido(c) ? 'rei' : c.armamentoLigado ? 'armamento' : false
       p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
     }
   }
 
-  private alternarPreparo(id: string | undefined, tipo: 'armamento' | 'rei' | 'observacao') {
+  private alternarPreparo(id: string | undefined, tipo: 'armamento' | 'observacao') {
     const c = id ? porId(this.estado, id) : null
     if (!c || c.lado !== JOGADOR) return
-    const ligado = tipo === 'armamento' ? c.armamentoLigado : tipo === 'rei' ? c.reiLigado : c.observando
+    const ligado = tipo === 'armamento' ? c.armamentoLigado : c.observando
     this.estado = hakiPreparacao(this.estado, c.id, tipo, !ligado)
     this.sincronizar()
     const p = this.palco.personagem(c.id)
-    if (p && !ligado) this.palco.flutuar(p, tipo === 'armamento' ? 'Busoshoku!' : tipo === 'rei' ? 'Haki do Rei!' : 'Kenbunshoku!', tipo === 'armamento' ? '#c890ff' : tipo === 'rei' ? '#ff5a6a' : '#9fe0ff', 1)
+    const imb = tipo === 'armamento' && !!c.haki.armamento?.imbuido
+    if (p && !ligado) this.palco.flutuar(p, tipo === 'armamento' ? (imb ? 'Haki do Rei imbuído!' : 'Busoshoku!') : 'Kenbunshoku!', tipo === 'armamento' ? (imb ? '#ff5a6a' : '#c890ff') : '#9fe0ff', 1)
     this.palco.avisar()
   }
 
@@ -574,7 +577,7 @@ export class ControleBatalha {
       if (!p) continue
       p.vida = c.hp
       // o Haki ligado fica aparecendo na arma
-      p.haki = c.reiLigado ? 'rei' : c.armamentoLigado ? 'armamento' : false
+      p.haki = reiImbuido(c) ? 'rei' : c.armamentoLigado ? 'armamento' : false
       p.forma = c.akuma?.transformado ? (FORMAS[c.akuma.fruta] ?? null) : null
       // estrelinhas (atordoado) ou cristais (congelado) até a vez dele acabar
       p.status = c.atordoado && c.hp > 0 ? (this.tipoStatus.get(c.id) ?? 'stun') : null
@@ -721,14 +724,6 @@ export class ControleBatalha {
     if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'armamento', ligado: !c.armamentoLigado })
   }
 
-  /** Liga/desliga o Haki do Rei imbuído (liga o armamento junto; cada ataque gasta espírito). */
-  alternarRei(id?: string) {
-    if (this.fase === 'minha' && (this.animando || this.auto)) return
-    if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'rei')
-    const c = (id ?? this.sel) ? porId(this.estado, (id ?? this.sel)!) : null
-    if (c) void this.executar({ t: 'haki', id: c.id, tipo: 'rei', ligado: !c.reiLigado })
-  }
-
   observar(id?: string) {
     if (this.fase === 'minha' && (this.animando || this.auto)) return
     if (this.fase === 'haki') return this.alternarPreparo(id ?? this.sel ?? undefined, 'observacao')
@@ -857,7 +852,8 @@ export class ControleBatalha {
         }
         case 'haki': {
           const p = P(e.id)
-          const rei = e.tipo === 'rei'
+          // armamento nível 3: o Rei imbuído vem junto
+          const rei = !!porId(antes, e.id)?.haki.armamento?.imbuido
           if (p) {
             p.haki = e.ligado ? (rei ? 'rei' : 'armamento') : false
             this.palco.flutuar(p, e.ligado ? (rei ? 'Haki do Rei imbuído!' : 'Busoshoku!') : 'Haki desligado', e.ligado ? (rei ? '#ff5a6a' : '#c890ff') : '#c9c9c9', 1)
@@ -914,6 +910,8 @@ export class ControleBatalha {
         return
       }
     }
+    // Haki do Rei imbuído: o fluxo sobe pelo corpo antes do golpe
+    if (e.rei) void this.palco.imbuidoFluxo(a)
     // vira para o alvo e toca o golpe
     const primeiro = resto.find((x) => x.t === 'golpe' || x.t === 'cura') as { alvo: string } | undefined
     const pAlvo = primeiro ? this.palco.personagem(primeiro.alvo) : undefined
@@ -936,8 +934,6 @@ export class ControleBatalha {
         : [pAlvo ? (fx.chao ? pAlvo.pos.clone() : this.palco.peito(pAlvo)) : this.palco.centro(alvoCasa)]
       for (const pt of pts) void this.palco.efeitoFolha(fx.folha, 'S', fx.chao ? pt.clone().setY(0.02) : pt, { largura: fx.largura })
     }
-    // Haki do Rei imbuído: chama roxa no alvo
-    if (e.rei && pAlvo) void this.palco.efeitoFolha('fogo-roxo', 'S', pAlvo.pos.clone().setY(0.02), { largura: 1.4 })
     if (v.modo === 'especial') {
       const hits = resto.filter((x) => x.t === 'golpe').map((x) => this.palco.personagem((x as { alvo: string }).alvo)).filter((p): p is Personagem => !!p)
       await this.especial(s.id, a, origem, ate, e.casas.map((x) => this.palco.centro(x)), hits, direcaoEfeito(alvoCasa.l - c.casa.l, alvoCasa.c - c.casa.c))
@@ -957,8 +953,12 @@ export class ControleBatalha {
       await new Promise((r) => setTimeout(r, 300))
     }
     if (e.rei) {
+      // Haki do Rei imbuído: a explosão de raios negros e vermelhos no contato
       this.palco.tremer(0.35)
-      void this.palco.efeito('raio', 'rei', ate, { dur: 0.6, escala: 2.2 })
+      const chao = pAlvo ? pAlvo.pos.clone() : ate.clone().setY(0)
+      void this.palco.imbuidoImpacto(ate, chao).then((ok) => {
+        if (!ok) void this.palco.efeito('raio', 'rei', ate, { dur: 0.6, escala: 2.2 })
+      })
     } else if (e.armamento) this.palco.tremer(0.15)
     // resultados, um por um
     for (const r of resto) if (r !== clash) await this.resultado(antes, r, v, paleta)
@@ -1427,12 +1427,11 @@ export class ControleBatalha {
       logia: c.logia ? { ...c.logia } : null,
       armamento: arm ? { ...arm, ligado: c.armamentoLigado } : null,
       observacao: obs ? { ...obs, ligado: c.observando } : null,
-      rei: c.haki.rei ? { ligado: c.reiLigado } : null,
+      rei: c.haki.rei ? { ligado: false } : null,
       overall: c.haki.overall,
       atordoado: c.atordoado,
       queimando: !!c.queimadura,
       transformado: c.akuma?.transformado ?? 0,
-      podeRei: c.haki.rei && !!c.haki.armamento?.avancado && c.espirito >= REI_IMBUIDO.espirito && (c.haki.armamento?.usos ?? 0) > 0,
       podeHaoshoku: this.fase === 'minha' && c.haki.rei && c.espirito >= HAOSHOKU.espirito && !motivo(this.estado, { t: 'haoshoku', id: c.id }),
     }
   }
@@ -1476,9 +1475,7 @@ export class ControleBatalha {
             skill: this.efetiva(s)?.id ?? null,
             previa: !!this.previa,
             usarArmamento: s.armamentoLigado,
-            usarRei: s.reiLigado,
             podeArmamento: (s.haki.armamento?.usos ?? 0) > 0,
-            podeRei: s.haki.rei && !!s.haki.armamento?.avancado && s.espirito >= REI_IMBUIDO.espirito,
             podeHaoshoku: s.haki.rei && s.espirito >= HAOSHOKU.espirito && !motivo(e, { t: 'haoshoku', id: s.id }),
           }
         : null,

@@ -11,7 +11,6 @@ import { alvoValido, casasDaArea } from './armas'
 import {
   HAOSHOKU,
   chanceHaki,
-  REI_IMBUIDO,
   FORCA,
   distancia,
   motivo,
@@ -40,7 +39,7 @@ export function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: 
   return d
 }
 
-type Opcao = { valor: number; acao: Acao; andar?: Casa[]; haki?: { armamento: boolean; rei: boolean } }
+type Opcao = { valor: number; acao: Acao; andar?: Casa[]; haki?: { armamento: boolean } }
 
 function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
   let melhor: Opcao | null = null
@@ -81,9 +80,8 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
           if (o) v += esperado(c, o, s.mult, s.golpes ?? 1, true)
         }
       }
-      const rei = armamento && c.haki.rei && !!c.haki.armamento?.avancado && c.espirito >= REI_IMBUIDO.espirito
       v -= s.energia * 0.3 // guarda energia
-      if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo }, haki: { armamento, rei } }
+      if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo }, haki: { armamento } }
     }
   }
   return melhor
@@ -136,7 +134,6 @@ export function proximaAcao(e: Estado): Acao {
       const c = meus.find((x) => x.id === (melhor!.acao as { id: string }).id)!
       const h = melhor.haki
       if (h) {
-        if (h.rei !== c.reiLigado) return { t: 'haki', id: c.id, tipo: 'rei', ligado: h.rei }
         if (h.armamento !== c.armamentoLigado) return { t: 'haki', id: c.id, tipo: 'armamento', ligado: h.armamento }
       }
       if (!motivo(e, melhor.acao)) return melhor.acao

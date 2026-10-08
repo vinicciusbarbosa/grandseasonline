@@ -43,7 +43,12 @@ export type Atributos = {
 export type Haki = {
   /** média de todos os Haki (duelos e disputas) */
   overall: number
-  armamento: { usos: number; max: number; avancado: boolean } | null
+  /**
+   * Haki de armamento em três níveis: normal, `avancado` e `imbuido` (o Haki
+   * do Rei imbuído no golpe: um upgrade do avançado, que entra sozinho em todo
+   * ataque com o armamento ligado, sem botão nem custo a mais)
+   */
+  armamento: { usos: number; max: number; avancado: boolean; imbuido?: boolean } | null
   observacao: { usos: number; max: number; avancado: boolean } | null
   rei: boolean
 }
@@ -71,8 +76,6 @@ export type Combatente = {
   observando: boolean
   /** Haki de armamento ligado: todo ataque usa (gasta 1 uso por ataque) */
   armamentoLigado: boolean
-  /** Haki do Rei imbuído ligado: todo ataque usa (gasta espírito por ataque) */
-  reiLigado: boolean
   /** Haki do Rei / congelado: perde a próxima vez */
   atordoado: boolean
   /** skill → vezes da tripulação que ainda faltam para poder usar */
@@ -108,7 +111,7 @@ export type Evento =
   | { t: 'queimou'; id: string; dano: number }
   | { t: 'atordoou'; id: string }
   | { t: 'resistiu'; id: string }
-  | { t: 'haki'; id: string; tipo: 'armamento' | 'rei'; ligado: boolean }
+  | { t: 'haki'; id: string; tipo: 'armamento'; ligado: boolean }
   | { t: 'recuperou'; id: string; usos: number }
   | { t: 'clash'; de: string; alvo: string; resultado: 'venceu' | 'perdeu' | 'empate'; dano: number }
   | { t: 'caiu'; id: string }
@@ -129,8 +132,10 @@ export const ESPIRITO_AO_ACERTAR = 8
 export const ESPIRITO_AO_APANHAR = 12
 /** Haki do Rei em área: espírito, raio */
 export const HAOSHOKU = { espirito: 70, raio: 3 }
-/** Haki do Rei imbuído no golpe: espírito a mais (precisa de armamento avançado) */
-export const REI_IMBUIDO = { espirito: 40, mult: 1.35 }
+/** Haki do Rei imbuído no golpe (armamento nível 3): dano a mais */
+export const REI_IMBUIDO = { mult: 1.35 }
+/** o golpe deste personagem sai com o Haki do Rei imbuído (armamento nível 3 ligado e com usos) */
+export const reiImbuido = (c: Combatente) => c.armamentoLigado && !!c.haki.armamento?.imbuido && (c.haki.armamento?.usos ?? 0) > 0
 /**
  * Disputa de Haki pelo overall: chance de o mais forte prevalecer cresce com
  * a diferença (igual = 50%, +3% por ponto, entre 5% e 95%) — sem degrau.
@@ -235,7 +240,6 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
     c.espirito = 0
     c.observando = false
     c.armamentoLigado = false
-    c.reiLigado = false
     c.atordoado = false
     c.queimadura = null
     c.recargas = {}
@@ -255,18 +259,12 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
  * Preparação (antes da primeira vez): cada lado liga ou não o Haki dos seus
  * personagens. Não gasta nada além do que o Haki já gasta no ataque.
  */
-export function hakiPreparacao(anterior: Estado, id: string, tipo: 'armamento' | 'rei' | 'observacao', ligado: boolean): Estado {
+export function hakiPreparacao(anterior: Estado, id: string, tipo: 'armamento' | 'observacao', ligado: boolean): Estado {
   const e: Estado = structuredClone(anterior)
   const c = porId(e, id)
   if (!c) return anterior
   if (tipo === 'observacao') c.observando = ligado && (c.haki.observacao?.usos ?? 0) > 0
-  else if (tipo === 'armamento') {
-    c.armamentoLigado = ligado && (c.haki.armamento?.usos ?? 0) > 0
-    if (!c.armamentoLigado) c.reiLigado = false
-  } else {
-    c.reiLigado = ligado && c.haki.rei && !!c.haki.armamento?.avancado && c.espirito >= REI_IMBUIDO.espirito
-    if (c.reiLigado) c.armamentoLigado = true
-  }
+  else c.armamentoLigado = ligado && (c.haki.armamento?.usos ?? 0) > 0
   return e
 }
 
@@ -275,7 +273,7 @@ export type Acao =
   | { t: 'mover'; id: string; caminho: Casa[] }
   | { t: 'skill'; id: string; skill: string; alvo: Casa }
   | { t: 'observar'; id: string; ligado: boolean }
-  | { t: 'haki'; id: string; tipo: 'armamento' | 'rei'; ligado: boolean }
+  | { t: 'haki'; id: string; tipo: 'armamento'; ligado: boolean }
   | { t: 'haoshoku'; id: string }
   | { t: 'passar' }
   | { t: 'tempo' }
@@ -294,10 +292,6 @@ export function motivo(e: Estado, a: Acao): string | null {
     if (!a.ligado) return null
     if (!c.haki.armamento) return `${c.nome} não tem Haki de armamento.`
     if (!c.haki.armamento.usos) return 'Sem usos de Haki de armamento (recupera com espírito).'
-    if (a.tipo === 'rei') {
-      if (!c.haki.rei || !c.haki.armamento.avancado) return 'Precisa de Haki do Rei e armamento avançado.'
-      if (c.espirito < REI_IMBUIDO.espirito) return `Espírito insuficiente (${REI_IMBUIDO.espirito}).`
-    }
     return null
   }
   if (c.atordoado) return `${c.nome} está atordoado.`
@@ -481,13 +475,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     }
     case 'haki': {
       const c = porId(e, a.id)!
-      if (a.tipo === 'armamento') {
-        c.armamentoLigado = a.ligado
-        if (!a.ligado) c.reiLigado = false
-      } else {
-        c.reiLigado = a.ligado
-        if (a.ligado) c.armamentoLigado = true
-      }
+      c.armamentoLigado = a.ligado
       ev.push({ t: 'haki', id: c.id, tipo: a.tipo, ligado: a.ligado })
       break
     }
@@ -507,16 +495,14 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     case 'skill': {
       const c = porId(e, a.id)!
       const s = skillsDe(c).find((x) => x.id === a.skill)!
-      // o Haki que estiver ligado vai no ataque
+      // o Haki que estiver ligado vai no ataque (no nível 3, com o Rei imbuído)
       const armamento = c.armamentoLigado && (c.haki.armamento?.usos ?? 0) > 0
-      const rei = armamento && c.reiLigado && c.espirito >= REI_IMBUIDO.espirito
+      const rei = reiImbuido(c)
       c.energia -= s.energia
       if (s.recarga) c.recargas[s.id] = s.recarga + 1 // conta a partir do fim desta vez
       if (armamento) c.haki.armamento!.usos--
-      if (rei) c.espirito -= REI_IMBUIDO.espirito
       // acabou o recurso: desliga sozinho
-      if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
-      if (c.espirito < REI_IMBUIDO.espirito) c.reiLigado = false
+      if (!c.haki.armamento?.usos) c.armamentoLigado = false
       const casas = casasDaArea(s, c.casa, a.alvo).filter(dentro)
       ev.push({ t: 'skill', id: c.id, skill: s.id, nome: s.nome, alvo: a.alvo, casas, armamento, rei })
       if (s.transforma && c.akuma) {
@@ -537,7 +523,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
         if (!alvo || alvo.lado === c.lado) continue
         for (let g = 0; g < (s.golpes ?? 1) && alvo.hp > 0 && c.hp > 0; g++) golpear(c, alvo, s, armamento, rei)
       }
-      if (!c.haki.armamento?.usos) c.armamentoLigado = c.reiLigado = false
+      if (!c.haki.armamento?.usos) c.armamentoLigado = false
       break
     }
     case 'passar':
@@ -578,9 +564,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       espirito(c, ESPIRITO_POR_VEZ)
       // armamento recupera com espírito
       const arm = c.haki.armamento
-      // quem tem o Rei só usa o espírito que sobra acima do custo do Rei imbuído
-      const reserva = c.haki.rei ? REI_IMBUIDO.espirito : 0
-      if (arm && arm.usos < arm.max && c.espirito >= RECUPERA_ARMAMENTO.espirito + reserva) {
+      if (arm && arm.usos < arm.max && c.espirito >= RECUPERA_ARMAMENTO.espirito) {
         c.espirito -= RECUPERA_ARMAMENTO.espirito
         arm.usos = Math.min(arm.max, arm.usos + RECUPERA_ARMAMENTO.usos)
         ev.push({ t: 'recuperou', id: c.id, usos: arm.usos })

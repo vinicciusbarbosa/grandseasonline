@@ -157,8 +157,8 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
   - **Armamento mais forte** (teste): ×1,4 e fura 15% da defesa; avançado
     ×1,55 e fura 35%.
   - **Ligar/desligar o Haki é separado do ataque** (não gasta a vez): ligado,
-    todo ataque usa o Haki (armamento gasta 1 uso por ataque; Rei imbuído
-    gasta espírito por ataque) até desligar ou acabar o recurso. O
+    todo ataque usa o Haki (armamento gasta 1 uso por ataque) até
+    desligar ou acabar o recurso. O
     **armamento recupera usos com espírito** (teste: no começo da vez, 25 de
     espírito → +1 uso). **Observação**: um ataque de vários hits gasta só 1
     uso; se prevê, esquiva de todos os hits.
@@ -166,9 +166,11 @@ NPCs revelam pedaços. Viagem rápida entre ilhas visitadas: opcional, depois.
     limitados pela **maestria** (ex.: maestria 100 → 10 usos, 50 → 5).
     **Armamento avançado**: fura % da defesa, dá bônus de dano e (quando a
     postura existir) fura a postura/bloqueio.
-  - **Haki do Rei imbuído** no ataque: precisa ter Haki do Rei **e** o
-    armamento avançado; também pode ser lançado em área. Só depois que o
-    personagem acumula **espírito** suficiente.
+  - **Haki do Rei imbuído** no ataque: é o **nível 3 do armamento**
+    (normal → avançado → Rei imbuído), não um Haki para ligar à parte. Com
+    o armamento ligado, todo golpe sai com o Rei imbuído (dano ×1,35 a mais
+    e pode chocar com outro Rei), sem custo além do uso do armamento. O
+    **Haki do Rei em área** continua separado (gasta espírito).
   - **Choque de Haki do Rei (clash)**: quem ataca com o Rei imbuído um
     alvo que também tem Haki do Rei e espírito suficiente entra num choque
     (a câmera aproxima os dois, os golpes se encontram sem as armas se

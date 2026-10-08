@@ -6,8 +6,8 @@
  * Cada lado tem as três classes e repetidas: piratas com dois espadachins,
  * lutador e dois atiradores (um é o médico); Marinha com dois espadachins
  * (um é o médico), dois lutadores e atirador.
- * Haki: o espadachim que comanda cada lado tem o Rei + armamento avançado
- * (imbui o Rei no golpe); lutador pirata: armamento avançado; o lutador
+ * Haki: o espadachim que comanda cada lado tem o Rei + armamento nível 3
+ * (o Rei imbuído vai em todo golpe com o armamento ligado); lutador pirata: armamento avançado; o lutador
  * oficial da Marinha: armamento avançado + observação AVANÇADA (esquiva e
  * revida); atiradores: Rei (só em área). Akuma no Mi (só Logias): fumaça
  * (comandante da Marinha), fogo (lutador pirata), gelo (soldado). O médico da Marinha não tem Haki.
@@ -37,9 +37,10 @@ const sorteados = [...NOMES].sort(() => Math.random() - 0.5)
 const nome = (k: number) => sorteados[k % sorteados.length]
 
 const semHaki: Haki = { overall: 0, armamento: null, observacao: null, rei: false }
-const haki = (overall: number, arm: [number, boolean] | null, obs: [number, boolean] | null, rei = false): Haki => ({
+/** arm: [usos, avançado, Rei imbuído (nível 3)] */
+const haki = (overall: number, arm: [number, boolean, boolean?] | null, obs: [number, boolean] | null, rei = false): Haki => ({
   overall,
-  armamento: arm && { usos: arm[0], max: arm[0], avancado: arm[1] },
+  armamento: arm && { usos: arm[0], max: arm[0], avancado: arm[1] || !!arm[2], imbuido: !!arm[2] },
   observacao: obs && { usos: obs[0], max: obs[0], avancado: obs[1] },
   rei,
 })
@@ -61,12 +62,12 @@ export type Membro = {
 /** 5 piratas no navio de cima (linhas 0–4) contra 5 da Marinha (5–9), em
  * formações espelhadas (a de cima deslocada uma coluna vencia 68% das vezes). */
 export const TRIPULACOES: Membro[] = [
-  { id: 'pirata-capitao', nome: nome(0), classe: 'espadachim', lado: 'piratas', casa: { l: 3, c: 9 }, dir: 'S', haki: haki(70, [6, true], [3, false], true) },
+  { id: 'pirata-capitao', nome: nome(0), classe: 'espadachim', lado: 'piratas', casa: { l: 3, c: 9 }, dir: 'S', haki: haki(70, [6, true, true], [3, false], true) },
   { id: 'pirata-espadachim', nome: nome(1), classe: 'espadachim', lado: 'piratas', casa: { l: 4, c: 7 }, dir: 'S', haki: haki(35, [4, false], null) },
   { id: 'pirata-lutador', nome: nome(2), classe: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'fogo' },
   { id: 'pirata-atiradora', nome: nome(3), classe: 'atirador', lado: 'piratas', casa: { l: 2, c: 6 }, dir: 'S', haki: haki(50, null, null, true) },
   { id: 'pirata-medico', nome: nome(4), classe: 'atirador', profissao: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, null, [3, false]) },
-  { id: 'marinha-almirante', nome: nome(5), classe: 'espadachim', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true], null, true), akuma: 'fumaca', cargasLogia: 3 },
+  { id: 'marinha-almirante', nome: nome(5), classe: 'espadachim', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true, true], null, true), akuma: 'fumaca', cargasLogia: 3 },
   { id: 'marinha-oficial', nome: nome(6), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [3, true]) },
   { id: 'marinha-soldado', nome: nome(7), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'gelo' },
   { id: 'marinha-atirador', nome: nome(8), classe: 'atirador', lado: 'marinha', casa: { l: 7, c: 6 }, dir: 'N', haki: haki(50, null, null, true) },
@@ -94,7 +95,6 @@ export function combatentesIniciais(): Combatente[] {
       logia: m.cargasLogia ? { cargas: m.cargasLogia, max: m.cargasLogia } : null,
       observando: false,
       armamentoLigado: false,
-      reiLigado: false,
       atordoado: false,
       recargas: {},
       queimadura: null,
@@ -106,14 +106,14 @@ export function combatentesIniciais(): Combatente[] {
 /** cargas de intangibilidade da Logia no teste */
 export const CARGAS_LOGIA = 3
 
-export type Config = { id: string; akuma: string; armamento: 0 | 1 | 2; observacao: 0 | 1 | 2; rei: boolean; overall: number }
+export type Config = { id: string; akuma: string; armamento: 0 | 1 | 2 | 3; observacao: 0 | 1 | 2; rei: boolean; overall: number }
 
 /** Config inicial a partir do elenco de teste. */
 export function configPadrao(): Config[] {
   return TRIPULACOES.map((m) => ({
     id: m.id,
     akuma: m.akuma ?? '',
-    armamento: m.haki?.armamento ? (m.haki.armamento.avancado ? 2 : 1) : 0,
+    armamento: m.haki?.armamento ? (m.haki.armamento.imbuido ? 3 : m.haki.armamento.avancado ? 2 : 1) : 0,
     observacao: m.haki?.observacao ? (m.haki.observacao.avancado ? 2 : 1) : 0,
     rei: !!m.haki?.rei,
     overall: m.haki?.overall ?? 0,
@@ -125,10 +125,10 @@ export function aplicarConfig(cs: Combatente[], cfg: Config[]) {
     const c = cs.find((x) => x.id === k.id)!
     c.akuma = k.akuma ? { fruta: k.akuma, transformado: 0 } : null
     c.logia = k.akuma && FRUTAS[k.akuma].tipo === 'logia' ? { cargas: CARGAS_LOGIA, max: CARGAS_LOGIA } : null
-    const usosA = k.armamento === 2 ? 6 : 4
+    const usosA = k.armamento >= 2 ? 6 : 4
     c.haki = {
       overall: k.overall,
-      armamento: k.armamento ? { usos: usosA, max: usosA, avancado: k.armamento === 2 } : null,
+      armamento: k.armamento ? { usos: usosA, max: usosA, avancado: k.armamento >= 2, imbuido: k.armamento === 3 } : null,
       observacao: k.observacao ? { usos: 3, max: 3, avancado: k.observacao === 2 } : null,
       rei: k.rei,
     }

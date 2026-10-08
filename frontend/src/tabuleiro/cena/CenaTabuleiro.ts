@@ -347,6 +347,21 @@ export class CenaTabuleiro {
         pr && d && f && x ? this.perfuranteEfk(p, ate, alvos, pr, d, f, x) : false,
       ),
     tatsumaki: (p: Personagem) => carregarEfk('tatsumaki').then((d) => (d ? this.tatsumakiEfk(p, d) : false)),
+    imbuidoFluxo: (p: Personagem) =>
+      carregarEfk('imbuido-fluxo').then((d) => {
+        if (!d) return false
+        // o Haki sobe pelo corpo de quem ataca (acompanha os pés enquanto dura)
+        const ef = this.tocarEfk('imbuido-fluxo', d, p.pos.clone().setY(0.02), p.visual.altura / 2)
+        void this.animarPor(0.7, () => ef.sprite.position.copy(p.pos).setY(0.02))
+        return true
+      }),
+    imbuidoImpacto: (ponto: THREE.Vector3, chao: THREE.Vector3) =>
+      Promise.all([carregarEfk('imbuido-impacto'), carregarEfk('imbuido-onda')]).then(([i, o]) => {
+        if (!i || !o) return false
+        this.tocarEfk('imbuido-impacto', i, ponto, 0.35)
+        this.tocarEfk('imbuido-onda', o, chao.clone().setY(0.03), 0.35)
+        return true
+      }),
     iceTime: (p: Personagem, alvo: Personagem | null, ate: THREE.Vector3) =>
       carregarEfk('ice-time-contato').then((contato) => (contato ? this.iceTimeEfk(p, alvo, ate, contato) : false)),
     partisan: (p: Personagem, ate: THREE.Vector3) =>
