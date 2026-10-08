@@ -21,7 +21,9 @@ import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill, type TipoArma }
 
 /** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
 const semMira = (s: Skill) => s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
-import { TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, type Config } from './elenco'
+import { TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, renomear, type Config } from './elenco'
+import type { HakiMp, JogadorBatalhaMp, MsgServidorBatalha } from './protocoloMp'
+import { RedeBatalha } from './redeBatalha'
 import { proximaAcao } from './ia'
 import {
   HAOSHOKU,
@@ -147,7 +149,6 @@ export interface Palco {
   avisar(): void
 }
 
-const JOGADOR: Lado = 'piratas'
 
 /** Como cada skill aparece: animação do corpo e efeito. */
 type Visual = { efeito: TipoEfeito; modo: 'perto' | 'projetil' | 'area' | 'si' | 'especial'; escala?: number; tiros?: number }
@@ -237,7 +238,21 @@ const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura',
 // ------------------------------------------------------------ preparação
 // ------------------------------------------------------------ HUD
 export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; raio: number; livre: boolean; motivo: string | null; fruta: boolean }
+/** batalha multiplayer: a sala e o que falta (null = batalha contra a IA) */
+export type MpHud = {
+  conectado: boolean
+  lado: Lado
+  jogadores: JogadorBatalhaMp[]
+  /** s que faltam da preparação (null = esperando o oponente entrar) */
+  restam: number | null
+  pronto: boolean
+  /** já mandou o Haki da preparação (esperando o oponente) */
+  hakiEnviado: boolean
+  aviso: string
+}
+
 export type RetratoBatalha = {
+  mp: MpHud | null
   fase: 'preparar' | 'haki' | 'minha' | 'inimiga' | 'fim'
   /** segundos que faltam da preparação de Haki */
   tempoHaki: number
@@ -299,12 +314,123 @@ export class ControleBatalha {
   private inicioVez = 0
   private relogio = 0
   private readonly palco: Palco
+  /** o lado que este jogador controla (contra a IA, sempre os piratas, de cima) */
+  private jogador: Lado = 'piratas'
 
   constructor(palco: Palco) {
     this.palco = palco
     this.estado = criarBatalha(combatentesIniciais())
     this.relogio = window.setInterval(() => this.checarTempo(), 500)
-    if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('treino')) this.treino = { fruta: 'fogo', arma: 'espada', alvoFruta: '', armamento: 0, rei: false }
+    const busca = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null
+    if (busca?.has('treino')) this.treino = { fruta: 'fogo', arma: 'espada', alvoFruta: '', armamento: 0, rei: false }
+    else if (busca?.has('mp')) {
+      let nome = busca.get('nome') || localStorage.getItem('nomeMp') || ''
+      if (!nome) {
+        nome = (window.prompt('Seu nome na batalha:') || 'Pirata').slice(0, 16)
+        localStorage.setItem('nomeMp', nome)
+      }
+      this.conectarMp(nome)
+    }
+  }
+
+  // ------------------------------------------------------------ multiplayer
+  /** sala da batalha multiplayer (?mp na URL) */
+  private rede: RedeBatalha | null = null
+  private mp: Omit<MpHud, 'conectado' | 'lado'> = { jogadores: [], restam: null, pronto: false, hakiEnviado: false, aviso: 'Conectando…' }
+  private nomesMp: string[] = []
+  /** ações aceitas pelo servidor, aplicadas uma de cada vez (na ordem) */
+  private filaMp: Promise<void> = Promise.resolve()
+  /** a minha ação mandada ao servidor: resolve quando ela volta e termina de animar */
+  private esperaMp: ((ok: boolean) => void) | null = null
+
+  private conectarMp(nome: string) {
+    this.rede = new RedeBatalha(nome, (m) => this.receberMp(m), () => {
+      this.mp.aviso = 'Conexão com a sala perdida.'
+      this.palco.avisar()
+    })
+  }
+
+  private receberMp(m: MsgServidorBatalha) {
+    switch (m.t) {
+      case 'bemvindo':
+        this.jogador = m.lado
+        this.nomesMp = m.nomes
+        renomear(TRIPULACOES, m.nomes)
+        renomear(this.estado.combatentes, m.nomes)
+        this.nomesNaCena()
+        this.mp.aviso = ''
+        break
+      case 'cheio':
+        this.mp.aviso = 'A sala está cheia (2 jogadores).'
+        break
+      case 'sala':
+        this.mp.jogadores = m.jogadores
+        this.mp.restam = m.restam
+        this.mp.pronto = !!m.jogadores.find((j) => j.lado === this.jogador)?.pronto
+        if (m.restam !== null && this.fase === 'preparar') this.rede?.enviar({ t: 'config', config: this.config })
+        break
+      case 'comecar':
+        this.config = m.config
+        this.comecarLocal(m.semente)
+        break
+      case 'iniciar': {
+        // o Haki que cada um ligou (o do oponente só agora fica visível)
+        for (const c of this.estado.combatentes) c.armamentoLigado = c.observando = false
+        for (const h of m.haki) {
+          if (h.armamento) this.estado = hakiPreparacao(this.estado, h.id, 'armamento', true)
+          if (h.observacao) this.estado = hakiPreparacao(this.estado, h.id, 'observacao', true)
+        }
+        this.sincronizar()
+        this.registrar(`Batalha começa: ${this.estado.vez === this.jogador ? 'a sua tripulação' : 'o oponente'} (mais ágil) começa.`)
+        this.novaVez()
+        break
+      }
+      case 'acao': {
+        const acao = m.acao
+        this.filaMp = this.filaMp.then(async () => {
+          const minha = this.estado.vez === this.jogador
+          const ok = await this.executarLocal(acao)
+          if (minha && this.esperaMp) {
+            const r = this.esperaMp
+            this.esperaMp = null
+            r(ok)
+          }
+        })
+        break
+      }
+      case 'erro':
+        this.dica = m.texto
+        if (this.esperaMp) {
+          const r = this.esperaMp
+          this.esperaMp = null
+          this.animando = false
+          r(false)
+        }
+        break
+      case 'saiu':
+        this.mp.aviso = `${m.nome} saiu da sala.`
+        if (this.fase !== 'preparar') this.fase = 'fim'
+        break
+    }
+    this.palco.avisar()
+  }
+
+  /** os nomes do servidor nos bonecos (eles carregam depois do bem-vindo: repete no começo) */
+  private nomesNaCena() {
+    for (const t of TRIPULACOES) {
+      const p = this.palco.personagem(t.id)
+      if (p) p.nome = t.nome
+    }
+  }
+
+  /** manda o Haki ligado na preparação (uma vez) */
+  private enviarHakiMp() {
+    if (!this.rede || this.mp.hakiEnviado) return
+    this.mp.hakiEnviado = true
+    const haki: HakiMp[] = this.estado.combatentes.filter((c) => c.lado === this.jogador).map((c) => ({ id: c.id, armamento: c.armamentoLigado, observacao: c.observando }))
+    this.rede.enviar({ t: 'haki', haki })
+    this.dica = 'Esperando o oponente ligar o Haki…'
+    this.palco.avisar()
   }
 
   // ------------------------------------------------------------ treino
@@ -318,7 +444,7 @@ export class ControleBatalha {
    * não funciona quando o jogo roda dentro de outra página, como no celular)
    */
   entrarTreino() {
-    if (this.animando) return
+    if (this.animando || this.rede) return
     this.treino = { fruta: 'fogo', arma: 'espada', alvoFruta: '', armamento: 0, rei: false }
     this.comecarTreino()
     this.palco.avisar()
@@ -356,7 +482,7 @@ export class ControleBatalha {
       pa.pos.set(cc.x, 0, cc.z)
     }
     this.estado = criarBatalha(cs)
-    this.estado.vez = JOGADOR
+    this.estado.vez = this.jogador
     this.inicioBatalha = performance.now()
     this.log = []
     this.aplicarTreino()
@@ -379,11 +505,11 @@ export class ControleBatalha {
     const t = this.treino
     if (!t) return
     const e = this.estado
-    e.vez = JOGADOR
+    e.vez = this.jogador
     e.vencedor = null
     e.movimento = 6
     for (const c of e.combatentes) {
-      const jogador = c.lado === JOGADOR
+      const jogador = c.lado === this.jogador
       const fruta = jogador ? t.fruta : t.alvoFruta
       if ((c.akuma?.fruta ?? '') !== fruta) c.akuma = fruta ? { fruta, transformado: 0 } : null
       c.logia = fruta && FRUTAS[fruta].tipo === 'logia' ? { cargas: 99, max: 99 } : null
@@ -425,7 +551,9 @@ export class ControleBatalha {
   mudarConfig(id: string, campo: 'akuma' | 'armamento' | 'observacao' | 'rei' | 'overall', valor: string | number | boolean) {
     const k = this.config.find((x) => x.id === id)
     if (!k || this.fase !== 'preparar') return
+    if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
     ;(k as Record<string, unknown>)[campo] = valor
+    this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
   }
 
@@ -434,7 +562,8 @@ export class ControleBatalha {
     if (this.fase !== 'preparar') return
     const frutas = Object.keys(FRUTAS)
     const r = Math.random
-    for (const k of this.config) {
+    if (this.rede && this.mp.pronto) return
+    for (const k of this.config.filter((x) => !this.rede || this.doMeuLado(x.id))) {
       k.akuma = r() < 0.45 ? frutas[Math.floor(r() * frutas.length)] : ''
       k.armamento = Math.floor(r() * 4) as 0 | 1 | 2 | 3
       k.observacao = Math.floor(r() * 3) as 0 | 1 | 2
@@ -442,26 +571,50 @@ export class ControleBatalha {
       const base = k.armamento || k.observacao || k.rei ? 20 + k.armamento * 12 + k.observacao * 10 + (k.rei ? 20 : 0) : 0
       k.overall = base ? Math.max(5, Math.min(100, Math.round((base + (r() - 0.5) * 20) / 5) * 5)) : 0
     }
+    this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
   }
 
   /** Volta ao elenco de teste. */
   restaurarConfig() {
-    if (this.fase !== 'preparar') return
-    this.config = configPadrao()
+    if (this.fase !== 'preparar' || (this.rede && this.mp.pronto)) return
+    const padrao = configPadrao()
+    this.config = this.rede ? this.config.map((k) => (this.doMeuLado(k.id) ? padrao.find((x) => x.id === k.id)! : k)) : padrao
+    if (this.rede) {
+      this.rede.enviar({ t: 'config', config: this.config })
+    }
     this.palco.avisar()
+  }
+
+  private doMeuLado(id: string) {
+    return TRIPULACOES.find((m) => m.id === id)?.lado === this.jogador
   }
 
   /** Começa a preparação: 10 s para ligar (ou não) o Haki de cada um. */
   comecar() {
-    this.estado = criarBatalha(aplicarConfig(combatentesIniciais(), this.config))
+    if (this.rede) {
+      if (this.mp.restam === null) return
+      this.rede.enviar({ t: 'config', config: this.config })
+      this.rede.enviar({ t: 'pronto', pronto: !this.mp.pronto })
+      return
+    }
+    this.comecarLocal()
+  }
+
+  private comecarLocal(semente?: number) {
+    const cs = aplicarConfig(combatentesIniciais(), this.config)
+    if (this.nomesMp.length) {
+      renomear(cs, this.nomesMp)
+      this.nomesNaCena()
+    }
+    this.estado = criarBatalha(cs, semente)
     this.inicioBatalha = performance.now()
     this.log = []
     this.registrar('Preparação: liguem o Haki (10 s).')
     this.fase = 'haki'
     this.fimPreparo = performance.now() + PREPARO * 1000
-    // a Marinha (IA) liga o que tem
-    for (const c of this.estado.combatentes.filter((x) => x.lado !== JOGADOR)) {
+    // a IA (contra o computador) liga o que tem
+    for (const c of this.rede ? [] : this.estado.combatentes.filter((x) => x.lado !== this.jogador)) {
       if (c.haki.armamento) this.estado = hakiPreparacao(this.estado, c.id, 'armamento', true)
       if (c.haki.observacao) this.estado = hakiPreparacao(this.estado, c.id, 'observacao', true)
     }
@@ -473,7 +626,8 @@ export class ControleBatalha {
   /** Fim da preparação: a batalha começa de verdade. */
   pronto() {
     if (this.fase !== 'haki') return
-    this.registrar(`Batalha começa: ${this.estado.vez === JOGADOR ? 'os piratas' : 'a Marinha'} (mais ágil) começa.`)
+    if (this.rede) return this.enviarHakiMp()
+    this.registrar(`Batalha começa: ${this.estado.vez === this.jogador ? 'a sua tripulação' : 'o inimigo'} (mais ágil) começa.`)
     this.novaVez()
   }
 
@@ -489,7 +643,7 @@ export class ControleBatalha {
 
   private alternarPreparo(id: string | undefined, tipo: 'armamento' | 'observacao') {
     const c = id ? porId(this.estado, id) : null
-    if (!c || c.lado !== JOGADOR) return
+    if (!c || c.lado !== this.jogador || this.mp.hakiEnviado) return
     const ligado = tipo === 'armamento' ? c.armamentoLigado : c.observando
     this.estado = hakiPreparacao(this.estado, c.id, tipo, !ligado)
     this.sincronizar()
@@ -514,10 +668,10 @@ export class ControleBatalha {
       this.redesenhar()
       return
     }
-    this.fase = this.estado.vez === JOGADOR ? 'minha' : 'inimiga'
-    this.dica = this.fase === 'minha' ? 'Sua vez: toque num pirata.' : 'Vez da Marinha…'
+    this.fase = this.estado.vez === this.jogador ? 'minha' : 'inimiga'
+    this.dica = this.fase === 'minha' ? 'Sua vez: toque num tripulante.' : 'Vez do inimigo…'
     this.redesenhar()
-    if (this.fase === 'inimiga' || this.auto) void this.jogarIA()
+    if ((this.fase === 'inimiga' && !this.rede) || (this.fase === 'minha' && this.auto)) void this.jogarIA()
   }
 
   /** a IA joga pelos piratas também (para assistir e testar) */
@@ -532,7 +686,7 @@ export class ControleBatalha {
     await new Promise((r) => setTimeout(r, 700))
     let guarda = 0
     const lado = this.estado.vez
-    while (this.estado.vez === lado && (lado !== JOGADOR || this.auto) && !this.estado.vencedor && guarda++ < 80) {
+    while (this.estado.vez === lado && (lado !== this.jogador || this.auto) && !this.estado.vencedor && guarda++ < 80) {
       const a = proximaAcao(this.estado)
       const ok = await this.executar(a)
       if (!ok) await this.executar({ t: 'passar' })
@@ -559,7 +713,27 @@ export class ControleBatalha {
   /** de onde veio o "perde a vez" de cada um (o estado só guarda atordoado) */
   private readonly tipoStatus = new Map<string, 'stun' | 'gelo'>()
 
-  private async executar(a: Acao) {
+  private async executar(a: Acao): Promise<boolean> {
+    if (!this.rede || this.treino) return this.executarLocal(a)
+    // multiplayer: confere aqui (para dizer o erro na hora), manda ao servidor
+    // e espera ela voltar aceita (aí anima, na mesma ordem para os dois)
+    const r = aplicar(this.estado, a)
+    if ('erro' in r) {
+      this.dica = r.erro
+      this.palco.avisar()
+      return false
+    }
+    if (this.esperaMp || this.fase !== 'minha') return false
+    this.animando = true
+    this.palco.avisar()
+    return new Promise<boolean>((resolver) => {
+      this.esperaMp = resolver
+      this.rede!.enviar({ t: 'acao', acao: a })
+    })
+  }
+
+  /** Aplica uma ação e anima. Devolve se deu certo. */
+  private async executarLocal(a: Acao) {
     const r = aplicar(this.estado, a)
     if ('erro' in r) {
       this.dica = r.erro
@@ -640,7 +814,7 @@ export class ControleBatalha {
     const quem = alvo.personagem ? porId(this.estado, alvo.personagem.id) : null
     const casa = quem ? quem.casa : alvo.casa
     if (!sel) {
-      if (quem && quem.hp > 0 && quem.lado === JOGADOR) return this.selecionar(quem.id)
+      if (quem && quem.hp > 0 && quem.lado === this.jogador) return this.selecionar(quem.id)
       if (quem) this.inspecionar(quem.id)
       return
     }
@@ -655,7 +829,7 @@ export class ControleBatalha {
       return this.redesenhar()
     }
     // outro pirata: troca a seleção
-    if (quem && quem.lado === JOGADOR && quem.hp > 0) return this.selecionar(quem.id === sel.id ? null : quem.id)
+    if (quem && quem.lado === this.jogador && quem.hp > 0) return this.selecionar(quem.id === sel.id ? null : quem.id)
     // casa livre ao alcance do movimento: anda
     const cam = !quem ? this.mov?.caminho(casa) : null
     if (cam) return void this.executar({ t: 'mover', id: sel.id, caminho: cam })
@@ -877,10 +1051,10 @@ export class ControleBatalha {
           break
         case 'vez':
           if (this.treino) break
-          this.registrar(`— Vez ${e.turno}: ${e.lado === JOGADOR ? 'piratas' : 'Marinha'} —`)
+          this.registrar(`— Vez ${e.turno}: ${e.lado === this.jogador ? 'sua tripulação' : 'inimigo'} —`)
           break
         case 'fim':
-          this.registrar(e.vencedor === JOGADOR ? 'Vitória dos piratas!' : 'A Marinha venceu.')
+          this.registrar(e.vencedor === this.jogador ? 'Vitória!' : 'Derrota.')
           break
       }
     }
@@ -1442,19 +1616,20 @@ export class ControleBatalha {
     const s = this.sel ? porId(e, this.sel) : null
     const nomes = new Map(TRIPULACOES.map((m) => [m.id, m]))
     return {
+      mp: this.rede ? { ...this.mp, conectado: this.rede.conectado, lado: this.jogador } : null,
       fase: this.fase,
       animando: this.animando,
       auto: this.auto,
       treino: this.treino ? { ...this.treino } : null,
-      config: this.config.map((k) => ({ ...k, nome: nomes.get(k.id)!.nome, lado: nomes.get(k.id)!.lado })),
+      config: this.config.map((k) => ({ ...k, nome: nomes.get(k.id)!.nome, lado: nomes.get(k.id)!.lado })).filter((k) => !this.rede || k.lado === this.jogador),
       turno: e.turno,
       vez: e.vez,
       movimento: e.movimento,
       tempo: this.fase === 'minha' ? this.tempo() : tempoDaVez(e),
       tempoMax: tempoDaVez(e),
       vencedor: e.vencedor,
-      tripulacao: e.combatentes.filter((c) => c.lado === JOGADOR).map((c) => this.ficha(c)),
-      inimigos: e.combatentes.filter((c) => c.lado !== JOGADOR).map((c) => this.ficha(c)),
+      tripulacao: e.combatentes.filter((c) => c.lado === this.jogador).map((c) => this.ficha(c)),
+      inimigos: e.combatentes.filter((c) => c.lado !== this.jogador).map((c) => this.ficha(c)),
       selecionado: s
         ? {
             ...this.ficha(s),

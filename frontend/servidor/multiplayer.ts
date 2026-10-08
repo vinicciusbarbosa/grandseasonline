@@ -1,5 +1,6 @@
 import type { Logger, Plugin, ViteDevServer } from 'vite'
 import { WebSocketServer, type WebSocket } from 'ws'
+import { abrirSalaBatalha } from './batalhaMp.ts'
 import { MAX_JOGADORES, type JogadorMp, type MsgCliente, type MsgServidor } from '../src/navegacao/mp/protocolo.ts'
 
 /**
@@ -16,8 +17,14 @@ export function multiplayer(): Plugin {
     name: 'sugoi-multiplayer',
     // No `npm run dev` e também no `vite preview` (a versão compilada: carrega
     // muito mais rápido para quem entra de fora, por túnel ou VPN).
-    configureServer: (servidor) => abrirSala(servidor.httpServer, servidor.config.logger),
-    configurePreviewServer: (servidor) => abrirSala(servidor.httpServer, servidor.config.logger),
+    configureServer: (servidor) => {
+      abrirSala(servidor.httpServer, servidor.config.logger)
+      abrirSalaBatalha(servidor.httpServer, servidor.config.logger)
+    },
+    configurePreviewServer: (servidor) => {
+      abrirSala(servidor.httpServer, servidor.config.logger)
+      abrirSalaBatalha(servidor.httpServer, servidor.config.logger)
+    },
   }
 }
 
@@ -29,7 +36,7 @@ function abrirSala(http: ViteDevServer['httpServer'], logger: Logger) {
   const sala = new Map<WebSocket, JogadorMp>()
 
   http.on('upgrade', (req, socket, cabeca) => {
-    if (!req.url?.startsWith('/mp')) return // o resto (HMR do Vite) não é conosco
+    if (!req.url?.startsWith('/mp') || req.url.startsWith('/mpb')) return // o resto (HMR do Vite, a batalha em /mpb) não é conosco
     wss.handleUpgrade(req, socket, cabeca, (ws) => wss.emit('connection', ws, req))
   })
 

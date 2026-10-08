@@ -57,7 +57,8 @@ export default function TelaTabuleiro() {
       )}
 
       {estado.personagens.map((p) => {
-        const inimigo = p.id.startsWith('marinha')
+        // inimigo = do outro navio (no multiplayer, o jogador 2 fica com o de baixo)
+        const inimigo = !p.id.startsWith((estado.batalha?.mp?.lado ?? 'piratas') === 'piratas' ? 'pirata' : 'marinha')
         const c = inimigo ? '#ff4a3a' : '#3de0b0'
         return (
           <div

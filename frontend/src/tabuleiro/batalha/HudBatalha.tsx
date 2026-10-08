@@ -275,16 +275,45 @@ const NIVEL = ['—', 'normal', 'avançado']
 /** armamento: o nível 3 é o Haki do Rei imbuído no golpe */
 const NIVEL_ARMAMENTO = [...NIVEL, 'Rei imbuído']
 
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+
+/** Sala do multiplayer: quem está, quem deu pronto e o tempo da preparação. */
+function SalaMp({ mp }: { mp: NonNullable<RetratoBatalha['mp']> }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, margin: '0 0 10px', fontSize: 12 }}>
+      {mp.jogadores.map((j) => (
+        <span key={j.lado} style={{ color: j.lado === mp.lado ? '#8fe0a0' : '#ff9a8a' }}>
+          {j.pronto ? '✔' : '…'} {j.nome}
+          {j.lado === mp.lado ? ' (você)' : ''}
+        </span>
+      ))}
+      {mp.restam !== null ? (
+        <span className="tit" style={{ fontSize: 16, color: mp.restam <= 30 ? '#ff8a6a' : '#ffe6a0' }}>
+          ⌛ {mmss(mp.restam)}
+        </span>
+      ) : (
+        <span style={{ color: '#b8b0a0' }}>Aguardando o oponente entrar…</span>
+      )}
+    </div>
+  )
+}
+
 function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
+  const mp = b.mp
+  const travado = !!mp?.pronto
   return (
     <div className="tela">
       <div className="painel janela">
         <div className="tit" style={{ fontSize: 22, textAlign: 'center', color: '#ffe6a0' }}>
-          Montar as tripulações
+          {mp ? 'Montar a sua tripulação' : 'Montar as tripulações'}
         </div>
-        <div style={{ font: '400 12px Georgia, serif', color: '#b8b0a0', margin: '2px 0 10px', textAlign: 'center' }}>
-          Escolha a Akuma no Mi e o Haki de cada um. Depois de começar, há 10 s para ligar o Haki.
+        <div style={{ font: '400 12px Georgia, serif', color: '#b8b0a0', margin: '2px 0 8px', textAlign: 'center' }}>
+          {mp
+            ? 'Escolha a Akuma no Mi e o Haki de cada um. A batalha começa quando os dois derem Pronto (ou o tempo acabar).'
+            : 'Escolha a Akuma no Mi e o Haki de cada um. Depois de começar, há 10 s para ligar o Haki.'}
         </div>
+        {mp && <SalaMp mp={mp} />}
+        {mp?.aviso && <div style={{ textAlign: 'center', color: '#ff9a8a', marginBottom: 8 }}>{mp.aviso}</div>}
         <table style={{ borderCollapse: 'collapse', margin: '0 auto' }}>
           <thead>
             <tr style={{ color: '#a89a78', fontSize: 10.5 }}>
@@ -339,18 +368,31 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
           </tbody>
         </table>
         <div style={{ textAlign: 'center', marginTop: 12, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button className="bt" onClick={() => c.aleatorizar()} title="Sorteia Akuma no Mi e Haki de todos">
+          <button className="bt" disabled={travado} onClick={() => c.aleatorizar()} title="Sorteia Akuma no Mi e Haki">
             🎲 Aleatorizar
           </button>
-          <button className="bt" onClick={() => c.restaurarConfig()} title="Volta ao elenco de teste">
+          <button className="bt" disabled={travado} onClick={() => c.restaurarConfig()} title="Volta ao elenco de teste">
             ↺ Padrão
           </button>
-          <button className="bt" onClick={() => c.entrarTreino()} title="Um pirata e um boneco alvo para testar skills e sprites">
-            🎯 Treino
-          </button>
-          <button className="bt forte" style={{ fontSize: 15, padding: '4px 22px' }} onClick={() => c.comecar()}>
-            Zarpar!
-          </button>
+          {!mp && (
+            <>
+              <button className="bt" onClick={() => c.entrarTreino()} title="Um pirata e um boneco alvo para testar skills e sprites">
+                🎯 Treino
+              </button>
+              <button className="bt" onClick={() => (location.href = `${location.pathname}?mp`)} title="Batalha contra outro jogador (os dois abrem este link)">
+                ⚔ Multiplayer
+              </button>
+            </>
+          )}
+          {mp ? (
+            <button className={`bt ${mp.pronto ? 'on' : 'forte'}`} style={{ fontSize: 15, padding: '4px 22px' }} disabled={mp.restam === null} onClick={() => c.comecar()}>
+              {mp.pronto ? '✔ Pronto (cancelar)' : 'Pronto!'}
+            </button>
+          ) : (
+            <button className="bt forte" style={{ fontSize: 15, padding: '4px 22px' }} onClick={() => c.comecar()}>
+              Zarpar!
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -392,9 +434,13 @@ function PreparoHaki({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
         </div>
       ))}
       <div style={{ textAlign: 'center', marginTop: 8 }}>
-        <button className="bt forte" style={{ fontSize: 15, padding: '4px 26px' }} onClick={() => c.pronto()}>
-          Pronto!
-        </button>
+        {b.mp?.hakiEnviado ? (
+          <span style={{ color: '#b8b0a0' }}>Esperando o oponente…</span>
+        ) : (
+          <button className="bt forte" style={{ fontSize: 15, padding: '4px 26px' }} onClick={() => c.pronto()}>
+            Pronto!
+          </button>
+        )}
       </div>
     </div>
   )
@@ -470,6 +516,7 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
   const [verLog, setVerLog] = useState(true)
   const [dica, setDica] = useState<Dica>(null)
   const s = b.selecionado
+  const meuLado = b.mp?.lado ?? 'piratas'
   const minha = b.fase === 'minha' && !b.animando && !b.auto
   const skill = s?.skills.find((k) => k.id === s.skill)
   const nomesP = b.tripulacao.map((t) => t.nome)
@@ -503,8 +550,8 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
           {b.fase !== 'fim' && !b.treino && (
             <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)' }}>
               <div className="painel vez">
-                <span className="tit" style={{ color: b.fase === 'haki' ? '#ffe6a0' : b.vez === 'piratas' ? '#8fe0a0' : '#ff9a8a' }}>
-                  {b.fase === 'haki' ? 'Preparação' : b.vez === 'piratas' ? 'Sua vez' : 'Vez do inimigo'}
+                <span className="tit" style={{ color: b.fase === 'haki' ? '#ffe6a0' : b.vez === meuLado ? '#8fe0a0' : '#ff9a8a' }}>
+                  {b.fase === 'haki' ? 'Preparação' : b.vez === meuLado ? 'Sua vez' : 'Vez do inimigo'}
                 </span>
                 {b.fase === 'minha' && (
                   <>
@@ -521,6 +568,7 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                   </>
                 )}
                 {b.fase === 'inimiga' && <span style={{ color: '#a8a090' }}>agindo…</span>}
+                {b.mp?.aviso && <span style={{ color: '#ff9a8a' }}>{b.mp.aviso}</span>}
               </div>
             </div>
           )}
@@ -603,12 +651,13 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
           {b.fase === 'fim' && (
             <div className="tela">
               <div className="painel janela" style={{ textAlign: 'center', padding: '18px 40px' }}>
-                <div className="tit" style={{ fontSize: 36, color: b.vencedor === 'piratas' ? '#ffe6a0' : '#ff9a8a' }}>
-                  {b.vencedor === 'piratas' ? 'Vitória!' : 'Derrota'}
+                <div className="tit" style={{ fontSize: 36, color: b.vencedor === meuLado ? '#ffe6a0' : '#ff9a8a' }}>
+                  {!b.vencedor ? 'Partida encerrada' : b.vencedor === meuLado ? 'Vitória!' : 'Derrota'}
                 </div>
+                {b.mp?.aviso && <div style={{ color: '#ff9a8a', fontSize: 12 }}>{b.mp.aviso}</div>}
                 <div style={{ margin: '4px 0 12px', font: '400 12.5px Georgia, serif', color: '#b8b0a0' }}>{b.turno} vezes de batalha</div>
                 <button className="bt forte" style={{ fontSize: 15, padding: '4px 24px' }} onClick={() => c.novaBatalha()}>
-                  Nova batalha
+                  {b.mp ? 'Voltar à sala' : 'Nova batalha'}
                 </button>
               </div>
             </div>

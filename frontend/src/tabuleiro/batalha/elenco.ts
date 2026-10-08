@@ -35,6 +35,8 @@ const CLASSES: Record<Classe, { hp: number; at: Atributos; arma: TipoArma }> = {
 const NOMES = ['Dorian', 'Yuki', 'Brutus', 'Sven', 'Kenzo', 'Vargas', 'Hector', 'Ivo', 'Lucan', 'Akira', 'Rurik', 'Tomás', 'Kael', 'Bento', 'Mira', 'Otto', 'Ravi', 'Saga', 'Teodoro', 'Zeca', 'Iori', 'Gunnar', 'Lia', 'Marco']
 const sorteados = [...NOMES].sort(() => Math.random() - 0.5)
 const nome = (k: number) => sorteados[k % sorteados.length]
+/** 10 nomes sem repetir (no multiplayer o servidor sorteia, para os dois verem os mesmos) */
+export const sortearNomes = () => [...NOMES].sort(() => Math.random() - 0.5).slice(0, 10)
 
 const semHaki: Haki = { overall: 0, armamento: null, observacao: null, rei: false }
 /** arm: [usos, avançado, Rei imbuído (nível 3)] */
@@ -136,3 +138,11 @@ export function aplicarConfig(cs: Combatente[], cfg: Config[]) {
   return cs
 }
 
+/** Troca os nomes (na ordem de TRIPULACOES): os do multiplayer vêm do servidor. */
+export function renomear<T extends { id: string; nome: string }>(cs: T[], nomes: string[]) {
+  TRIPULACOES.forEach((m, i) => {
+    const c = cs.find((x) => x.id === m.id)
+    if (c && nomes[i]) c.nome = nomes[i]
+  })
+  return cs
+}

@@ -56,7 +56,7 @@ type Trecho = { de: THREE.Vector3; para: THREE.Vector3; t: number; dur: number; 
 export class Personagem {
   readonly visual: Visual
   readonly id: string
-  readonly nome: string
+  nome: string
   casa: Casa
   dir: Direcao
   vida: number
