@@ -131,11 +131,19 @@ export const ESPIRITO_POR_VEZ = 5
 export const ESPIRITO_AO_ACERTAR = 8
 export const ESPIRITO_AO_APANHAR = 12
 /** Haki do Rei em área: espírito, raio */
-export const HAOSHOKU = { espirito: 70, raio: 3 }
-/** Haki do Rei imbuído no golpe (armamento nível 3): dano a mais */
-export const REI_IMBUIDO = { mult: 1.35 }
-/** o golpe deste personagem sai com o Haki do Rei imbuído (armamento nível 3 ligado e com usos) */
-export const reiImbuido = (c: Combatente) => c.armamentoLigado && !!c.haki.armamento?.imbuido && (c.haki.armamento?.usos ?? 0) > 0
+export const HAOSHOKU = { espirito: 50, raio: 3 }
+/**
+ * Atacar com o Haki de armamento custa energia a mais (para não ficar
+ * ligado em todo golpe); no nível 3, o Rei imbuído gasta também espírito.
+ * Sem energia (ou espírito) para isso, o golpe sai sem o Haki.
+ */
+export const CUSTO_ARMAMENTO = { normal: 10, avancado: 15 }
+/** Haki do Rei imbuído no golpe (armamento nível 3): dano a mais e espírito por golpe */
+export const REI_IMBUIDO = { mult: 1.35, espirito: 20 }
+export const custoArmamento = (c: Combatente) => (c.haki.armamento?.avancado ? CUSTO_ARMAMENTO.avancado : CUSTO_ARMAMENTO.normal)
+/** o golpe deste personagem sai com o Haki do Rei imbuído (armamento nível 3 ligado, com usos e espírito) */
+export const reiImbuido = (c: Combatente) =>
+  c.armamentoLigado && !!c.haki.armamento?.imbuido && (c.haki.armamento?.usos ?? 0) > 0 && c.espirito >= REI_IMBUIDO.espirito
 /**
  * Disputa de Haki pelo overall: chance de o mais forte prevalecer cresce com
  * a diferença (igual = 50%, +3% por ponto, entre 5% e 95%) — sem degrau.
@@ -495,10 +503,13 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     case 'skill': {
       const c = porId(e, a.id)!
       const s = skillsDe(c).find((x) => x.id === a.skill)!
-      // o Haki que estiver ligado vai no ataque (no nível 3, com o Rei imbuído)
-      const armamento = c.armamentoLigado && (c.haki.armamento?.usos ?? 0) > 0
-      const rei = reiImbuido(c)
-      c.energia -= s.energia
+      // o Haki que estiver ligado vai no ataque (no nível 3, com o Rei
+      // imbuído), se der para pagar a energia (e o espírito) a mais
+      const comHaki = s.mult > 0 && !s.livre
+      const armamento = comHaki && c.armamentoLigado && (c.haki.armamento?.usos ?? 0) > 0 && c.energia >= s.energia + custoArmamento(c)
+      const rei = armamento && reiImbuido(c)
+      c.energia -= s.energia + (armamento ? custoArmamento(c) : 0)
+      if (rei) c.espirito -= REI_IMBUIDO.espirito
       if (s.recarga) c.recargas[s.id] = s.recarga + 1 // conta a partir do fim desta vez
       if (armamento) c.haki.armamento!.usos--
       // acabou o recurso: desliga sozinho
@@ -564,7 +575,8 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       espirito(c, ESPIRITO_POR_VEZ)
       // armamento recupera com espírito
       const arm = c.haki.armamento
-      if (arm && arm.usos < arm.max && c.espirito >= RECUPERA_ARMAMENTO.espirito) {
+      // (só quando acabaram: recuperar a cada vez drenava o espírito e o Rei em área nunca saía)
+      if (arm && arm.usos === 0 && c.espirito >= RECUPERA_ARMAMENTO.espirito) {
         c.espirito -= RECUPERA_ARMAMENTO.espirito
         arm.usos = Math.min(arm.max, arm.usos + RECUPERA_ARMAMENTO.usos)
         ev.push({ t: 'recuperou', id: c.id, usos: arm.usos })

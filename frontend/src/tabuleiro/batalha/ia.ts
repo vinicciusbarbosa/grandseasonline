@@ -10,6 +10,7 @@ import type { Casa } from '../tabuleiro'
 import { alvoValido, casasDaArea } from './armas'
 import {
   HAOSHOKU,
+  custoArmamento,
   chanceHaki,
   FORCA,
   distancia,
@@ -72,7 +73,8 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
       if (v <= 0) continue
       // armamento: contra Logia com cargas, ou em golpe forte se sobra uso
       const usos = c.haki.armamento?.usos ?? 0
-      const armamento = usos > 0 && (logia || (usos > 1 && s.energia > 0))
+      // (custa energia a mais: só se ainda sobra energia depois)
+      const armamento = usos > 0 && c.energia >= s.energia + custoArmamento(c) && (logia || (usos > 1 && s.energia > 0))
       if (armamento) {
         v = 0
         for (const x of casas) {
