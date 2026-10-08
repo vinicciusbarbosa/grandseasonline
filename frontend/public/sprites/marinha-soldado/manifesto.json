@@ -1,14 +1,14 @@
 {
  "quadro": [
-  150,
-  132
+  300,
+  264
  ],
  "pe": [
-  75,
-  124
+  150,
+  248
  ],
- "altura": 96,
- "densidade": 0.82,
+ "altura": 192,
+ "densidade": 1.64,
  "tempos": {
   "andar": {
    "fps": 10

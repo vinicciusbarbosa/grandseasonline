@@ -407,6 +407,8 @@ def personagem_completo(pid, corpo, altura=95, cores=None, partes=None, ataque=(
 
 
 # partes da folha espadachim2 (matiz OpenCV 0–180, saturação mínima, valor máximo)
+# lutador2: o calção vinho (só da cintura para baixo; a cicatriz do peito fica)
+PARTES_LUTADOR2 = {'calca': (((168, 180), (0, 4)), 120, 200, 0.45)}
 PARTES_ATIRADOR2 = {'capa': ([(36, 82)], 10, 200), 'cabelo': ([(0, 12)], 80, 115)}
 PARTES_CAPITAO = {'colete': ([(0, 6), (170, 180)], 110, 256), 'cabelo': ([(7, 19)], 150, 256), 'calca': ([(100, 125)], 60, 256)}
 
@@ -444,21 +446,16 @@ if __name__ == '__main__':
     # azul-marinho, calça clara); o 2º lutador da Marinha de calção azul-marinho
     personagem('marinha-almirante', 'espadachim', CAB['marinha-almirante'], alternar=(4, 5, 6),
                cores={'roupa': (112, 0.9, 0.55), 'calca': (110, 0.15, 1.6)})
-    personagem('marinha-oficial', 'lutador', CAB['marinha-oficial'], partes=PARTES_LUTADOR, altura=72, igualar=True,
-               trocar={'S': {5: 2}}, fecha_parado=True, cores={'calca': (112, 0.9, 0.6)})
+    personagem_completo('marinha-oficial', 'lutador2', altura=92, partes=PARTES_LUTADOR2, cores={'calca': (112, 0.9, 0.7)})
     # variações de cor do mesmo personagem
     personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
                cores={'roupa': (108, 0.95, 1.05), 'calca': (20, 0.25, 0.75)})
     personagem('espadachim-verde', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
                cores={'roupa': (60, 0.7, 0.8), 'calca': (16, 0.55, 1.35)})
-    # lutador novo (soco) nos dois lados: o da Marinha de calção azul. As
-    # cabeças são sorteadas
-    personagem('pirata-lutador', 'lutador', CAB['pirata-lutador'], partes=PARTES_LUTADOR, altura=72, igualar=True,
-               trocar={'S': {5: 2}}, fecha_parado=True,
-               cores=None)
-    personagem('marinha-soldado', 'lutador', CAB['marinha-soldado'], partes=PARTES_LUTADOR, altura=72, igualar=True,
-               trocar={'S': {5: 2}}, fecha_parado=True,
-               cores={'calca': (110, 0.9, 1.2)})
+    # lutador novo (folha com a cabeça desenhada) nos dois lados: o pirata de
+    # calção vinho, os do outro navio de calção azul e azul-marinho (acima)
+    personagem_completo('pirata-lutador', 'lutador2', altura=92)
+    personagem_completo('marinha-soldado', 'lutador2', altura=92, partes=PARTES_LUTADOR2, cores={'calca': (108, 0.9, 1.2)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
     # os médicos (profissão): atirador de capa vinho nos piratas, espadachim
     # de colete azul-claro na Marinha
