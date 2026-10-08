@@ -105,6 +105,43 @@ export class Materiais {
   mastro = lambert(texturaMadeira(32, 64, 2, 6, 19, true))
   azul = lambert(null, 0x2c4f9e)
   lanterna = new THREE.MeshBasicMaterial({ color: 0xffd36a })
+
+  constructor() {
+    // a madeira do navio inteiro com as tábuas pintadas (as mesmas das casas)
+    const img = new Image()
+    img.onload = () => {
+      const tabua = (i: number, vertical: boolean) => {
+        const T = 128
+        const c = document.createElement('canvas')
+        c.width = c.height = T
+        const g = c.getContext('2d')!
+        if (vertical) {
+          g.translate(T / 2, T / 2)
+          g.rotate(Math.PI / 2)
+          g.translate(-T / 2, -T / 2)
+        }
+        g.drawImage(img, (i % 4) * T, Math.floor(i / 4) * T, T, T, 0, 0, T, T)
+        const t = new THREE.CanvasTexture(c)
+        t.wrapS = t.wrapT = THREE.RepeatWrapping
+        t.colorSpace = THREE.SRGBColorSpace
+        t.minFilter = THREE.LinearMipmapLinearFilter
+        t.anisotropy = 4
+        return t
+      }
+      const usar = (m: THREE.MeshLambertMaterial, t: THREE.Texture, cor: number) => {
+        m.map = t
+        m.color.setHex(cor)
+        m.needsUpdate = true
+      }
+      usar(this.convesMargem, tabua(15, false), 0xffffff)
+      usar(this.casco, tabua(4, false), 0x8a6a52)
+      usar(this.cascoClaro, tabua(0, false), 0xc9ab8a)
+      usar(this.amurada, tabua(1, true), 0xd8bc9c)
+      usar(this.poste, tabua(3, true), 0xc0a080)
+      usar(this.mastro, tabua(7, true), 0xc8a888)
+    }
+    img.src = recurso(`${import.meta.env.BASE_URL}sprites/piso/tabuas.png`)
+  }
 }
 
 function poste(M: Materiais, x: number, z: number, alt: number) {
