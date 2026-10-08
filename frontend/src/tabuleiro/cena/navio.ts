@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { COLUNAS, METADE, VAO, tiposMetade } from '../tabuleiro'
 import type { TipoCasa } from './texturas'
+import { trocarPorModelo } from './props'
 import { recurso } from './visualFolhas'
 import {
   rng,
@@ -202,14 +203,17 @@ function barril(M: Materiais, x: number, z: number, y = 0, deitado = false) {
     g.rotation.z = Math.PI / 2
     g.position.y = y + 0.3
   }
-  return g
+  return trocarPorModelo(g, 'barril')
 }
 
 function caixote(M: Materiais, x: number, z: number, s = 0.6, y = 0, rot = 0) {
   const c = caixa(s, s, s, M.caixote, 32 * (s / 0.66))
-  c.position.set(x, y + s / 2, z)
-  c.rotation.y = rot
-  return c
+  c.position.y = s / 2
+  const g = new THREE.Group()
+  g.add(c)
+  g.position.set(x, y, z)
+  g.rotation.y = rot
+  return trocarPorModelo(g, 'caixas', { peca: 'cratesmall' })
 }
 
 /** Canhão no reparo de madeira, apontando para `dir` (radianos em torno de Y). */
@@ -243,7 +247,8 @@ function canhao(M: Materiais, x: number, z: number, dir: number) {
   g.add(cano)
   g.position.set(x, 0, z)
   g.rotation.y = dir
-  return g
+  // o modelo aponta a boca para -Z; o de código, para +Z
+  return trocarPorModelo(g, 'canhao', { giro: Math.PI })
 }
 
 function lanterna(M: Materiais, x: number, z: number, alt: number, luzes: THREE.PointLight[]) {
@@ -577,9 +582,12 @@ function portinholas(M: Materiais, g: THREE.Group, est: Estilo) {
       g.add(moldura)
       const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.55, 10), M.ferro)
       cano.rotation.x = Math.PI / 2
-      cano.position.set(x, y, z + lado * 0.22)
       cano.castShadow = true
-      g.add(cano)
+      const gc = new THREE.Group()
+      gc.add(cano)
+      gc.position.set(x, y, z + lado * 0.22)
+      // só o cano do canhão baixado, com a boca para fora do casco (no modelo, -Z)
+      g.add(trocarPorModelo(gc, 'canhao', { peca: 'Cannon_', giro: lado > 0 ? Math.PI : 0 }))
       // fechada, na bateria de baixo
       const yb = -0.42
       const sb = (borda(x + 1.1) - yb) / (borda(x + 1.1) - fundo(x + 1.1))
