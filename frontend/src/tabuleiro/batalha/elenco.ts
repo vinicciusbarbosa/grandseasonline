@@ -9,9 +9,8 @@
  * Haki: o espadachim que comanda cada lado tem o Rei + armamento avançado
  * (imbui o Rei no golpe); lutador pirata: armamento avançado; o lutador
  * oficial da Marinha: armamento avançado + observação AVANÇADA (esquiva e
- * revida); atiradores: Rei (só em área). Akuma no Mi: Logia (comandante da
- * Marinha, fumaça), Paramecia (lutador pirata, borracha), Zoan (soldado,
- * lobo). O médico da Marinha não tem Haki.
+ * revida); atiradores: Rei (só em área). Akuma no Mi (só Logias): fumaça
+ * (comandante da Marinha), fogo (lutador pirata), gelo (soldado). O médico da Marinha não tem Haki.
  */
 
 import type { Direcao } from '../cena/personagem'
@@ -64,12 +63,12 @@ export type Membro = {
 export const TRIPULACOES: Membro[] = [
   { id: 'pirata-capitao', nome: nome(0), classe: 'espadachim', lado: 'piratas', casa: { l: 3, c: 9 }, dir: 'S', haki: haki(70, [6, true], [3, false], true) },
   { id: 'pirata-espadachim', nome: nome(1), classe: 'espadachim', lado: 'piratas', casa: { l: 4, c: 7 }, dir: 'S', haki: haki(35, [4, false], null) },
-  { id: 'pirata-lutador', nome: nome(2), classe: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'borracha' },
+  { id: 'pirata-lutador', nome: nome(2), classe: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'fogo' },
   { id: 'pirata-atiradora', nome: nome(3), classe: 'atirador', lado: 'piratas', casa: { l: 2, c: 6 }, dir: 'S', haki: haki(50, null, null, true) },
   { id: 'pirata-medico', nome: nome(4), classe: 'atirador', profissao: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, null, [3, false]) },
   { id: 'marinha-almirante', nome: nome(5), classe: 'espadachim', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true], null, true), akuma: 'fumaca', cargasLogia: 3 },
   { id: 'marinha-oficial', nome: nome(6), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [3, true]) },
-  { id: 'marinha-soldado', nome: nome(7), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'lobo' },
+  { id: 'marinha-soldado', nome: nome(7), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'gelo' },
   { id: 'marinha-atirador', nome: nome(8), classe: 'atirador', lado: 'marinha', casa: { l: 7, c: 6 }, dir: 'N', haki: haki(50, null, null, true) },
   { id: 'marinha-enfermeira', nome: nome(9), classe: 'espadachim', profissao: 'medico', lado: 'marinha', casa: { l: 7, c: 12 }, dir: 'N' },
 ]

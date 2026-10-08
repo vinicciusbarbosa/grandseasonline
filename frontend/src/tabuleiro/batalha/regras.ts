@@ -182,8 +182,6 @@ export function skillsDe(c: Combatente): Skill[] {
 export const atkDe = (c: Combatente) => c.at.atk * (c.akuma?.transformado ? 1.3 : 1)
 export const defDe = (c: Combatente) => c.at.def + (c.akuma?.transformado && FRUTAS[c.akuma.fruta].tipo === 'zoan' ? 10 : 0)
 
-/** De onde vem o golpe (para a passiva de borracha). */
-const armaDaSkill = (c: Combatente, s: Skill): TipoArma | 'fruta' => (SKILLS_ARMA[c.arma].includes(s) ? c.arma : 'fruta')
 
 /** Casas alcançáveis andando até `max` casas (retas ou diagonais), com o caminho. */
 export function movimentos(e: Estado, c: Combatente, max = e.movimento) {
@@ -336,7 +334,7 @@ export function motivo(e: Estado, a: Acao): string | null {
 
 /**
  * O golpe de um personagem em outro, com todas as regras (choque de Haki do
- * Rei, Logia, observação, esquiva, armamento, crítico, bloqueio, borracha,
+ * Rei, Logia, observação, esquiva, armamento, crítico, bloqueio,
  * queimadura, congelar, atordoar). `revida` diz se a observação avançada
  * revida (no tabuleiro: de perto).
  */
@@ -433,9 +431,6 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
     const critico = rnd() < limitar((c.at.dex - alvo.at.con) * 2 + 5 + (s.critico ?? 0), 0, 75) / 100
     const bloqueio = !avancado && rnd() < limitar((alvo.at.res - c.at.con) * 2, 0, 40) / 100
     let dano = atkDe(c) * FORCA * mult * (1 - def / 100) * (0.9 + rnd() * 0.2)
-    // Paramecia de borracha: contundente e tiro pela metade
-    const origem = armaDaSkill(c, s)
-    if (alvo.akuma?.fruta === 'borracha' && (origem === 'maca' || origem === 'espingarda') && !armamento) dano *= 0.5
     if (armamento) dano *= avancado ? MULT_AVANCADO : MULT_ARMAMENTO
     if (rei) dano *= REI_IMBUIDO.mult
     if (critico) dano *= 1.5

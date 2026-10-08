@@ -1027,7 +1027,7 @@ export class CenaTabuleiro {
     const formas: Record<string, VisualFolhas> = {}
     // a fruta pode mudar na preparação: todos já carregam as duas formas
     void fruta
-    for (const [forma, folha] of [['lobo', 'ro-lobisomem'], ['agni', 'ro-agni'], ['sabre', `${id}-luz`]] as const) {
+    for (const [forma, folha] of [['agni', 'ro-agni'], ['sabre', `${id}-luz`]] as const) {
       try {
         formas[forma] = await VisualFolhas.carregar(folha)
       } catch {

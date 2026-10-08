@@ -197,7 +197,7 @@ const ULTIMATES = new Set(['entei', 'era-gelo', 'yasakani', 'prisao-fumaca'])
 /** segundos de preparação (ligar o Haki) antes da batalha */
 const PREPARO = 10
 /** aparência de cada transformação/buff */
-const FORMAS: Record<string, 'zoan' | 'gear' | 'sabre' | 'lobo' | 'agni'> = { bisao: 'zoan', borracha: 'gear', luz: 'sabre', lobo: 'lobo', fogo: 'agni' }
+const FORMAS: Record<string, 'sabre' | 'agni'> = { luz: 'sabre', fogo: 'agni' }
 /**
  * Efeitos desenhados (folhas do Ragnarok, só teste) por skill: onde tocam —
  * em quem usa ('si'), no alvo ('alvo') ou em cada casa atingida ('casas');
@@ -843,7 +843,7 @@ export class ControleBatalha {
           if (p) {
             const fr = porId(antes, e.id)?.akuma?.fruta ?? ''
             p.forma = FORMAS[fr] ?? null
-            this.palco.flutuar(p, fr === 'borracha' ? 'Gear Second!' : fr === 'luz' ? 'Espada de Luz!' : fr === 'fogo' ? 'Corpo de Chamas!' : fr === 'lobo' ? 'Lobisomem!' : 'Forma Híbrida!', fr === 'borracha' || fr === 'fogo' ? '#ff6a5a' : '#ffcf6a', 1)
+            this.palco.flutuar(p, fr === 'luz' ? 'Arma de Luz!' : 'Corpo de Chamas!', fr === 'fogo' ? '#ff6a5a' : '#ffcf6a', 1)
             await this.palco.efeito('aura', 'normal', this.palco.peito(p), { dur: 0.8, escala: 1.8 })
           }
           this.registrar(`${nome(e.id)} se transforma (${e.vezes} vezes).`)

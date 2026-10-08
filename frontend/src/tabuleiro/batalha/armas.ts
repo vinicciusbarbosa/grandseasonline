@@ -101,8 +101,8 @@ export const PRIMEIROS_SOCORROS: Skill = {
 }
 
 /**
- * Akuma no Mi de teste (uma de cada tipo). A árvore da fruta vem depois;
- * aqui só as skills e a passiva de cada uma.
+ * Akuma no Mi de teste: só Logias. A árvore da fruta vem depois; aqui só
+ * as skills e a passiva de cada uma.
  */
 export type TipoAkuma = 'logia' | 'zoan' | 'paramecia'
 export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: Elemento; passiva: string; skills: Skill[] }> = {
@@ -152,32 +152,6 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
       { id: 'ice-time', nome: 'Ice Time', descricao: 'Toque que congela o alvo ao lado.', energia: 30, recarga: 3, alcance: 1, area: 'alvo', mult: 0.5, elemento: 'gelo', congela: 1 },
       { id: 'pheasant-beak', nome: 'Bico de Faisão (Pheasant Beak)', descricao: 'Uma ave de gelo voa até o alvo (até 5 casas) e explode em cristais; congela o alvo.', energia: 35, recarga: 3, alcance: 5, area: 'alvo', mult: 1.5, elemento: 'gelo', congela: 1 },
       { id: 'era-gelo', nome: 'Era do Gelo (Ice Age)', descricao: 'Congela o mapa inteiro: acerta e congela todos os inimigos.', energia: 60, recarga: 5, alcance: 0, area: 'mapa', mult: 0.45, elemento: 'gelo', congela: 1 },
-    ],
-  },
-  borracha: {
-    nome: 'Fruta da Borracha (Gomu Gomu)',
-    tipo: 'paramecia',
-    passiva: 'Corpo de borracha: metade do dano de maça (contundente) e de tiros.',
-    skills: [
-      { id: 'pistola', nome: 'Gomu Gomu no Pistol', descricao: 'Soco esticado a até 3 casas.', energia: 15, recarga: 1, alcance: 3, area: 'alvo', mult: 1 },
-      { id: 'gatling', nome: 'Gomu Gomu no Gatling', descricao: 'Rajada de socos esticados: 6 golpes (×0,3 cada) a até 2 casas.', energia: 30, recarga: 2, alcance: 2, area: 'alvo', mult: 0.3, golpes: 6 },
-      { id: 'gear-second', nome: 'Gear Second', descricao: 'Sangue acelerado: corpo vermelho soltando vapor, +30% de ataque por 3 vezes (não gasta a vez).', energia: 20, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
-    ],
-  },
-  bisao: {
-    nome: 'Fruta do Bisão',
-    tipo: 'zoan',
-    passiva: 'Forma híbrida: mais força e defesa enquanto transformado.',
-    skills: [{ id: 'forma-hibrida', nome: 'Forma Híbrida', descricao: 'Transforma por 3 vezes: +30% de ataque, +10 de defesa (não gasta a vez).', energia: 30, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true }],
-  },
-  lobo: {
-    nome: 'Fruta do Lobo (Inu Inu, modelo Lobo)',
-    tipo: 'zoan',
-    passiva: 'Forma híbrida: vira lobisomem, mais força e defesa enquanto transformado.',
-    skills: [
-      { id: 'forma-lobisomem', nome: 'Forma Híbrida (Lobisomem)', descricao: 'Vira lobisomem por 3 vezes: +30% de ataque, +10 de defesa (não gasta a vez).', energia: 30, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
-      { id: 'garras', nome: 'Garras', descricao: 'Dois rasgos de garra de perto (×0,7 cada).', energia: 15, recarga: 1, alcance: 1, area: 'alvo', mult: 0.7, golpes: 2 },
-      { id: 'uivo', nome: 'Uivo Selvagem', descricao: 'Salta e bate no chão: acerta as 8 casas em volta (×0,8).', energia: 30, recarga: 3, alcance: 0, area: 'volta', mult: 0.8 },
     ],
   },
 }

@@ -339,9 +339,6 @@ const FRUTAS_OP: [string, string][] = [
   ['fogo', 'Logia: Fogo (Mera)'],
   ['luz', 'Logia: Luz (Pika)'],
   ['gelo', 'Logia: Gelo (Hie)'],
-  ['borracha', 'Paramecia: Borracha (Gomu)'],
-  ['bisao', 'Zoan: Bisão'],
-  ['lobo', 'Zoan: Lobo (lobisomem)'],
 ]
 const NIVEL = ['—', 'normal', 'avançado']
 
