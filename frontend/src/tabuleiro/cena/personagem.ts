@@ -60,7 +60,7 @@ export class Personagem {
   casa: Casa
   dir: Direcao
   vida: number
-  readonly vidaMax: number
+  vidaMax: number
   /** pedidos de poeira para a cena (posição do pé) */
   readonly poeiras: THREE.Vector3[] = []
   readonly pos = new THREE.Vector3()

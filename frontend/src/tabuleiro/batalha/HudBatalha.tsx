@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
 import { HAOSHOKU, MOVIMENTO_POR_VEZ } from './regras'
 import { SKILLS_ARMA } from './armas'
 import { BarraCombate, type DicaCombate } from './BarraCombate'
-import { NOMES_CLASSE } from './elenco'
+import { ATRIBUTOS_BUILD, NOMES_CLASSE, PONTOS_BUILD, buildValida, comBuild, pontosGastos, VIDA_POR_VIG, type Config } from './elenco'
 
 /**
  * HUD da batalha, estilo RPG tático compacto: painéis escuros translúcidos
@@ -233,9 +233,43 @@ function SalaMp({ mp }: { mp: NonNullable<RetratoBatalha['mp']> }) {
   )
 }
 
+/** Build de um tripulante: + e − em cada atributo, com o valor final (base da classe + pontos). */
+function PainelBuild({ k, c, travado }: { k: Config; c: ControleBatalha; travado: boolean }) {
+  const gastos = pontosGastos(k.build)
+  const { at, hp } = comBuild(k.classe, buildValida(k.build))
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', justifyContent: 'center', padding: '6px 4px 8px', background: '#00000033', borderRadius: 4 }}>
+      <div style={{ width: '100%', textAlign: 'center', fontSize: 11, color: gastos < PONTOS_BUILD ? '#ffd27a' : '#a89a78' }}>
+        {PONTOS_BUILD - gastos} de {PONTOS_BUILD} pontos livres · {NOMES_CLASSE[k.classe]}
+      </div>
+      {ATRIBUTOS_BUILD.map(([a, nome, dica]) => {
+        const pts = k.build[a] ?? 0
+        const total = a === 'vig' ? hp : at[a]
+        return (
+          <div key={a} title={dica} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12 }}>
+            <b style={{ width: 30, color: a === 'akm' ? '#ffcf5a' : '#e8dcc0' }}>{a === 'vig' ? 'VIDA' : nome}</b>
+            <button className="bt" style={{ padding: '0 6px' }} disabled={travado || pts <= 0} onClick={() => c.mudarBuild(k.id, a, -1)}>
+              −
+            </button>
+            <span style={{ width: 34, textAlign: 'center' }}>
+              {total}
+              {pts > 0 && <small style={{ color: '#8fe0a0' }}> +{a === 'vig' ? pts * VIDA_POR_VIG : pts}</small>}
+            </span>
+            <button className="bt" style={{ padding: '0 6px' }} disabled={travado || gastos >= PONTOS_BUILD} onClick={() => c.mudarBuild(k.id, a, 1)}>
+              +
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
   const mp = b.mp
   const travado = !!mp?.pronto
+  const [aberto, setAberto] = useState<string | null>(null)
+  const meu = (k: { lado: string }) => !mp || k.lado === mp.lado
   return (
     <div className="tela">
       <div className="painel janela">
@@ -244,8 +278,8 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
         </div>
         <div style={{ font: '400 12px Georgia, serif', color: '#b8b0a0', margin: '2px 0 8px', textAlign: 'center' }}>
           {mp
-            ? 'Escolha a classe, a Akuma no Mi e o Haki de cada um. A batalha começa quando os dois derem Pronto (ou o tempo acabar).'
-            : 'Escolha a classe, a Akuma no Mi e o Haki de cada um. Depois de começar, há 10 s para ligar o Haki.'}
+            ? 'Escolha a classe, os atributos, a Akuma no Mi e o Haki de cada um. A batalha começa quando os dois derem Pronto (ou o tempo acabar).'
+            : 'Escolha a classe, os atributos, a Akuma no Mi e o Haki de cada um. Depois de começar, há 10 s para ligar o Haki.'}
         </div>
         {mp && <SalaMp mp={mp} />}
         {mp?.aviso && <div style={{ textAlign: 'center', color: '#ff9a8a', marginBottom: 8 }}>{mp.aviso}</div>}
@@ -259,11 +293,13 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
               <td>Observação</td>
               <td title="Haki do Rei em área (o imbuído é o nível 3 do armamento)">Rei (área)</td>
               <td>Overall</td>
+              <td>Build</td>
             </tr>
           </thead>
           <tbody>
             {b.config.map((k) => (
-              <tr key={k.id}>
+              <Fragment key={k.id}>
+              <tr>
                 <td className="tit" style={{ fontSize: 13, color: k.lado === 'piratas' ? '#8fe0a0' : '#ff9a8a' }}>
                   {k.nome}
                 </td>
@@ -308,12 +344,27 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
                     +
                   </button>
                 </td>
+                <td>
+                  {meu(k) && (
+                    <button className={`bt${aberto === k.id ? ' on' : ''}`} style={{ padding: '0 8px', whiteSpace: 'nowrap' }} onClick={() => setAberto(aberto === k.id ? null : k.id)} title="Distribuir os pontos de atributo">
+                      {PONTOS_BUILD - pontosGastos(k.build) ? `${PONTOS_BUILD - pontosGastos(k.build)} livres` : 'Atributos'} {aberto === k.id ? '▴' : '▾'}
+                    </button>
+                  )}
+                </td>
               </tr>
+              {aberto === k.id && meu(k) && (
+                <tr>
+                  <td colSpan={8}>
+                    <PainelBuild k={k} c={c} travado={travado} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
         <div style={{ textAlign: 'center', marginTop: 12, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button className="bt" disabled={travado} onClick={() => c.aleatorizar()} title="Sorteia Akuma no Mi e Haki">
+          <button className="bt" disabled={travado} onClick={() => c.aleatorizar()} title="Sorteia Akuma no Mi, Haki e a build">
             🎲 Aleatorizar
           </button>
           <button className="bt" disabled={travado} onClick={() => c.restaurarConfig()} title="Volta ao elenco de teste">

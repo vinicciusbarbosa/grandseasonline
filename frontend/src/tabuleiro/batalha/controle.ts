@@ -21,7 +21,7 @@ import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill, type TipoArma }
 
 /** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
 const semMira = (s: Skill) => s.id === 'haoshoku' || s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
-import { CLASSES_HUD, TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, ehClasse, folhaDe, renomear, type Config } from './elenco'
+import { MAX_POR_ATRIBUTO, PONTOS_BUILD, TRIPULACOES, aplicarConfig, buildPadrao, combatentesIniciais, configPadrao, ehClasse, folhaDe, pontosGastos, renomear, type AtributoBuild, type Config } from './elenco'
 import type { HakiMp, JogadorBatalhaMp, MsgServidorBatalha } from './protocoloMp'
 import { RedeBatalha } from './redeBatalha'
 import { proximaAcao } from './ia'
@@ -385,7 +385,7 @@ export class ControleBatalha {
         break
       case 'comecar':
         this.config = m.config
-        this.folhasDaConfig()
+        this.configNaCena()
         this.comecarLocal(m.semente)
         break
       case 'iniciar': {
@@ -568,9 +568,34 @@ export class ControleBatalha {
     if (!k || this.fase !== 'preparar') return
     if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
     ;(k as Record<string, unknown>)[campo] = valor
-    if (campo === 'classe') this.folhasDaConfig()
+    // outra classe: começa da build padrão dela
+    if (campo === 'classe' && ehClasse(valor)) k.build = buildPadrao(valor, !!k.akuma)
+    this.configNaCena()
     this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
+  }
+
+  /** Põe (+1) ou tira (−1) um ponto da build. */
+  mudarBuild(id: string, atrib: AtributoBuild, delta: 1 | -1) {
+    const k = this.config.find((x) => x.id === id)
+    if (!k || this.fase !== 'preparar') return
+    if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
+    const atual = k.build[atrib] ?? 0
+    const novo = atual + delta
+    if (novo < 0 || novo > MAX_POR_ATRIBUTO || (delta > 0 && pontosGastos(k.build) >= PONTOS_BUILD)) return
+    k.build = { ...k.build, [atrib]: novo }
+    this.configNaCena()
+    this.rede?.enviar({ t: 'config', config: this.config })
+    this.palco.avisar()
+  }
+
+  /** a vida (com a VIG da build) e os sprites (da classe) de cada um na cena */
+  private configNaCena() {
+    this.folhasDaConfig()
+    for (const c of aplicarConfig(combatentesIniciais(), this.config)) {
+      const p = this.palco.personagem(c.id)
+      if (p) p.vida = p.vidaMax = c.hpMax
+    }
   }
 
   /** pasta de sprites em uso por personagem (muda com a classe) */
@@ -582,7 +607,8 @@ export class ControleBatalha {
       const folha = folhaDe(k.id, k.classe)
       if ((this.folhas.get(k.id) ?? k.id) === folha) continue
       this.folhas.set(k.id, folha)
-      void this.palco.trocarFolha(k.id, folha, CLASSES_HUD[k.classe].hp)
+      const hp = aplicarConfig(combatentesIniciais(), [k]).find((c) => c.id === k.id)!.hpMax
+      void this.palco.trocarFolha(k.id, folha, hp)
     }
   }
 
@@ -599,7 +625,16 @@ export class ControleBatalha {
       k.rei = r() < 0.25
       const base = k.armamento || k.observacao || k.rei ? 20 + k.armamento * 12 + k.observacao * 10 + (k.rei ? 20 : 0) : 0
       k.overall = base ? Math.max(5, Math.min(100, Math.round((base + (r() - 0.5) * 20) / 5) * 5)) : 0
+      // build sorteada (respeitando o máximo por atributo)
+      const atribs: AtributoBuild[] = ['atk', 'akm', 'def', 'vig', 'agl', 'pre', 'dex', 'res', 'con']
+      k.build = {}
+      for (let i = 0; i < PONTOS_BUILD; i++) {
+        const livres = atribs.filter((a) => (k.build[a] ?? 0) < MAX_POR_ATRIBUTO)
+        const a = livres[Math.floor(r() * livres.length)]
+        k.build[a] = (k.build[a] ?? 0) + 1
+      }
     }
+    this.configNaCena()
     this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
   }
@@ -609,7 +644,7 @@ export class ControleBatalha {
     if (this.fase !== 'preparar' || (this.rede && this.mp.pronto)) return
     const padrao = configPadrao()
     this.config = this.rede ? this.config.map((k) => (this.doMeuLado(k.id) ? padrao.find((x) => x.id === k.id)! : k)) : padrao
-    this.folhasDaConfig()
+    this.configNaCena()
     if (this.rede) {
       this.rede.enviar({ t: 'config', config: this.config })
     }

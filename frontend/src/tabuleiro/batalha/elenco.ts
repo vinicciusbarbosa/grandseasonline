@@ -26,11 +26,86 @@ import type { Atributos, Combatente, Haki, Lado } from './regras'
  */
 export type Classe = 'espadachim' | 'lutador' | 'tank' | 'atirador'
 
-const CLASSES: Record<Classe, { hp: number; at: Atributos; arma: TipoArma }> = {
-  espadachim: { hp: 135, at: { atk: 28, def: 10, agl: 14, res: 10, pre: 14, dex: 14, con: 10 }, arma: 'espada' },
-  lutador: { hp: 160, at: { atk: 25, def: 16, agl: 12, res: 14, pre: 10, dex: 10, con: 16 }, arma: 'punhos' },
-  tank: { hp: 220, at: { atk: 21, def: 26, agl: 5, res: 20, pre: 6, dex: 5, con: 22 }, arma: 'maca' },
-  atirador: { hp: 100, at: { atk: 22, def: 6, agl: 14, res: 6, pre: 18, dex: 14, con: 6 }, arma: 'espingarda' },
+/**
+ * Atributos BASE de cada classe (antes da build). Cada tripulante ainda
+ * distribui PONTOS_BUILD pontos por cima (a build padrão de cada classe
+ * deixa os números do teste de antes). O AKM não é da classe: todo mundo
+ * começa com AKM_BASE e o resto vem dos pontos (depois, da raridade da fruta).
+ */
+const CLASSES: Record<Classe, { hp: number; at: Omit<Atributos, 'akm'>; arma: TipoArma }> = {
+  espadachim: { hp: 135, at: { atk: 20, def: 10, agl: 8, res: 10, pre: 14, dex: 8, con: 10 }, arma: 'espada' },
+  lutador: { hp: 140, at: { atk: 19, def: 12, agl: 6, res: 14, pre: 10, dex: 10, con: 16 }, arma: 'punhos' },
+  tank: { hp: 180, at: { atk: 21, def: 20, agl: 5, res: 14, pre: 6, dex: 5, con: 22 }, arma: 'maca' },
+  atirador: { hp: 100, at: { atk: 16, def: 6, agl: 10, res: 6, pre: 12, dex: 10, con: 6 }, arma: 'espingarda' },
+}
+
+// ------------------------------------------------------------ build (pontos)
+/** Poder da Akuma no Mi de todo mundo antes da build */
+export const AKM_BASE = 12
+/** pontos que cada tripulante distribui na preparação */
+export const PONTOS_BUILD = 20
+/** no máximo isto num atributo só */
+export const MAX_POR_ATRIBUTO = 15
+/** cada ponto em VIG dá esta vida */
+export const VIDA_POR_VIG = 5
+export type AtributoBuild = keyof Atributos | 'vig'
+export type Build = Partial<Record<AtributoBuild, number>>
+/** ordem e nome na tela de build */
+export const ATRIBUTOS_BUILD: [AtributoBuild, string, string][] = [
+  ['atk', 'ATK', 'Dano das skills da arma'],
+  ['akm', 'AKM', 'Poder da Akuma no Mi: dano das skills da fruta'],
+  ['def', 'DEF', 'Reduz o dano recebido (% , até 60)'],
+  ['vig', 'VIG', `Vida: +${VIDA_POR_VIG} por ponto`],
+  ['agl', 'AGL', 'Esquiva e quem começa'],
+  ['pre', 'PRE', 'Acerto (contra a AGL do alvo)'],
+  ['dex', 'DEX', 'Crítico (contra a CON do alvo)'],
+  ['res', 'RES', 'Bloqueio (contra a CON do atacante)'],
+  ['con', 'CON', 'Evita crítico e bloqueio do alvo'],
+]
+const ehAtributo = (x: string): x is AtributoBuild => ATRIBUTOS_BUILD.some(([k]) => k === x)
+
+/**
+ * Build padrão de cada classe. Com fruta, 12 pontos vão para o AKM e o
+ * resto segue a ordem da classe.
+ */
+export function buildPadrao(classe: Classe, fruta: boolean): Build {
+  const b: Build = {
+    espadachim: { atk: 8, agl: 6, dex: 6 },
+    lutador: { atk: 6, def: 4, vig: 4, agl: 6 },
+    tank: { def: 6, vig: 8, res: 6 },
+    atirador: { pre: 6, atk: 6, agl: 4, dex: 4 },
+  }[classe]
+  if (!fruta) return { ...b }
+  const out: Build = { akm: 12 }
+  let resta = PONTOS_BUILD - 12
+  for (const [k, v] of Object.entries(b) as [AtributoBuild, number][]) {
+    const n = Math.min(v, resta)
+    if (n) out[k] = n
+    resta -= n
+  }
+  return out
+}
+
+/** pontos gastos (só os válidos) */
+export const pontosGastos = (b: Build | undefined) => Object.values(b ?? {}).reduce<number>((t, v) => t + (v ?? 0), 0)
+
+/** build que respeita as regras (o multiplayer recebe a do jogador): senão, nada */
+export function buildValida(b: unknown): Build {
+  if (!b || typeof b !== 'object') return {}
+  const out: Build = {}
+  for (const [k, v] of Object.entries(b)) {
+    if (!ehAtributo(k) || !Number.isInteger(v) || (v as number) < 0 || (v as number) > MAX_POR_ATRIBUTO) return {}
+    if (v) out[k] = v as number
+  }
+  return pontosGastos(out) <= PONTOS_BUILD ? out : {}
+}
+
+/** atributos e vida finais: base da classe + build */
+export function comBuild(classe: Classe, b: Build) {
+  const base = CLASSES[classe]
+  const at: Atributos = { ...base.at, akm: AKM_BASE }
+  for (const [k, v] of Object.entries(b)) if (k !== 'vig' && v) at[k as keyof Atributos] += v
+  return { at, hp: base.hp + (b.vig ?? 0) * VIDA_POR_VIG }
 }
 
 /** vida e arma de cada classe (para a cena e a preparação) */
@@ -101,7 +176,7 @@ export const TRIPULACOES: Membro[] = [
 
 export function combatentesIniciais(): Combatente[] {
   return TRIPULACOES.map((m) => {
-    const p = CLASSES[m.classe]
+    const p = { ...CLASSES[m.classe], ...comBuild(m.classe, buildPadrao(m.classe, !!m.akuma)) }
     return {
       id: m.id,
       nome: m.nome,
@@ -131,13 +206,14 @@ export function combatentesIniciais(): Combatente[] {
 /** cargas de intangibilidade da Logia no teste */
 export const CARGAS_LOGIA = 3
 
-export type Config = { id: string; classe: Classe; akuma: string; armamento: 0 | 1 | 2 | 3; observacao: 0 | 1 | 2; rei: boolean; overall: number }
+export type Config = { id: string; classe: Classe; build: Build; akuma: string; armamento: 0 | 1 | 2 | 3; observacao: 0 | 1 | 2; rei: boolean; overall: number }
 
 /** Config inicial a partir do elenco de teste. */
 export function configPadrao(): Config[] {
   return TRIPULACOES.map((m) => ({
     id: m.id,
     classe: m.classe,
+    build: buildPadrao(m.classe, !!m.akuma),
     akuma: m.akuma ?? '',
     armamento: m.haki?.armamento ? (m.haki.armamento.imbuido ? 3 : m.haki.armamento.avancado ? 2 : 1) : 0,
     observacao: m.haki?.observacao ? (m.haki.observacao.avancado ? 2 : 1) : 0,
@@ -150,13 +226,13 @@ export function aplicarConfig(cs: Combatente[], cfg: Config[]) {
   for (const k of cfg) {
     const c = cs.find((x) => x.id === k.id)!
     // classe (o multiplayer manda a do jogador: só vale se existir)
-    if (ehClasse(k.classe)) {
-      const p = CLASSES[k.classe]
-      c.papel = k.classe
-      c.arma = p.arma
-      c.hp = c.hpMax = p.hp
-      c.at = { ...p.at }
-    }
+    // e a build por cima da base da classe (inválida: sem pontos)
+    const classe = ehClasse(k.classe) ? k.classe : (c.papel as Classe)
+    const { at, hp } = comBuild(classe, buildValida(k.build))
+    c.papel = classe
+    c.arma = CLASSES[classe].arma
+    c.hp = c.hpMax = hp
+    c.at = at
     c.akuma = k.akuma ? { fruta: k.akuma, transformado: 0 } : null
     c.logia = k.akuma && FRUTAS[k.akuma].tipo === 'logia' ? { cargas: CARGAS_LOGIA, max: CARGAS_LOGIA } : null
     const usosA = k.armamento >= 2 ? 6 : 4

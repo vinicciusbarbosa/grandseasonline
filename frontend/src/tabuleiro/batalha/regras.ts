@@ -38,6 +38,8 @@ export type Atributos = {
   /** crítico (contra a CON do alvo) */
   dex: number
   con: number
+  /** Poder da Akuma no Mi: o dano das skills da fruta (as da arma usam o ATK) */
+  akm: number
 }
 
 export type Haki = {
@@ -194,6 +196,9 @@ export function skillsDe(c: Combatente): Skill[] {
 
 /** Ataque e defesa com a transformação Zoan. */
 export const atkDe = (c: Combatente) => c.at.atk * (c.akuma?.transformado ? 1.3 : 1)
+/** força do golpe: AKM nas skills da fruta, ATK no resto (a transformação aumenta os dois) */
+export const poderDe = (c: Combatente, s: Skill) =>
+  (c.akuma && FRUTAS[c.akuma.fruta].skills.some((x) => x.id === s.id) ? c.at.akm : c.at.atk) * (c.akuma?.transformado ? 1.3 : 1)
 export const defDe = (c: Combatente) => c.at.def + (c.akuma?.transformado && FRUTAS[c.akuma.fruta].tipo === 'zoan' ? 10 : 0)
 
 
@@ -367,7 +372,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
       const dif = c.haki.overall - alvo.haki.overall
       const resultado = Math.abs(dif) <= CLASH.empate ? 'empate' : rnd() < chanceHaki(dif) ? 'venceu' : 'perdeu'
       clashes.set(alvo.id, resultado)
-      const volta = resultado === 'perdeu' ? Math.max(1, Math.round(atkDe(c) * FORCA * mult)) : 0
+      const volta = resultado === 'perdeu' ? Math.max(1, Math.round(poderDe(c, s) * FORCA * mult)) : 0
       ev.push({ t: 'clash', de: c.id, alvo: alvo.id, resultado, dano: volta })
       if (resultado === 'perdeu') ferir(c, volta)
     }
@@ -433,7 +438,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
     def = Math.max(0, def)
     const critico = rnd() < limitar((c.at.dex - alvo.at.con) * 2 + 5 + (s.critico ?? 0), 0, 75) / 100
     const bloqueio = !avancado && rnd() < limitar((alvo.at.res - c.at.con) * 2, 0, 40) / 100
-    let dano = atkDe(c) * FORCA * mult * (1 - def / 100) * (0.9 + rnd() * 0.2)
+    let dano = poderDe(c, s) * FORCA * mult * (1 - def / 100) * (0.9 + rnd() * 0.2)
     if (armamento) dano *= avancado ? MULT_AVANCADO : MULT_ARMAMENTO
     if (rei) dano *= REI_IMBUIDO.mult
     if (critico) dano *= 1.5
