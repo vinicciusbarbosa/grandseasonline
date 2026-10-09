@@ -55,7 +55,7 @@ function ChaveHaki({ tipo, haki, bloqueado, alternar }: { tipo:'armamento'|'obse
       <i /><span>{haki?.ligado ? 'Ligado' : 'Desligado'}</span>
     </button>
     {haki && <div className="chave-descricao">{arm
-      ? `Reforça os ataques e atinge Logias. +${custo} energia por golpe${haki.imbuido ? ` e ${REI_IMBUIDO.espirito} espírito` : ''}.`
+      ? `Reforça os ataques e atinge Logias. Gasta −${custo} de energia por golpe${haki.imbuido ? ` e −${REI_IMBUIDO.espirito} de espírito` : ''}.`
       : `Pode esquivar um ataque recebido. Consome 1 uso por ataque${haki.avancado ? '; também pode revidar de perto' : ''}.`}</div>}
   </div>
 }

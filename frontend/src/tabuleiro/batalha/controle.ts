@@ -1511,8 +1511,9 @@ export class ControleBatalha {
         if (!a || !b) return
         if (e.efeito === 'atravessou') {
           const fruta = porId(antes, e.alvo)?.akuma?.fruta ?? 'fumaca'
-          this.palco.flutuar(b, 'Atravessou!', '#dfe6f3', 1)
-          this.registrar(`O golpe atravessa ${nome(e.alvo)} (Logia).`)
+          const restam = e.cargas ?? 1
+          this.palco.flutuar(b, restam ? 'Atravessou!' : 'Atravessou! Desgastou!', '#dfe6f3', 1)
+          this.registrar(`O golpe atravessa ${nome(e.alvo)} (Logia${restam ? '' : ': ficou sem cargas, agora está desgastada e golpes sem Haki acertam'}).`)
           await this.palco.atravessar(b, FRUTAS[fruta]?.elemento ?? 'fumaca')
           return
         }
