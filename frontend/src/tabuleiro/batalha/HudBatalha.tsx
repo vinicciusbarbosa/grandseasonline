@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import type { ControleBatalha, FichaHud, RetratoBatalha, SkillHud } from './controle'
-import { CUSTO_ARMAMENTO, HAOSHOKU, MOVIMENTO_POR_VEZ, REI_IMBUIDO } from './regras'
+import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
+import { MOVIMENTO_POR_VEZ } from './regras'
+import { BarraCombate, type DicaCombate } from './BarraCombate'
 
 /**
  * HUD da batalha, estilo RPG tático compacto: painéis escuros translúcidos
@@ -149,96 +150,6 @@ function Cartao({ f, sel, onClick, direita }: { f: FichaHud; sel?: boolean; onCl
         <Barra v={f.energia} max={100} c={cor.energia} fina />
         <Barra v={f.espirito} max={100} c={cor.espirito} fina />
       </div>
-    </div>
-  )
-}
-
-const AREA: Record<string, string> = { alvo: '1 alvo', linha: 'em linha', leque: 'leque', volta: 'em volta', si: 'em si', mapa: 'mapa inteiro' }
-const areaDe = (k: SkillHud) => (k.area === 'explosao' ? `área ${k.raio * 2 + 1}×${k.raio * 2 + 1}` : AREA[k.area] ?? k.area)
-/** ícone da skill pela área (as skills ainda não têm ícone próprio) */
-const iconeDe = (k: SkillHud) => (k.id === 'primeiros-socorros' ? '✚' : k.fruta ? '🍎' : k.area === 'linha' ? '➶' : k.area === 'volta' || k.area === 'explosao' ? '✺' : k.area === 'si' ? '✦' : '⚔')
-
-/** Dica da skill ou do Haki sob o mouse, acima da barra de ações. */
-type Dica = { titulo: string; texto: string; tags?: string[] } | null
-
-function dicaSkill(k: SkillHud): Dica {
-  return {
-    titulo: k.nome,
-    texto: k.motivo ?? k.descricao,
-    tags: [`⚡ ${k.energia}`, ...(k.espera ? [`⟳ ${k.espera}`] : []), ...(k.alcance ? [`alcance ${k.alcance}`] : []), areaDe(k), ...(k.livre ? ['não gasta a vez'] : [])],
-  }
-}
-
-function dicaArmamento(f: FichaHud): Dica {
-  const a = f.armamento!
-  const custo = a.avancado ? CUSTO_ARMAMENTO.avancado : CUSTO_ARMAMENTO.normal
-  return {
-    titulo: a.imbuido ? 'Armamento: Rei imbuído' : a.avancado ? 'Armamento avançado' : 'Haki de armamento',
-    texto: a.imbuido
-      ? 'Nível 3: o Haki do Rei vai junto em todo golpe (×1,55, fura 35% da defesa, dano ×1,35 a mais, pode chocar com outro Rei).'
-      : `Arma e braço negros: ${a.avancado ? '×1,55 e fura 35% da defesa' : '×1,4 e fura 15% da defesa'}; toca a Logia.`,
-    tags: [`+${custo} energia por golpe`, ...(a.imbuido ? [`+${REI_IMBUIDO.espirito} espírito`] : []), `${a.usos}/${a.max} usos`],
-  }
-}
-
-/** Barra de ações do selecionado. */
-function Acoes({ s, c, b, mostrar }: { s: NonNullable<RetratoBatalha['selecionado']>; c: ControleBatalha; b: RetratoBatalha; mostrar: (d: Dica) => void }) {
-  const slot = (chave: string, cls: string, ic: string, rot: string, ligado: boolean, pode: boolean, clique: () => void, d: Dica, extra?: React.ReactNode) => (
-    <button key={chave} className={`slot ${cls}${ligado ? ' on' : ''}`} disabled={!pode} onClick={clique} onMouseEnter={() => mostrar(d)} onMouseLeave={() => mostrar(null)}>
-      <span className="ic">{ic}</span>
-      <span className="rot">{rot}</span>
-      {extra}
-    </button>
-  )
-  const pips = (n: number, max: number, c0: string) => (
-    <span className="pips">
-      {Array.from({ length: max }, (_, i) => (
-        <i key={i} style={{ background: i < n ? c0 : 'rgba(255,255,255,.15)' }} />
-      ))}
-    </span>
-  )
-  const temHaki = !!(s.armamento || s.observacao || s.rei)
-  return (
-    <div className="painel acoes">
-      <div className="rosto" style={{ ...rosto(s.retrato, 58), width: 58, height: 58 }} title={s.nome} />
-      {temHaki && <div className="sep" />}
-      {s.armamento &&
-        slot('arm', `haki${s.armamento.imbuido ? ' imb' : ''}`, s.armamento.imbuido ? '✊' : '✊', s.armamento.imbuido ? 'Rei imb.' : 'Armamento', s.armamento.ligado, s.armamento.ligado || s.armamento.usos > 0, () => c.alternarArmamento(s.id), dicaArmamento(s), pips(s.armamento.usos, s.armamento.max, s.armamento.imbuido ? cor.rei : cor.arm))}
-      {s.observacao &&
-        slot('obs', 'haki', '👁', 'Observação', s.observacao.ligado, s.observacao.ligado || s.observacao.usos > 0, () => c.observar(s.id), {
-          titulo: s.observacao.avancado ? 'Observação avançada' : 'Haki de observação',
-          texto: `Prevê os golpes: chance de esquivar de todos os hits de um ataque (1 uso por ataque recebido)${s.observacao.avancado ? ' e revida de perto' : ''}.`,
-          tags: [`${s.observacao.usos}/${s.observacao.max} usos`],
-        }, pips(s.observacao.usos, s.observacao.max, cor.obs))}
-      {s.rei &&
-        slot('rei', 'rei', '♛', 'Rei (área)', false, s.podeHaoshoku, () => c.haoshoku(s.id), {
-          titulo: 'Haki do Rei em área',
-          texto: 'Quem estiver perto e for mais fraco fica atordoado na próxima vez. Não gasta a vez.',
-          tags: [`✦ ${HAOSHOKU.espirito} espírito (tem ${s.espirito})`, `raio ${HAOSHOKU.raio}`],
-        })}
-      <div className="sep" />
-      {s.skills.map((k) =>
-        slot(
-          k.id,
-          k.fruta ? 'fruta' : '',
-          iconeDe(k),
-          k.nome,
-          s.skill === k.id,
-          !k.motivo,
-          () => c.escolherSkill(k.id),
-          dicaSkill(k),
-          <>
-            {k.energia > 0 && <span className="custo">⚡{k.energia}</span>}
-            {k.recarga > 0 && <span className="espera">{k.recarga}</span>}
-          </>,
-        ),
-      )}
-      {!b.treino && (
-        <>
-          <div className="sep" />
-          {slot('passar', 'passar', '⏭', 'Passar a vez', false, true, () => c.passar(), { titulo: 'Passar a vez', texto: 'Encerra a vez da sua tripulação.' })}
-        </>
-      )}
     </div>
   )
 }
@@ -513,11 +424,12 @@ function PainelTreino({ t, c }: { t: NonNullable<RetratoBatalha['treino']>; c: C
 }
 
 export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBatalha; c: ControleBatalha; velocidade: number; mudarVelocidade: (v: number) => void }) {
-  const [verLog, setVerLog] = useState(true)
-  const [dica, setDica] = useState<Dica>(null)
+  const [verLog, setVerLog] = useState(false)
+  const [dica, setDica] = useState<DicaCombate>(null)
   const s = b.selecionado
   const meuLado = b.mp?.lado ?? 'piratas'
   const minha = b.fase === 'minha' && !b.animando && !b.auto
+  const acoesVisiveis = b.fase === 'minha' && !b.auto
   const skill = s?.skills.find((k) => k.id === s.skill)
   const nomesP = b.tripulacao.map((t) => t.nome)
   const nomesM = b.inimigos.map((t) => t.nome)
@@ -576,8 +488,8 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
           {b.fase === 'haki' && <PreparoHaki b={b} c={c} />}
 
           {/* barra de ações: com alguém selecionado; senão, só o Passar a vez */}
-          {minha && (
-            <div style={{ position: 'absolute', left: '50%', bottom: 8, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          {acoesVisiveis && (
+            <div className="combate-dock">
               {dica && (
                 <div className="painel dica">
                   <b>{dica.titulo}</b>
@@ -592,12 +504,12 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                 </div>
               )}
               {skill && s?.previa && (
-                <button className="bt forte" style={{ fontSize: 14, padding: '4px 22px' }} onClick={() => c.usarPrevia()}>
-                  ⚔ {skill.nome}
+                <button className="confirmar-skill" disabled={b.animando} onClick={() => c.usarPrevia()}>
+                  Usar {skill.nome}<kbd>ENTER</kbd>
                 </button>
               )}
               {s ? (
-                <Acoes s={s} c={c} b={b} mostrar={setDica} />
+                <BarraCombate key={s.id} s={s} c={c} b={b} mostrar={setDica} />
               ) : (
                 !b.treino && (
                   <div className="painel acoes" style={{ alignItems: 'center' }}>
@@ -613,7 +525,7 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
           )}
 
           {/* diário */}
-          <div className="painel diario" style={{ position: 'absolute', left: 8, bottom: 8 }}>
+          <div className={`painel diario${acoesVisiveis && s ? ' diario-em-combate' : ''}`} style={{ position: 'absolute', left: 8, bottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: verLog ? 2 : 0 }}>
               <span className="tit" style={{ fontSize: 11.5, color: '#d8b45a' }}>
                 Diário

@@ -12,7 +12,7 @@
  */
 
 import * as THREE from 'three'
-import { mesmaCasa, type Casa } from '../tabuleiro'
+import { COLUNAS, LINHAS, mesmaCasa, type Casa } from '../tabuleiro'
 import type { Personagem } from '../cena/personagem'
 import { recurso } from '../cena/visualFolhas'
 import type { Paleta, TipoEfeito } from '../cena/efeitos'
@@ -20,7 +20,7 @@ import { direcaoEfeito, type DirEfeito } from '../cena/efeitoFolha'
 import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill, type TipoArma } from './armas'
 
 /** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
-const semMira = (s: Skill) => s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
+const semMira = (s: Skill) => s.id === 'haoshoku' || s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
 import { TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, renomear, type Config } from './elenco'
 import type { HakiMp, JogadorBatalhaMp, MsgServidorBatalha } from './protocoloMp'
 import { RedeBatalha } from './redeBatalha'
@@ -237,7 +237,11 @@ const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura',
 
 // ------------------------------------------------------------ preparação
 // ------------------------------------------------------------ HUD
-export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; raio: number; livre: boolean; motivo: string | null; fruta: boolean }
+export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; raio: number; livre: boolean; motivo: string | null; fruta: boolean; origem: 'arma' | 'fruta' | 'haki' | 'suporte'; buff: boolean; espirito: number }
+
+/** Técnica selecionável na HUD; continua usando a ação haoshoku do combate/MP. */
+const HAKI_REI: Skill = { id: 'haoshoku', nome: 'Haki do Rei', descricao: 'Uma explosão de vontade atordoa os inimigos mais fracos ao redor. Não gasta a vez.', energia: 0, alcance: 0, area: 'explosao', raio: HAOSHOKU.raio, mult: 0, livre: true }
+const skillsSelecionaveis = (c: Combatente) => [...skillsDe(c), ...(c.haki.rei ? [HAKI_REI] : [])]
 /** batalha multiplayer: a sala e o que falta (null = batalha contra a IA) */
 export type MpHud = {
   conectado: boolean
@@ -771,7 +775,7 @@ export class ControleBatalha {
     else {
       // continua com o mesmo personagem escolhido
       this.previa = null
-      if (a.t === 'skill') this.skill = null
+      if (a.t === 'skill' || a.t === 'haoshoku') this.skill = null
       if (this.sel && (porId(this.estado, this.sel)?.hp ?? 0) <= 0) this.sel = null
       this.redesenhar()
     }
@@ -784,11 +788,12 @@ export class ControleBatalha {
 
   /** Skill em uso: a escolhida no painel ou o golpe básico da arma. */
   private efetiva(c: Combatente): Skill | undefined {
-    const ss = skillsDe(c)
+    const ss = skillsSelecionaveis(c)
     return (this.skill ? ss.find((x) => x.id === this.skill) : undefined) ?? ss.find((x) => x.energia === 0 && !x.cura && x.area === 'alvo')
   }
 
   private acaoEm(c: Combatente, s: Skill, casa: Casa): Acao {
+    if (s.id === HAKI_REI.id) return { t: 'haoshoku', id: c.id }
     return { t: 'skill', id: c.id, skill: s.id, alvo: casa }
   }
 
@@ -874,12 +879,12 @@ export class ControleBatalha {
   }
 
   escolherSkill(id: string | null) {
-    if (!this.sel) return
+    if (!this.sel || this.fase !== 'minha' || this.animando || this.auto) return
     const c = porId(this.estado, this.sel)!
     this.skill = this.skill === id ? null : id
     this.previa = null
     const s = this.efetiva(c)
-    if (s && (semMira(s))) this.previa = c.casa
+    if (s && semMira(s)) this.previa = c.casa
     this.dica = !s
       ? ''
       : semMira(s)
@@ -949,9 +954,13 @@ export class ControleBatalha {
         // quem dá para acertar (ou curar) agora
         for (const o of vivos(this.estado)) {
           if (o === sel && !mira) continue
+          if (s.id === HAKI_REI.id && (o.lado === sel.lado || distancia(sel.casa, o.casa) > HAOSHOKU.raio)) continue
           if (!motivo(this.estado, this.acaoEm(sel, s, o.casa))) this.palco.marcar(o.casa, s.cura ? 'cura' : 'alvo')
         }
-        if (this.previa) for (const x of casasDaArea(s, sel.casa, this.previa)) this.palco.marcar(x, 'area')
+        if (this.previa) for (const x of casasDaArea(s, sel.casa, this.previa)) {
+          if (s.id === HAKI_REI.id && (x.l < 0 || x.l >= LINHAS || x.c < 0 || x.c >= COLUNAS)) continue
+          this.palco.marcar(x, 'area')
+        }
       }
     }
     this.palco.avisar()
@@ -1633,7 +1642,7 @@ export class ControleBatalha {
       selecionado: s
         ? {
             ...this.ficha(s),
-            skills: skillsDe(s).map((k) => ({
+            skills: skillsSelecionaveis(s).map((k) => ({
               id: k.id,
               nome: k.nome,
               descricao: k.descricao,
@@ -1641,11 +1650,14 @@ export class ControleBatalha {
               alcance: k.alcance,
               area: k.area,
               fruta: !!s.akuma && FRUTAS[s.akuma.fruta].skills.includes(k),
+              origem: k.id === HAKI_REI.id ? 'haki' : s.akuma && FRUTAS[s.akuma.fruta].skills.includes(k) ? 'fruta' : k.cura ? 'suporte' : 'arma',
+              buff: !!k.transforma,
+              espirito: k.id === HAKI_REI.id ? HAOSHOKU.espirito : 0,
               recarga: s.recargas[k.id] ?? 0,
               espera: k.recarga ?? 0,
               raio: k.raio ?? 1,
               livre: !!k.livre,
-              motivo: s.recargas[k.id] ? `Recarga: ${s.recargas[k.id]} vez(es)` : s.energia < k.energia ? 'Energia insuficiente' : s.atordoado ? 'Atordoado' : null,
+              motivo: k.id === HAKI_REI.id ? motivo(e, { t: 'haoshoku', id: s.id }) : s.recargas[k.id] ? `Recarga: ${s.recargas[k.id]} vez(es)` : s.energia < k.energia ? 'Energia insuficiente' : s.atordoado ? 'Atordoado' : null,
             })),
             skill: this.efetiva(s)?.id ?? null,
             previa: !!this.previa,
