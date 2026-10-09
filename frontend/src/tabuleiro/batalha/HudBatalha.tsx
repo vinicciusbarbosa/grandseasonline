@@ -122,6 +122,11 @@ function rosto(url: string, l: number): React.CSSProperties {
 function Icones({ f }: { f: FichaHud }) {
   const ic: [string, string, string][] = []
   if (f.fruta) ic.push([f.fruta.tipo === 'logia' ? 'L' : f.fruta.tipo === 'zoan' ? 'Z' : 'P', '#ffcf5a', f.fruta.nome])
+  // Logia: cargas de intangibilidade; sem cargas fica desgastada (golpes sem Haki acertam)
+  if (f.logia && f.logia.max < 99)
+    ic.push(f.logia.cargas > 0
+      ? [`${f.logia.cargas}`, '#dfe6f3', `Intangível: ${f.logia.cargas}/${f.logia.max} cargas (cada golpe sem Haki que atravessa gasta 1)`]
+      : ['✕', '#ff9a5a', 'Logia desgastada: sem cargas, golpes sem Haki acertam'])
   if (f.armamento?.ligado) ic.push(['A', f.armamento.imbuido ? cor.rei : cor.arm, f.armamento.imbuido ? 'Armamento com o Rei imbuído ligado' : 'Haki de armamento ligado'])
   if (f.observacao?.ligado) ic.push(['O', cor.obs, 'Observação ligada'])
   if (f.atordoado) ic.push(['✶', '#ff5a6e', 'Atordoado: perde a vez'])

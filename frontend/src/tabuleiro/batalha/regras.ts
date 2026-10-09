@@ -102,7 +102,8 @@ export type Evento =
   | { t: 'vez'; lado: Lado; turno: number }
   | { t: 'mover'; id: string; caminho: Casa[] }
   | { t: 'skill'; id: string; skill: string; nome: string; alvo: Casa; casas: Casa[]; armamento: boolean; rei: boolean }
-  | { t: 'golpe'; de: string; alvo: string; dano: number; efeito: Efeito }
+  /** cargas: as da Logia que sobraram (no 'atravessou') */
+  | { t: 'golpe'; de: string; alvo: string; dano: number; efeito: Efeito; cargas?: number }
   | { t: 'contra'; de: string; alvo: string; dano: number }
   | { t: 'cura'; de: string; alvo: string; valor: number }
   | { t: 'haoshoku'; id: string }
@@ -152,7 +153,7 @@ export const chanceHaki = (dif: number) => Math.max(0.05, Math.min(0.95, 0.5 + d
 /** no começo da vez: gasta espírito para recuperar 1 uso de armamento */
 export const RECUPERA_ARMAMENTO = { espirito: 25, usos: 1 }
 /** Choque de Haki do Rei: quem é atacado com o Rei imbuído e também tem o
- * Rei (e espírito) responde; ganha o maior overall. Diferença até `empate`
+ * Rei imbuído (armamento nível 3) e espírito para isso responde; ganha o maior overall. Diferença até `empate`
  * explode e anula; atacante que vence ganha `bonus` no golpe; que perde
  * leva de volta o dano base puro. */
 export const CLASH = { espirito: 30, empate: 3, bonus: 1.3 }
@@ -361,7 +362,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
   /** Um golpe de `c` em `alvo`. */
   const golpear = (c: Combatente, alvo: Combatente, s: Skill, armamento: boolean, rei: boolean, mult = s.mult): void => {
     // Choque de Haki do Rei (uma vez por alvo na ação)
-    if (rei && alvo.haki.rei && !clashes.has(alvo.id) && alvo.espirito >= CLASH.espirito) {
+    if (rei && alvo.haki.armamento?.imbuido && !clashes.has(alvo.id) && alvo.espirito >= CLASH.espirito) {
       alvo.espirito -= CLASH.espirito
       const dif = c.haki.overall - alvo.haki.overall
       const resultado = Math.abs(dif) <= CLASH.empate ? 'empate' : rnd() < chanceHaki(dif) ? 'venceu' : 'perdeu'
@@ -389,7 +390,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
     if (alvo.logia && !armamento && !venceElemento) {
       if (alvo.logia.cargas > 0) {
         alvo.logia.cargas--
-        ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'atravessou' })
+        ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'atravessou', cargas: alvo.logia.cargas })
         return
       }
     }
