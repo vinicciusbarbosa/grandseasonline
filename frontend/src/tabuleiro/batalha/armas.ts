@@ -15,7 +15,7 @@
 
 import type { Casa } from '../tabuleiro'
 
-export type TipoArma = 'espada' | 'maca' | 'espingarda' | 'adaga'
+export type TipoArma = 'espada' | 'maca' | 'punhos' | 'espingarda' | 'adaga'
 export type Area = 'alvo' | 'linha' | 'leque' | 'volta' | 'si' | 'explosao' | 'mapa'
 export type Elemento = 'fogo' | 'gelo' | 'luz' | 'fumaca'
 
@@ -69,6 +69,14 @@ export const SKILLS_ARMA: Record<TipoArma, Skill[]> = {
     { id: 'onda-choque', nome: 'Onda de Choque', descricao: 'Bate no chão: acerta as 8 casas em volta.', energia: 28, recarga: 2, alcance: 0, area: 'volta', mult: 0.7 },
     { id: 'tremor', nome: 'Tremor', descricao: 'Racha o convés em linha reta até 3 casas.', energia: 30, recarga: 2, alcance: 3, area: 'linha', mult: 0.85 },
     { id: 'martelada-titanica', nome: 'Martelada Titânica', descricao: 'Golpe enorme num alvo (×2,1).', energia: 45, recarga: 3, alcance: 1, area: 'alvo', mult: 2.1 },
+  ],
+  // artes marciais (lutador): golpes rápidos e de deslocamento, menos dano bruto que a maça
+  punhos: [
+    { id: 'soco', nome: 'Soco', descricao: 'Golpe de perto.', energia: 0, alcance: 1, area: 'alvo', mult: 1 },
+    { id: 'sequencia-socos', nome: 'Sequência de Socos', descricao: 'Três socos seguidos (×0,45 cada).', energia: 15, recarga: 1, alcance: 1, area: 'alvo', mult: 0.45, golpes: 3 },
+    { id: 'chute-giratorio', nome: 'Chute Giratório', descricao: 'Gira chutando as 8 casas em volta (×0,75).', energia: 25, recarga: 2, alcance: 0, area: 'volta', mult: 0.75 },
+    { id: 'investida', nome: 'Investida', descricao: 'Avança com o ombro: acerta todos em linha até 2 casas, difícil de esquivar.', energia: 22, recarga: 2, alcance: 2, area: 'linha', mult: 0.9, precisao: 15 },
+    { id: 'golpe-devastador', nome: 'Golpe Devastador', descricao: 'Soco com o corpo inteiro (×1,9): ignora 25% da defesa e tem +20% de crítico.', energia: 42, recarga: 3, alcance: 1, area: 'alvo', mult: 1.9, ignoraDef: 0.25, critico: 20 },
   ],
   espingarda: [
     { id: 'tiro', nome: 'Tiro', descricao: 'Tiro a até 5 casas.', energia: 0, alcance: 5, area: 'alvo', mult: 0.9 },

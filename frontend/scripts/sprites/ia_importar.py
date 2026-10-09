@@ -455,14 +455,15 @@ if __name__ == '__main__':
     # lutador novo (folha com a cabeça desenhada) nos dois lados: o pirata de
     # calção vinho, os do outro navio de calção azul e azul-marinho (acima)
     personagem_completo('pirata-lutador', 'lutador2', altura=92)
-    personagem_completo('marinha-soldado', 'lutador2', altura=92, partes=PARTES_LUTADOR2, cores={'calca': (108, 0.9, 1.2)})
+    # Tank (porrete de espinhos): o pirata de colete verde; o da Marinha de colete azul-marinho
+    personagem_completo('marinha-soldado', 'tank', altura=96, partes={'colete': ([(25, 75)], 30, 230)},
+                        cores={'colete': (108, 1.6, 0.9)})
     # atirador novo (rifle, 8 quadros no tiro) nos dois lados: o da Marinha de capa azul-marinho
     # os médicos (profissão): atirador de capa vinho nos piratas, espadachim
     # de colete azul-claro na Marinha
     # os outros atiradores com a folha nova da atiradora (cabeça desenhada):
     # o médico de cabelo preto; o do outro navio de capa azul-marinho
-    personagem_completo('pirata-medico', 'atirador2', altura=92, ataque=(8, 3), partes=PARTES_ATIRADOR2,
-                        cores={'cabelo': (0, 0.2, 0.45)})
+    personagem_completo('pirata-medico', 'tank', altura=96)
     personagem('marinha-enfermeira', 'espadachim', CAB['marinha-enfermeira'], alternar=(4, 5, 6),
                cores={'roupa': (100, 0.6, 1.25), 'calca': (110, 0.15, 1.6)})
     personagem_completo('marinha-atirador', 'atirador2', altura=92, ataque=(8, 3), partes=PARTES_ATIRADOR2,
@@ -473,5 +474,7 @@ if __name__ == '__main__':
     import haki_folhas
     for pid in ('pirata-espadachim', 'pirata-capitao'):
         haki_folhas.gerar('espada', pid)
-    for pid in ('pirata-lutador', 'marinha-soldado', 'marinha-oficial'):
+    for pid in ('pirata-lutador', 'marinha-oficial'):
         haki_folhas.gerar('punho', pid)
+    for pid in ('pirata-medico', 'marinha-soldado'):
+        haki_folhas.gerar('porrete', pid)
