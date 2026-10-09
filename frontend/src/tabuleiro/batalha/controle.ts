@@ -910,6 +910,17 @@ export class ControleBatalha {
     this.skill = this.skill === id ? null : id
     this.previa = null
     const s = this.efetiva(c)
+    // buff só de si mesmo (não dá para pôr num aliado): usa na hora, sem clicar na casa
+    if (s && this.skill && s.area === 'si') {
+      void this.usar(c.casa).then(() => {
+        // não deu (sem energia, recarga...): não fica selecionada
+        if (this.skill === s.id) {
+          this.skill = null
+          this.redesenhar()
+        }
+      })
+      return
+    }
     if (s && semMira(s)) this.previa = c.casa
     this.dica = !s
       ? ''

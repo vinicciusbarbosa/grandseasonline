@@ -3,7 +3,7 @@ import type { EstadoVisual, Visual } from './personagem'
 
 /**
  * Personagem que troca de corpo ao se transformar (Zoan do Lobo vira o
- * lobisomem, o Corpo de Chamas vira o espírito de fogo): guarda o visual
+ * lobisomem): guarda o visual
  * normal e o de cada forma; `forma` escolhe qual aparece.
  */
 export class VisualComForma implements Visual {
