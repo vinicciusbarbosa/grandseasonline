@@ -4,11 +4,13 @@ cada animação e direção, a variante "haki" com a arma e o braço negros como
 no anime — o jogo troca para ela quando o armamento está ligado.
 
     python3 frontend/scripts/sprites/haki_folhas.py espada pirata-espadachim pirata-capitao
-    python3 frontend/scripts/sprites/haki_folhas.py punho pirata-lutador marinha-soldado marinha-oficial
+    python3 frontend/scripts/sprites/haki_folhas.py punho pirata-lutador marinha-oficial
+    python3 frontend/scripts/sprites/haki_folhas.py porrete pirata-medico marinha-soldado
 
 espada: a lâmina (peça prateada fina e comprida; a camisa branca é grossa e
 fica), a guarda dourada encostada nela e a mão e o antebraço que seguram.
 punho: as faixas de couro dos pulsos e a pele perto delas (mão e antebraço).
+porrete (Tank): o porrete de espinhos e as braçadeiras com rebites.
 
 Rode depois do ia_importar (que regrava a pasta e apaga as variantes).
 """
@@ -154,6 +156,33 @@ def mascara_punho(q, dica=None):
     return faixas, braco, dist
 
 
+def mascara_porrete(q):
+    """porrete de espinhos e braçadeiras com rebites: a cor é a mesma da calça
+    e das botas, então vale onde há rebites/espinhos (pontinhos claros, 3 ou
+    mais juntos): o casco convexo deles, só nos pixels escuros"""
+    al, r, g, b, mx, mn = canais(q)
+    hsv = cv2.cvtColor(q[..., :3], cv2.COLOR_RGB2HSV)
+    h, s, v = (hsv[..., i].astype(int) for i in range(3))
+    claro = al & (s < 75) & (v >= 135)
+    n, rot, st, _ = cv2.connectedComponentsWithStats(claro.astype(np.uint8), connectivity=8)
+    pontas = np.zeros_like(al)
+    for k in range(1, n):
+        if 2 <= st[k, cv2.CC_STAT_AREA] <= 40:
+            pontas |= rot == k
+    escuro = al & (s < 130) & (v < 200) & ((h <= 14) | (h >= 155))
+    ng, rg = cv2.connectedComponents(cv2.dilate(pontas.astype(np.uint8), np.ones((15, 15), np.uint8)), connectivity=8)
+    m = np.zeros_like(al)
+    for k in range(1, ng):
+        p = pontas & (rg == k)
+        if cv2.connectedComponents(p.astype(np.uint8))[0] - 1 < 3:  # os olhos são 2
+            continue
+        ys, xs = np.nonzero(p)
+        casco = np.zeros(al.shape, np.uint8)
+        cv2.fillConvexPoly(casco, cv2.convexHull(np.stack([xs, ys], 1).astype(np.int32)), 1)
+        m |= (cv2.dilate(casco, np.ones((5, 5), np.uint8)) > 0) & (escuro | claro)
+    return m
+
+
 def negro(q, m, f=None):
     """preto lustroso com reflexo roxo onde era claro; `f` (0–1) mistura (degradê)"""
     al, r, g, b, mx, mn = canais(q)
@@ -190,6 +219,11 @@ def haki_quadro(q, tipo, dica=None):
         out = negro(out.astype(np.uint8), lam | guarda)
         duro = lam | guarda | (braco & (dist < 22) if dist is not None else braco)
         return aura(out, duro, al).astype(np.uint8), True
+    if tipo == 'porrete':
+        m = mascara_porrete(q)
+        if not m.any():
+            return q, False
+        return aura(negro(q, m), m, al).astype(np.uint8), True
     faixas, braco, dist = mascara_punho(q, dica)
     if dist is None:
         return q, False

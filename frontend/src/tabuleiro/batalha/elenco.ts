@@ -3,14 +3,15 @@
  * posição inicial. O `id` é também a pasta dos sprites (public/sprites/<id>/);
  * os nomes são sorteados a cada partida.
  *
- * Cada lado tem as três classes e repetidas: piratas com dois espadachins,
- * lutador e dois atiradores (um é o médico); Marinha com dois espadachins
- * (um é o médico), dois lutadores e atirador.
+ * Cada lado tem as quatro classes: piratas com dois espadachins, lutador,
+ * atiradora e tank (é o médico); Marinha com dois espadachins (um é o
+ * médico), lutador, tank e atirador.
  * Haki: o espadachim que comanda cada lado tem o Rei + armamento nível 3
  * (o Rei imbuído vai em todo golpe com o armamento ligado); lutador pirata: armamento avançado; o lutador
  * oficial da Marinha: armamento avançado + observação AVANÇADA (esquiva e
- * revida); atiradores: Rei (só em área). Akuma no Mi (só Logias): fumaça
+ * revida); atiradores: Rei (só em área); tank pirata (médico): armamento + observação. Akuma no Mi (só Logias): fumaça
  * (comandante da Marinha), fogo (lutador pirata), gelo (soldado). O médico da Marinha não tem Haki.
+ * Tank: porrete de espinhos (as skills de maça), muita vida e defesa.
  */
 
 import type { Direcao } from '../cena/personagem'
@@ -19,15 +20,16 @@ import { FRUTAS } from './armas'
 import type { Atributos, Combatente, Haki, Lado } from './regras'
 
 /**
- * Classe = tipo de arma: espadachim (sabre/espada), lutador (punhos e
- * pernas), atirador (rifle e pistolas). Médico, cartógrafo
+ * Classe = tipo de arma: espadachim (sabre/espada), lutador (artes
+ * marciais: punhos e pernas), tank (porrete/maça), atirador (rifle e pistolas). Médico, cartógrafo
  * etc. são profissões, à parte da classe.
  */
-type Classe = 'espadachim' | 'lutador' | 'atirador'
+type Classe = 'espadachim' | 'lutador' | 'tank' | 'atirador'
 
 const CLASSES: Record<Classe, { hp: number; at: Atributos; arma: TipoArma }> = {
   espadachim: { hp: 135, at: { atk: 28, def: 10, agl: 14, res: 10, pre: 14, dex: 14, con: 10 }, arma: 'espada' },
-  lutador: { hp: 175, at: { atk: 24, def: 20, agl: 8, res: 16, pre: 8, dex: 6, con: 18 }, arma: 'maca' },
+  lutador: { hp: 160, at: { atk: 25, def: 16, agl: 12, res: 14, pre: 10, dex: 10, con: 16 }, arma: 'punhos' },
+  tank: { hp: 220, at: { atk: 21, def: 26, agl: 5, res: 20, pre: 6, dex: 5, con: 22 }, arma: 'maca' },
   atirador: { hp: 100, at: { atk: 22, def: 6, agl: 14, res: 6, pre: 18, dex: 14, con: 6 }, arma: 'espingarda' },
 }
 
@@ -68,10 +70,10 @@ export const TRIPULACOES: Membro[] = [
   { id: 'pirata-espadachim', nome: nome(1), classe: 'espadachim', lado: 'piratas', casa: { l: 4, c: 7 }, dir: 'S', haki: haki(35, [4, false], null) },
   { id: 'pirata-lutador', nome: nome(2), classe: 'lutador', lado: 'piratas', casa: { l: 4, c: 11 }, dir: 'S', haki: haki(45, [4, true], null), akuma: 'fogo' },
   { id: 'pirata-atiradora', nome: nome(3), classe: 'atirador', lado: 'piratas', casa: { l: 2, c: 6 }, dir: 'S', haki: haki(50, null, null, true) },
-  { id: 'pirata-medico', nome: nome(4), classe: 'atirador', profissao: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, null, [3, false]) },
+  { id: 'pirata-medico', nome: nome(4), classe: 'tank', profissao: 'medico', lado: 'piratas', casa: { l: 2, c: 12 }, dir: 'S', haki: haki(30, [3, false], [3, false]) },
   { id: 'marinha-almirante', nome: nome(5), classe: 'espadachim', lado: 'marinha', casa: { l: 6, c: 9 }, dir: 'N', haki: haki(65, [6, true, true], null, true), akuma: 'fumaca', cargasLogia: 3 },
   { id: 'marinha-oficial', nome: nome(6), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 7 }, dir: 'N', haki: haki(45, [4, true], [3, true]) },
-  { id: 'marinha-soldado', nome: nome(7), classe: 'lutador', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'gelo' },
+  { id: 'marinha-soldado', nome: nome(7), classe: 'tank', lado: 'marinha', casa: { l: 5, c: 11 }, dir: 'N', haki: haki(30, [3, false], null), akuma: 'gelo' },
   { id: 'marinha-atirador', nome: nome(8), classe: 'atirador', lado: 'marinha', casa: { l: 7, c: 6 }, dir: 'N', haki: haki(50, null, null, true) },
   { id: 'marinha-enfermeira', nome: nome(9), classe: 'espadachim', profissao: 'medico', lado: 'marinha', casa: { l: 7, c: 12 }, dir: 'N' },
 ]
