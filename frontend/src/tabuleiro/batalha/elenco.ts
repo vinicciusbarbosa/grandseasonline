@@ -52,15 +52,15 @@ export type AtributoBuild = keyof Atributos | 'vig'
 export type Build = Partial<Record<AtributoBuild, number>>
 /** ordem e nome na tela de build */
 export const ATRIBUTOS_BUILD: [AtributoBuild, string, string][] = [
-  ['atk', 'ATK', 'Dano das skills da arma'],
-  ['akm', 'AKM', 'Poder da Akuma no Mi: dano das skills da fruta'],
-  ['def', 'DEF', 'Reduz o dano recebido (% , até 60)'],
-  ['vig', 'VIG', `Vida: +${VIDA_POR_VIG} por ponto`],
-  ['agl', 'AGL', 'Esquiva e quem começa'],
-  ['pre', 'PRE', 'Acerto (contra a AGL do alvo)'],
-  ['dex', 'DEX', 'Crítico (contra a CON do alvo)'],
-  ['res', 'RES', 'Bloqueio (contra a CON do atacante)'],
-  ['con', 'CON', 'Evita crítico e bloqueio do alvo'],
+  ['atk', 'ATK', 'Ataque: o dano das skills da ARMA (cortes, socos, tiros, porretadas). Dano = ATK × 1,4 × multiplicador da skill, menos a DEF do alvo. Não muda o dano das skills da Akuma no Mi.'],
+  ['akm', 'AKM', 'Poder da Akuma no Mi: o dano das skills da FRUTA (Hiken, Lanças de Gelo, Raio de Luz...), na mesma conta do ATK. Sem fruta, não serve para nada.'],
+  ['def', 'DEF', 'Defesa: cada ponto tira 1% do dano recebido (no máximo 60%). O Haki de armamento do atacante fura parte dela (15% no normal, 35% no avançado) e algumas skills ignoram uma parte (Esmagar, Estocada Perfurante).'],
+  ['vig', 'VIG', `Vigor: +${VIDA_POR_VIG} de vida máxima por ponto. Com a vida em 0, o personagem cai.`],
+  ['agl', 'AGL', 'Agilidade: chance de esquivar = (sua AGL − PRE do atacante) × 2 + 5%, até 45%. Também ajuda a observação a prever o golpe, e a tripulação com a maior AGL média começa a batalha.'],
+  ['pre', 'PRE', 'Precisão: cada ponto acima da AGL do alvo tira 2% da chance de ele esquivar (e atrapalha a observação dele).'],
+  ['dex', 'DEX', 'Destreza: chance de crítico = (sua DEX − CON do alvo) × 2 + 5%, até 75%. O crítico dá ×1,5 de dano.'],
+  ['res', 'RES', 'Resistência: chance de bloquear = (sua RES − CON do atacante) × 2%, até 40%. O bloqueio corta o dano pela metade (não funciona contra o armamento avançado).'],
+  ['con', 'CON', 'Constituição: diminui a chance de levar crítico (contra a DEX do atacante) e a chance de o seu golpe ser bloqueado (contra a RES do alvo).'],
 ]
 const ehAtributo = (x: string): x is AtributoBuild => ATRIBUTOS_BUILD.some(([k]) => k === x)
 

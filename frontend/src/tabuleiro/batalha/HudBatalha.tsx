@@ -53,7 +53,7 @@ const CSS = `
 @media(prefers-reduced-motion:reduce) { .hud .cartao.rei,.hud .rei-raios { animation:none; }.hud .cartao.rei { box-shadow:0 0 7px #ed204c55; }.hud .rei-raios { opacity:.6; } }
 
 /* build (pontos de atributo) na preparação */
-.hud .build { margin:2px 0 8px; padding:10px 12px 12px; border:1px solid rgba(216,180,90,.32); border-radius:6px; background:linear-gradient(180deg, rgba(34,40,58,.92), rgba(16,20,30,.92)); }
+.hud .build { position:relative; margin:2px 0 8px; padding:10px 12px 12px; border:1px solid rgba(216,180,90,.32); border-radius:6px; background:linear-gradient(180deg, rgba(34,40,58,.92), rgba(16,20,30,.92)); }
 .hud .build-topo { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
 .hud .build-pontos { white-space:nowrap; font-size:11px; color:#b8ae98; text-transform:uppercase; letter-spacing:.6px; }
 .hud .build-pontos b { font-size:17px; color:var(--ouro); margin-right:3px; }
@@ -65,6 +65,11 @@ const CSS = `
 .hud .atr { display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 8px; padding:5px 8px; border-radius:4px; background:rgba(255,255,255,.035); border:1px solid transparent; }
 .hud .atr.com { border-color:rgba(143,224,160,.22); }
 .hud .atr .sig { font-size:11px; letter-spacing:.8px; color:#c8bca0; }
+.hud .atr .ajuda { pointer-events:auto; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; margin-left:4px; vertical-align:1px; border-radius:50%; border:1px solid rgba(216,180,90,.5); color:#d8b45a; font-size:9px; cursor:help; }
+.hud .atr .ajuda:hover { background:#3a3220; color:#ffe6a0; }
+.hud .balao-atr { position:absolute; z-index:50; width:260px; padding:8px 10px; border-radius:5px; background:rgba(12,15,24,.97); border:1px solid rgba(216,180,90,.55); box-shadow:0 4px 14px rgba(0,0,0,.6); font:400 12px/1.4 'Trebuchet MS', sans-serif; color:#e8e2d4; pointer-events:none; transform:translate(-50%, calc(-100% - 8px)); }
+.hud .balao-atr.baixo { transform:translate(-50%, 22px); }
+.hud .balao-atr b { display:block; font-weight:700; color:#ffd27a; margin-bottom:2px; }
 .hud .atr.akm .sig { color:#ffcf5a; }
 .hud .atr .val { font-size:16px; color:#f2ead8; }
 .hud .atr .val small { font-size:11px; color:#8fe0a0; margin-left:3px; }
@@ -259,8 +264,15 @@ function PainelBuild({ k, c, travado }: { k: Config; c: ControleBatalha; travado
   const gastos = pontosGastos(k.build)
   const livres = PONTOS_BUILD - gastos
   const { at, hp } = comBuild(k.classe, buildValida(k.build))
+  const [dica, setDica] = useState<{ nome: string; texto: string; x: number; y: number } | null>(null)
   return (
     <div className="build">
+      {dica && (
+        <div className={`balao-atr${dica.y < 60 ? ' baixo' : ''}`} style={{ left: dica.x, top: dica.y }}>
+          <b>{dica.nome}</b>
+          {dica.texto}
+        </div>
+      )}
       <div className="build-topo">
         <span className={`build-pontos${livres ? '' : ' cheio'}`}>
           <b>{livres}</b>pontos livres
@@ -276,15 +288,26 @@ function PainelBuild({ k, c, travado }: { k: Config; c: ControleBatalha; travado
         </button>
       </div>
       <div className="build-grade">
-        {ATRIBUTOS_BUILD.map(([a, nome, dica]) => {
+        {ATRIBUTOS_BUILD.map(([a, nome, texto]) => {
           const pts = k.build[a] ?? 0
           return (
-            <div key={a} className={`atr${a === 'akm' ? ' akm' : ''}${pts ? ' com' : ''}`} title={dica}>
+            <div key={a} className={`atr${a === 'akm' ? ' akm' : ''}${pts ? ' com' : ''}`}>
               <div>
                 <span className="sig">{a === 'vig' ? 'VIDA' : nome}</span>{' '}
                 <span className="val">
                   {a === 'vig' ? hp : at[a]}
                   {pts > 0 && <small>+{a === 'vig' ? pts * VIDA_POR_VIG : pts}</small>}
+                </span>
+                <span
+                  className="ajuda"
+                  onMouseEnter={(ev) => {
+                    const r = ev.currentTarget.getBoundingClientRect()
+                    const b = ev.currentTarget.closest('.build')!.getBoundingClientRect()
+                    setDica({ nome: a === 'vig' ? 'VIDA (VIG)' : nome, texto, x: Math.min(Math.max(r.left + r.width / 2 - b.left, 135), b.width - 135), y: r.top - b.top })
+                  }}
+                  onMouseLeave={() => setDica(null)}
+                >
+                  ?
                 </span>
               </div>
               <span className="ctl">
