@@ -1,13 +1,33 @@
 {
   "ferramenta": "image_gen.imagegen (integrada)",
   "data": "2026-10-08",
-  "uso": "Atlas de ícones ilustrados; índices e posições em src/tabuleiro/batalha/iconesSkills.ts",
+  "uso": "Atlas de ícones HD 2D para a HUD; índices e posições em src/tabuleiro/batalha/iconesSkills.ts",
+  "classes": [
+    "Espadachim de sabre",
+    "Lutador de punhos",
+    "Atirador",
+    "Tank de kanabo"
+  ],
   "atlases": [
     {
       "arquivo": "armas.png",
       "colunas": 5,
-      "linhas": 4,
-      "prompt": "Create a production bitmap ICON ATLAS for a PC pirate tactical MMORPG. Premium hand-painted HD 2D ability artwork, crisp illustrative brushwork, rich material detail, strong readable silhouettes, dramatic luminous highlights, beautiful color gradients and deep dark atmospheric backgrounds. These are finished square inventory/skill artworks, not symbols or line icons. Each cell is a separate full-bleed painting with its subject large and centered. No character portraits or full people; isolated weapons, hands or magical effects only. No text, letters, numbers, labels, watermark, outer frame, bevels, decorative UI borders, gaps or margins. EXACT regular grid occupying the entire canvas edge to edge, all cells identically sized, no element crosses between cells. Consistent painterly fantasy RPG art style. Each panel must remain visually distinct and readable at 48px. Landscape atlas, exactly FIVE COLUMNS and FOUR ROWS, twenty separate panels. Target canvas 2000x1600 pixels. Read in row-major order:\nROW 1, SWORD skills:\n1. Single brilliant gold curved sword slash with a silver pirate saber.\n2. Two intersecting golden saber cuts forming a dynamic X.\n3. Traveling powerful crescent blade of cyan-blue energy, luminous white edge and blue trailing streaks.\n4. Extremely sharp slender golden thrust shooting straight forward, a saber tip with a piercing light spear.\n5. Dense cyan-blue cyclone formed by spinning sword blades and sweeping wind arcs.\nROW 2, SPIKED CLUB skills:\n1. Heavy dark iron spiked pirate club with a brown leather grip, bold downward impact.\n2. Spiked club crushing a rock into flying fragments with a concentrated amber impact flash.\n3. A golden semicircular shockwave racing outward from a club strike.\n4. Cracked earth radiating beneath an iron club, molten amber energy in the fissures.\n5. Massive iron studded club descending like a meteor, white-gold collision explosion, epic scale.\nROW 3, PIRATE FIREARM skills:\n1. Antique flintlock pistol firing one bright amber muzzle burst, warm steel and walnut.\n2. Antique flintlock pistol with a sharply focused red-orange aiming reticle and a gold bullet.\n3. Blunderbuss muzzle blasting a spreading cluster of glowing lead pellets, smoky gold flash.\n4. Several glowing bullets racing in parallel with repeated orange muzzle flashes.\n5. One elongated superheated bullet piercing consecutive steel plates, golden straight trajectory.\nROW 4, DAGGER skills:\n1. Polished short dagger stabbing forward, a tight pale gold thrust trail.\n2. Extremely fast dagger cut with two thin bright gold sweeping arcs.\n3. Flying steel throwing dagger surrounded by narrow gold speed streaks on deep teal.\n4. Razor dagger tip striking the center of a crimson glowing weak-point target, intense precise impact.\n5. Several spinning silver daggers forming a circular dance of pale gold light.\nNo repeated weapon silhouette across all twenty cells; illustrate the distinct action of each skill."
+      "linhas": 3,
+      "prompt": "Edit this skill icon atlas. Preserve the beautiful art of the entire FIRST THREE ROWS exactly: five sword skills in row one, five iron spiked club skills in row two, five pirate firearm skills in row three. REMOVE the fourth bottom row of dagger skills completely. Recompose as one clean landscape atlas of EXACTLY FIVE COLUMNS BY THREE ROWS, 15 square art cells, equal cell sizes, zero outer margins or captions. Retain the first three rows' same order, same colors, same composition, same crisp HD 2D painterly MMORPG style. No dagger artwork anywhere. Fill the canvas edge to edge with only those fifteen panels. This is a precise atlas layout correction, not a redesign of the fifteen kept artworks.",
+      "fileirasPixels": [
+        {
+          "inicio": 0,
+          "altura": 340
+        },
+        {
+          "inicio": 340,
+          "altura": 328
+        },
+        {
+          "inicio": 668,
+          "altura": 454
+        }
+      ]
     },
     {
       "arquivo": "frutas.png",
@@ -20,6 +40,12 @@
       "colunas": 2,
       "linhas": 2,
       "prompt": "Create a production bitmap ICON ATLAS for a PC pirate tactical MMORPG. Premium hand-painted HD 2D ability artwork, crisp illustrative brushwork, rich material detail, strong readable silhouettes, dramatic luminous highlights, beautiful color gradients and deep dark atmospheric backgrounds. These are finished square inventory/skill artworks, not symbols or line icons. Each cell is a separate full-bleed painting with its subject large and centered. No character portraits or full people; isolated weapons, hands or magical effects only. No text, letters, numbers, labels, watermark, outer frame, bevels, decorative UI borders, gaps or margins. EXACT regular grid occupying the entire canvas edge to edge, all cells identically sized, no element crosses between cells. Consistent painterly fantasy RPG art style. Each panel must remain visually distinct and readable at 48px. Square atlas, exactly TWO COLUMNS and TWO ROWS, four separate panels. Target canvas 2048x2048 pixels.\nTop left: CONQUEROR HAKI, an explosive spherical pressure burst of black and crimson-red lightning, branching jagged electrical tendrils, a blazing deep red core, subtle gold crown-like three prongs at the center, intimidating immense power, deep near-black burgundy background.\nTop right: FIRST AID, a well-drawn rolled ivory cloth bandage, small green medicinal vial and healing herbs, a warm green restorative glow with sparkling motes, dark forest green background, polished RPG item artwork.\nBottom left: ARMAMENT HAKI, close-up clenched fist coated in glossy black metallic energy with deep violet-red reflection highlights, small jagged violet lightning sparks, cropped fist only, deep dark plum background.\nBottom right: OBSERVATION HAKI, a beautifully painted luminous blue-silver eye surrounded by concentric cyan perception rings and fine star-like sparkles, mysterious deep navy background, clear focal eye, premium fantasy ability painting.\nEach of the FOUR art panels must fill precisely one quarter of the canvas, perfectly regular grid, no borders or captions."
+    },
+    {
+      "arquivo": "punhos.png",
+      "colunas": 3,
+      "linhas": 2,
+      "prompt": "Create a production bitmap ICON ATLAS for a PC pirate tactical MMORPG, premium hand-painted HD 2D skill artwork matching dramatic golden saber, spiked kanabo and flintlock ability icons. Exactly THREE COLUMNS and TWO ROWS, SIX separate square paintings, each filling one sixth of the full canvas, perfectly uniform grid, no outer margins, no gaps, no UI borders, no text or labels. Each subject large and readable at 48px, crisp illustrative brushwork, painted anatomy, rich dark backgrounds, brilliant golden white combat energy, brown leather wrist wraps on human bare fists. No full characters and no armored gauntlets; martial artist fists and effect only. Target landscape canvas 1536x1024.\nTop left: a powerful bare closed fist thrusting straight forward, golden speed streaks behind the brown wrapped wrist, a concentrated bright impact flash.\nTop middle: two bare fists launching a rapid one-two punch combo, intersecting bright gold motion trails.\nTop right: a heavy uppercut from below, a large bare fist with brown wrist wraps, upward arc of white-gold force, flying sparks.\nBottom left: a bare fist punching the ground, circular radial amber shockwave and fractured stone impact, clear fist silhouette.\nBottom middle: a long straight white-gold pressure blast released by a punching bare fist, directional line of compressed air racing forward on deep dark teal.\nBottom right: a furious barrage of many ghosted bare fist afterimages, repeated golden impacts filling the panel, dense yet readable central punching fist.\nBeautiful RPG illustrative icon art, painterly 2D, cohesive lighting and polished finish. Clearly six modular skill icons, not a scene."
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
-import { MOVIMENTO_POR_VEZ } from './regras'
+import { HAOSHOKU, MOVIMENTO_POR_VEZ } from './regras'
+import { SKILLS_ARMA } from './armas'
 import { BarraCombate, type DicaCombate } from './BarraCombate'
 
 /**
@@ -38,8 +39,17 @@ const CSS = `
 .hud .barra > i { display:block; height:100%; transition:width .3s; }
 .hud .barra > span { position:absolute; right:3px; top:0; font-size:8px; line-height:9px; color:#fff; text-shadow:0 1px 1px #000; }
 .hud .ico { display:inline-block; min-width:13px; height:13px; padding:0 2px; border-radius:3px; font-size:9px; line-height:12px; text-align:center; font-weight:700; margin-left:2px; }
-@keyframes pulso { 0%,100% { box-shadow:0 0 0 1px #ff3040 } 50% { box-shadow:0 0 0 1px #ff3040, 0 0 10px #ff1030 } }
-.hud .cartao.rei .rosto { border-color:#ff3040; animation:pulso 1.2s ease-in-out infinite; }
+/* Haki carregado envolve o cartão inteiro, sem cobrir retrato ou barras. */
+.hud .cartao.rei { --linha-selecao:transparent; border-color:#c94356; animation:rei-moldura 2.1s ease-in-out infinite; z-index:1; }
+.hud .cartao.rei.sel { --linha-selecao:#d8b45a88; }
+.hud .cartao.rei .rosto { border-color:#d86270; }
+.hud .rei-raios { position:absolute; left:-3px; top:-3px; width:calc(100% + 6px); height:calc(100% + 6px); overflow:visible; pointer-events:none; fill:none; stroke-linecap:round; stroke-linejoin:round; animation:rei-centelhas 2.1s ease-in-out infinite; }
+.hud .rei-raios .sombra { stroke:#180710; stroke-width:4; }
+.hud .rei-raios .centelha { stroke:#ff6171; stroke-width:1.2; filter:drop-shadow(0 0 2px #ed173d); }
+.hud .cartao.dir.rei,.hud .cartao.dir .rei-raios { animation-delay:-.8s; }
+@keyframes rei-moldura { 0%,100% { border-color:#97394c; box-shadow:0 0 3px #d5143844,inset 0 0 0 1px var(--linha-selecao); } 50% { border-color:#ff6979; box-shadow:0 0 0 1px #b52040aa,0 0 12px #ed204c66,inset 0 0 0 1px var(--linha-selecao),inset 0 0 8px #b4102522; } }
+@keyframes rei-centelhas { 0%,100% { opacity:.18; } 40% { opacity:.45; } 50%,58% { opacity:.95; } 54%,64% { opacity:.35; } 75% { opacity:.6; } }
+@media(prefers-reduced-motion:reduce) { .hud .cartao.rei,.hud .rei-raios { animation:none; }.hud .cartao.rei { box-shadow:0 0 7px #ed204c55; }.hud .rei-raios { opacity:.6; } }
 
 /* topo: a vez */
 .hud .vez { display:inline-flex; align-items:center; gap:10px; padding:4px 14px; border-radius:20px; font-size:12px; }
@@ -128,16 +138,24 @@ function Icones({ f }: { f: FichaHud }) {
   )
 }
 
-function Cartao({ f, sel, onClick, direita }: { f: FichaHud; sel?: boolean; onClick?: () => void; direita?: boolean }) {
+const RAIOS_REI = [
+  'M3 11 0 5 9 2 21 3 26 0 35 4 42 2 61 2 68 0 78 3',
+  'M125 2 139 2 145 0 152 4 168 2 183 2 195 4 200 10 197 18 201 24',
+  'M199 32 197 39 200 45 191 48 181 47 176 50 166 46 155 48 138 48 129 50 119 47',
+  'M81 48 67 48 61 50 53 46 37 48 24 48 13 46 3 47 0 41 3 32 0 25',
+]
+
+function Cartao({ f, sel, onClick, direita, combateAtivo }: { f: FichaHud; sel?: boolean; onClick?: () => void; direita?: boolean; combateAtivo: boolean }) {
   const morto = f.hp <= 0
-  const rei = !direita && !morto && f.podeHaoshoku
+  const rei = combateAtivo && !morto && !f.atordoado && !!f.rei && f.espirito >= HAOSHOKU.espirito
   const corVida = f.hp / f.hpMax <= 0.35 ? cor.vidaBaixa : direita ? cor.vidaInimigo : cor.vida
   return (
     <div
       className={`painel cartao${sel ? ' sel' : ''}${onClick ? ' clic' : ''}${morto ? ' morto' : ''}${direita ? ' dir' : ''}${rei ? ' rei' : ''}`}
       onClick={onClick}
-      title={rei ? 'Haki do Rei em área liberado' : undefined}
+      title={rei ? `Haki do Rei em área pronto · ${HAOSHOKU.espirito} espírito. Pode ser usado na vez deste time.` : undefined}
     >
+      {rei && <svg className="rei-raios" viewBox="0 0 200 50" preserveAspectRatio="none" aria-hidden="true">{RAIOS_REI.map((d, i) => <g key={i}><path className="sombra" d={d} vectorEffect="non-scaling-stroke"/><path className="centelha" d={d} vectorEffect="non-scaling-stroke"/></g>)}</svg>}
       <div className="rosto" style={rosto(f.retrato, 34)} />
       <div className="info">
         <div className="nome">
@@ -357,12 +375,8 @@ function PreparoHaki({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
   )
 }
 
-const ARMAS: [string, string][] = [
-  ['espada', 'Espada'],
-  ['maca', 'Maça'],
-  ['espingarda', 'Espingarda'],
-  ['adaga', 'Adaga'],
-]
+const NOMES_ARMAS: Record<string, string> = { espada: 'Sabre', sabre: 'Sabre', maca: 'Kanabo', kanabo: 'Kanabo', espingarda: 'Arma de fogo', punho: 'Punhos', punhos: 'Punhos' }
+const ARMAS = Object.keys(SKILLS_ARMA).filter(id => id !== 'adaga').map(id => [id, NOMES_ARMAS[id] ?? id])
 
 /** Painel do modo treino: troca fruta e arma do pirata, fruta do boneco. */
 function PainelTreino({ t, c }: { t: NonNullable<RetratoBatalha['treino']>; c: ControleBatalha }) {
@@ -445,14 +459,14 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
           {/* sua tripulação */}
           <div style={{ position: 'absolute', left: 8, top: 8 }}>
             {b.tripulacao.map((t) => (
-              <Cartao key={t.id} f={t} sel={s?.id === t.id} onClick={minha && t.hp > 0 ? () => c.selecionar(s?.id === t.id ? null : t.id) : undefined} />
+              <Cartao key={t.id} f={t} combateAtivo={b.fase === 'minha' || b.fase === 'inimiga'} sel={s?.id === t.id} onClick={minha && t.hp > 0 ? () => c.selecionar(s?.id === t.id ? null : t.id) : undefined} />
             ))}
           </div>
 
           {/* inimigos */}
           <div style={{ position: 'absolute', right: 8, top: 8 }}>
             {b.inimigos.map((t) => (
-              <Cartao key={t.id} f={t} direita />
+              <Cartao key={t.id} f={t} direita combateAtivo={b.fase === 'minha' || b.fase === 'inimiga'} />
             ))}
           </div>
 

@@ -281,6 +281,7 @@ export type HakiHud = { usos: number; max: number; avancado: boolean; ligado: bo
 export type FichaHud = {
   id: string
   nome: string
+  arma: TipoArma
   lado: Lado
   /** imagem parada (virada para a frente), para o retrato */
   retrato: string
@@ -1600,6 +1601,7 @@ export class ControleBatalha {
     return {
       id: c.id,
       nome: c.nome,
+      arma: c.arma,
       lado: c.lado,
       retrato: recurso(`${import.meta.env.BASE_URL}sprites/${c.id}/parado_S.png`),
       hp: this.animando ? (p?.vida ?? c.hp) : c.hp,

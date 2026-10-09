@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { build, createServer } from 'vite';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 
 // Teste do contrato HUD ↔ combate. Sem renderer, API ou conexão multiplayer.
 globalThis.window={setInterval};
@@ -39,6 +43,24 @@ try {
   hud=controle.retrato().selecionado;
   assert.notEqual(hud.skill,'haoshoku','Depois de usar, deve sair da seleção de Haki');
   assert.match(hud.skills.find(k=>k.id==='haoshoku').motivo,/Espírito insuficiente/);
+  // Renderização nativa evita a resolução de CommonJS do runner SSR no Windows.
+  await build({configFile:false,logLevel:'silent',build:{ssr:'src/tabuleiro/batalha/HudBatalha.tsx',outDir:'node_modules/.cache/hud-render',emptyOutDir:false,rollupOptions:{output:{entryFileNames:'HudBatalha.mjs'}}}});
+  const {HudBatalha}=await import(pathToFileURL(resolve('node_modules/.cache/hud-render/HudBatalha.mjs')).href);
+  function moldura(espirito, ajustes={}, direita=false, fase='minha') {
+    const b=controle.retrato();
+    const ficha={...b.tripulacao.find(f=>f.id===c.id),espirito,...ajustes};
+    b.selecionado=null;b.fase=fase;
+    b.tripulacao=direita?[]:[ficha];b.inimigos=direita?[ficha]:[];
+    return renderToStaticMarkup(createElement(HudBatalha,{b,c:controle,velocidade:1,mudarVelocidade(){}})).includes('class="rei-raios"');
+  }
+  assert.equal(moldura(depois.espirito),false,'Usar o Rei deve apagar a moldura se restar menos de 50 espírito');
+  assert.equal(moldura(49),false);
+  assert.equal(moldura(50),true,'A moldura deve acender exatamente no custo de uso');
+  assert.equal(moldura(100,{rei:null}),false,'Espírito sem Haki aprendido não deve acender');
+  assert.equal(moldura(100,{atordoado:true}),false,'Atordoado não pode emitir a indicação de pronto');
+  assert.equal(moldura(100,{hp:0}),false,'Personagem derrotado não deve emitir a indicação');
+  assert.equal(moldura(50,{},true),true,'O cartão do lado direito também deve ter o efeito');
+  assert.equal(moldura(100,{},false,'fim'),false,'A moldura deve apagar ao terminar a batalha');
   controle.alternarArmamento(c.id);await new Promise(r=>setImmediate(r));
   assert.equal(controle.retrato().selecionado.armamento.ligado,true);
   controle.alternarArmamento(c.id);await new Promise(r=>setImmediate(r));
@@ -48,5 +70,5 @@ try {
   controle.observar(c.id);await new Promise(r=>setImmediate(r));
   assert.equal(controle.retrato().selecionado.observacao.ligado,false);
   assert.equal(controle.estado.vez,'piratas');
-  console.log('OK: arma/fruta/buff/suporte, seleção e área do Rei, custo só ao confirmar, limite do tabuleiro, fim da seleção, espírito insuficiente, alternância de Armamento e Observação.');
+  console.log('OK: arma/fruta/buff/suporte, seleção e custo do Rei, Armamento/Observação; moldura nos dois lados, limite de 50 espírito, após uso, sem Haki, atordoado, derrotado e fim da batalha.');
 } finally {controle?.destruir();await vite.close();delete globalThis.window;}

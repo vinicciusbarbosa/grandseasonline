@@ -22,8 +22,8 @@ function Icone({ tipo }: { tipo: Simbolo }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{formas[tipo]}</svg>
 }
 
-function ArteHabilidade({ id }: { id: string }) {
-  const arte = arteSkill(id)
+function ArteHabilidade({ id, arma, indice }: { id: string; arma?: string; indice?: number }) {
+  const arte = arteSkill(id, arma, indice)
   return <span className={arte ? 'habilidade-arte' : 'habilidade-emblema'} style={arte} data-icone-skill={id} aria-hidden="true">{!arte && <Icone tipo="espada" />}</span>
 }
 
@@ -105,7 +105,7 @@ export function BarraCombate({ s, c, b, mostrar }: { s:Selecionado; c:ControleBa
     const tinta=k.fruta ? fruta.includes('fogo') ? '#f3ac7b' : fruta.includes('gelo') ? '#8edbff' : fruta.includes('luz') ? '#f4dd8e' : '#c6bcd9' : undefined
     return <div key={k.id} style={tinta ? {'--tinta':tinta} as CSSProperties : undefined} className={`habilidade ${k.origem}${compacto?' compacta':''}${selecionada?' selecionada':''}${k.motivo?' indisponivel':''}`} onMouseEnter={()=>!hakiAberto&&mostrar(dicaSkill(k))} onMouseLeave={()=>mostrar(null)}>
       <button type="button" disabled={bloqueado || !!k.motivo} aria-label={k.nome} aria-pressed={selecionada} onClick={()=>{c.escolherSkill(k.id);setHakiAberto(false);mostrar(null)}} onFocus={()=>!hakiAberto&&mostrar(dicaSkill(k))} onBlur={()=>mostrar(null)}>
-        <ArteHabilidade id={k.id} />
+        <ArteHabilidade id={k.id} arma={k.origem === 'arma' ? s.arma : undefined} indice={grupos[0].skills.indexOf(k)} />
         {!compacto && key!=='0' && <kbd>{key}</kbd>}
         <span className={`habilidade-custo${k.espirito?' espirito':''}`}>{k.espirito || k.energia || '•'}</span>
         {k.recarga>0 && <span className="habilidade-recarga"><strong>{k.recarga}</strong><small>turnos</small></span>}
