@@ -10,11 +10,11 @@
 .hud .combatente-identidade { min-width:78px; margin-right:4px; }
 .hud .combatente-identidade>span { display:block; font-size:8px; letter-spacing:1.1px; color:#a79c85; margin-bottom:4px; }
 .hud .combatente-identidade>b { display:block; font-family:'Cinzel',Georgia,serif; font-size:13px; color:#f1dfb1; }
-.hud .combate-recurso { width:72px; color:var(--azul); font-variant-numeric:tabular-nums; }
-.hud .combate-recurso>span { font-size:7px; letter-spacing:.8px; color:#aaa89d; }
-.hud .combate-recurso>b { float:right; font-size:11px; line-height:10px; }
+.hud .combate-recurso { display:grid; grid-template-columns:minmax(0,1fr); row-gap:3px; width:72px; flex:none; color:var(--azul); font-variant-numeric:tabular-nums; }
+.hud .combate-recurso>span { display:block; font-size:7px; line-height:1; letter-spacing:.8px; color:#aaa89d; }
+.hud .combate-recurso>b { justify-self:end; font-size:11px; line-height:12px; white-space:nowrap; }
 .hud .combate-recurso small { font-size:9px; font-weight:400; color:#86898c; }
-.hud .combate-recurso>i { display:block; margin-top:4px; height:3px; background:#0009; border:1px solid #77879935; }
+.hud .combate-recurso>i { display:block; margin:0; height:3px; background:#0009; border:1px solid #77879935; }
 .hud .combate-recurso em { display:block; height:100%; background:linear-gradient(90deg,#315f86,var(--azul)); transition:width .2s; }
 .hud .combate-recurso.espirito { color:var(--vermelho); }
 .hud .combate-recurso.espirito em { background:linear-gradient(90deg,#803243,var(--vermelho)); }
