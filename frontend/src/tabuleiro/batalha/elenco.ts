@@ -24,13 +24,34 @@ import type { Atributos, Combatente, Haki, Lado } from './regras'
  * marciais: punhos e pernas), tank (porrete/maça), atirador (rifle e pistolas). Médico, cartógrafo
  * etc. são profissões, à parte da classe.
  */
-type Classe = 'espadachim' | 'lutador' | 'tank' | 'atirador'
+export type Classe = 'espadachim' | 'lutador' | 'tank' | 'atirador'
 
 const CLASSES: Record<Classe, { hp: number; at: Atributos; arma: TipoArma }> = {
   espadachim: { hp: 135, at: { atk: 28, def: 10, agl: 14, res: 10, pre: 14, dex: 14, con: 10 }, arma: 'espada' },
   lutador: { hp: 160, at: { atk: 25, def: 16, agl: 12, res: 14, pre: 10, dex: 10, con: 16 }, arma: 'punhos' },
   tank: { hp: 220, at: { atk: 21, def: 26, agl: 5, res: 20, pre: 6, dex: 5, con: 22 }, arma: 'maca' },
   atirador: { hp: 100, at: { atk: 22, def: 6, agl: 14, res: 6, pre: 18, dex: 14, con: 6 }, arma: 'espingarda' },
+}
+
+/** vida e arma de cada classe (para a cena e a preparação) */
+export const CLASSES_HUD: Record<Classe, { hp: number; arma: TipoArma }> = CLASSES
+
+/** nome de cada classe na tela de preparação */
+export const NOMES_CLASSE: Record<Classe, string> = { espadachim: 'Espadachim', lutador: 'Lutador', tank: 'Tank', atirador: 'Atirador' }
+export const ehClasse = (x: unknown): x is Classe => typeof x === 'string' && Object.hasOwn(CLASSES, x)
+
+/**
+ * Pasta dos sprites de um tripulante: a dele quando está na classe de
+ * origem; trocada a classe, a de quem tem essa classe no mesmo navio.
+ */
+const FOLHA_CLASSE: Record<Lado, Record<Classe, string>> = {
+  piratas: { espadachim: 'pirata-espadachim', lutador: 'pirata-lutador', tank: 'pirata-medico', atirador: 'pirata-atiradora' },
+  marinha: { espadachim: 'marinha-almirante', lutador: 'marinha-oficial', tank: 'marinha-soldado', atirador: 'marinha-atirador' },
+}
+export function folhaDe(id: string, classe: Classe) {
+  const m = TRIPULACOES.find((x) => x.id === id)
+  if (!m || m.classe === classe) return id
+  return FOLHA_CLASSE[m.lado][classe]
 }
 
 /** nomes sorteados a cada partida (piratas e Marinha), sem repetir */
@@ -110,12 +131,13 @@ export function combatentesIniciais(): Combatente[] {
 /** cargas de intangibilidade da Logia no teste */
 export const CARGAS_LOGIA = 3
 
-export type Config = { id: string; akuma: string; armamento: 0 | 1 | 2 | 3; observacao: 0 | 1 | 2; rei: boolean; overall: number }
+export type Config = { id: string; classe: Classe; akuma: string; armamento: 0 | 1 | 2 | 3; observacao: 0 | 1 | 2; rei: boolean; overall: number }
 
 /** Config inicial a partir do elenco de teste. */
 export function configPadrao(): Config[] {
   return TRIPULACOES.map((m) => ({
     id: m.id,
+    classe: m.classe,
     akuma: m.akuma ?? '',
     armamento: m.haki?.armamento ? (m.haki.armamento.imbuido ? 3 : m.haki.armamento.avancado ? 2 : 1) : 0,
     observacao: m.haki?.observacao ? (m.haki.observacao.avancado ? 2 : 1) : 0,
@@ -127,6 +149,14 @@ export function configPadrao(): Config[] {
 export function aplicarConfig(cs: Combatente[], cfg: Config[]) {
   for (const k of cfg) {
     const c = cs.find((x) => x.id === k.id)!
+    // classe (o multiplayer manda a do jogador: só vale se existir)
+    if (ehClasse(k.classe)) {
+      const p = CLASSES[k.classe]
+      c.papel = k.classe
+      c.arma = p.arma
+      c.hp = c.hpMax = p.hp
+      c.at = { ...p.at }
+    }
     c.akuma = k.akuma ? { fruta: k.akuma, transformado: 0 } : null
     c.logia = k.akuma && FRUTAS[k.akuma].tipo === 'logia' ? { cargas: CARGAS_LOGIA, max: CARGAS_LOGIA } : null
     const usosA = k.armamento >= 2 ? 6 : 4

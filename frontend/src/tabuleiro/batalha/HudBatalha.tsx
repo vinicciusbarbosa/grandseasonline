@@ -3,6 +3,7 @@ import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
 import { HAOSHOKU, MOVIMENTO_POR_VEZ } from './regras'
 import { SKILLS_ARMA } from './armas'
 import { BarraCombate, type DicaCombate } from './BarraCombate'
+import { NOMES_CLASSE } from './elenco'
 
 /**
  * HUD da batalha, estilo RPG tático compacto: painéis escuros translúcidos
@@ -243,8 +244,8 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
         </div>
         <div style={{ font: '400 12px Georgia, serif', color: '#b8b0a0', margin: '2px 0 8px', textAlign: 'center' }}>
           {mp
-            ? 'Escolha a Akuma no Mi e o Haki de cada um. A batalha começa quando os dois derem Pronto (ou o tempo acabar).'
-            : 'Escolha a Akuma no Mi e o Haki de cada um. Depois de começar, há 10 s para ligar o Haki.'}
+            ? 'Escolha a classe, a Akuma no Mi e o Haki de cada um. A batalha começa quando os dois derem Pronto (ou o tempo acabar).'
+            : 'Escolha a classe, a Akuma no Mi e o Haki de cada um. Depois de começar, há 10 s para ligar o Haki.'}
         </div>
         {mp && <SalaMp mp={mp} />}
         {mp?.aviso && <div style={{ textAlign: 'center', color: '#ff9a8a', marginBottom: 8 }}>{mp.aviso}</div>}
@@ -252,6 +253,7 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
           <thead>
             <tr style={{ color: '#a89a78', fontSize: 10.5 }}>
               <td></td>
+              <td>Classe</td>
               <td>Akuma</td>
               <td>Armamento</td>
               <td>Observação</td>
@@ -264,6 +266,15 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
               <tr key={k.id}>
                 <td className="tit" style={{ fontSize: 13, color: k.lado === 'piratas' ? '#8fe0a0' : '#ff9a8a' }}>
                   {k.nome}
+                </td>
+                <td>
+                  <select value={k.classe} onChange={(ev) => c.mudarConfig(k.id, 'classe', ev.target.value)}>
+                    {Object.entries(NOMES_CLASSE).map(([v, n]) => (
+                      <option key={v} value={v}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td>
                   <select value={k.akuma} onChange={(ev) => c.mudarConfig(k.id, 'akuma', ev.target.value)}>

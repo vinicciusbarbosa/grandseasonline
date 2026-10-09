@@ -93,6 +93,8 @@ export class CenaTabuleiro {
   private readonly cena = new THREE.Scene()
   private readonly camera = new THREE.PerspectiveCamera(30, 16 / 9, 1, 200)
   private readonly personagens: Personagem[] = []
+  /** última pasta de sprites pedida para cada personagem (troca de classe) */
+  private readonly folhaPedida = new Map<string, string>()
   private poeiras: Poeira[] = []
   private golpes: GolpeHaki[] = []
   /** tremor curto da câmera no impacto de um golpe com Haki (s) */
@@ -281,6 +283,19 @@ export class CenaTabuleiro {
   /** O que o controle da batalha pode pedir à cena. */
   private readonly palco = {
     personagem: (id: string) => this.personagens.find((p) => p.id === id),
+    trocarFolha: async (id: string, folha: string, vida: number) => {
+      // trocas seguidas: só a última vale (as folhas carregam fora de ordem)
+      this.folhaPedida.set(id, folha)
+      const visual = await this.visualCom(folha)
+      const i = this.personagens.findIndex((p) => p.id === id)
+      if (i < 0 || this.folhaPedida.get(id) !== folha) return
+      const velho = this.personagens[i]
+      const novo = new Personagem(id, velho.nome, velho.casa, vida, visual, velho.dir)
+      this.cena.remove(...velho.visual.objetos)
+      this.personagens.splice(i, 1)
+      this.adicionar(novo)
+      if (this.selecionado === velho) this.selecionado = novo
+    },
     marcar: (c: Casa, tipo: Marca) =>
       this.marcar(c, { mover: this.matAlcance, alcance: this.matMira, alvo: this.matAlvo, cura: this.matCura, destino: this.matDestino, area: this.matArea }[tipo]),
     limparMarcas: () => this.limparMarcas(),

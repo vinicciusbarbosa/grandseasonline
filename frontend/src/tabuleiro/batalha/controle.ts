@@ -21,7 +21,7 @@ import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill, type TipoArma }
 
 /** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
 const semMira = (s: Skill) => s.id === 'haoshoku' || s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
-import { TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, renomear, type Config } from './elenco'
+import { CLASSES_HUD, TRIPULACOES, aplicarConfig, combatentesIniciais, configPadrao, ehClasse, folhaDe, renomear, type Config } from './elenco'
 import type { HakiMp, JogadorBatalhaMp, MsgServidorBatalha } from './protocoloMp'
 import { RedeBatalha } from './redeBatalha'
 import { proximaAcao } from './ia'
@@ -62,6 +62,8 @@ export type LightKick = {
 
 export interface Palco {
   personagem(id: string): Personagem | undefined
+  /** troca os sprites do personagem (outra classe na preparação), com a vida da classe */
+  trocarFolha(id: string, folha: string, vida: number): Promise<void>
   marcar(c: Casa, tipo: Marca): void
   limparMarcas(): void
   flutuar(p: Personagem, texto: string, cor: string, linha?: number): void
@@ -383,6 +385,7 @@ export class ControleBatalha {
         break
       case 'comecar':
         this.config = m.config
+        this.folhasDaConfig()
         this.comecarLocal(m.semente)
         break
       case 'iniciar': {
@@ -560,13 +563,27 @@ export class ControleBatalha {
   }
 
   // ------------------------------------------------------------ preparação
-  mudarConfig(id: string, campo: 'akuma' | 'armamento' | 'observacao' | 'rei' | 'overall', valor: string | number | boolean) {
+  mudarConfig(id: string, campo: 'classe' | 'akuma' | 'armamento' | 'observacao' | 'rei' | 'overall', valor: string | number | boolean) {
     const k = this.config.find((x) => x.id === id)
     if (!k || this.fase !== 'preparar') return
     if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
     ;(k as Record<string, unknown>)[campo] = valor
+    if (campo === 'classe') this.folhasDaConfig()
     this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
+  }
+
+  /** pasta de sprites em uso por personagem (muda com a classe) */
+  private folhas = new Map<string, string>()
+  /** Põe em cada personagem os sprites e a vida da classe escolhida. */
+  private folhasDaConfig() {
+    for (const k of this.config) {
+      if (!ehClasse(k.classe)) continue
+      const folha = folhaDe(k.id, k.classe)
+      if ((this.folhas.get(k.id) ?? k.id) === folha) continue
+      this.folhas.set(k.id, folha)
+      void this.palco.trocarFolha(k.id, folha, CLASSES_HUD[k.classe].hp)
+    }
   }
 
   /** Sorteia Akuma no Mi e Haki de todo mundo (para testar combinações). */
@@ -592,6 +609,7 @@ export class ControleBatalha {
     if (this.fase !== 'preparar' || (this.rede && this.mp.pronto)) return
     const padrao = configPadrao()
     this.config = this.rede ? this.config.map((k) => (this.doMeuLado(k.id) ? padrao.find((x) => x.id === k.id)! : k)) : padrao
+    this.folhasDaConfig()
     if (this.rede) {
       this.rede.enviar({ t: 'config', config: this.config })
     }
@@ -1608,7 +1626,7 @@ export class ControleBatalha {
       nome: c.nome,
       arma: c.arma,
       lado: c.lado,
-      retrato: recurso(`${import.meta.env.BASE_URL}sprites/${c.id}/parado_S.png`),
+      retrato: recurso(`${import.meta.env.BASE_URL}sprites/${this.folhas.get(c.id) ?? c.id}/parado_S.png`),
       hp: this.animando ? (p?.vida ?? c.hp) : c.hp,
       hpMax: c.hpMax,
       energia: c.energia,

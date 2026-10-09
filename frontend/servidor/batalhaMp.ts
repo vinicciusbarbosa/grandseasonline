@@ -1,6 +1,6 @@
 import type { Logger, ViteDevServer } from 'vite'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { aplicarConfig, combatentesIniciais, configPadrao, renomear, sortearNomes, type Config } from '../src/tabuleiro/batalha/elenco.ts'
+import { aplicarConfig, combatentesIniciais, configPadrao, ehClasse, renomear, sortearNomes, type Config } from '../src/tabuleiro/batalha/elenco.ts'
 import { FOLGA_VEZ_MP, PREPARO_HAKI_MP, PREPARO_MP, type HakiMp, type MsgClienteBatalha, type MsgServidorBatalha } from '../src/tabuleiro/batalha/protocoloMp.ts'
 import { aplicar, criarBatalha, hakiPreparacao, tempoDaVez, type Estado, type Lado } from '../src/tabuleiro/batalha/regras.ts'
 
@@ -52,7 +52,9 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
     const config = padrao.map((k) => {
       const lado: Lado = k.id.startsWith('pirata') ? 'piratas' : 'marinha'
       const dono = jogadores.find((j) => j.lado === lado)
-      return dono?.config?.find((x) => x.id === k.id) ?? k
+      const dele = dono?.config?.find((x) => x.id === k.id)
+      // classe que não existe: fica a de origem
+      return dele ? { ...dele, classe: ehClasse(dele.classe) ? dele.classe : k.classe } : k
     })
     const semente = Math.floor(Math.random() * 2147483646) + 1
     estado = criarBatalha(renomear(aplicarConfig(combatentesIniciais(), config), nomes), semente)
