@@ -79,8 +79,8 @@ export interface Palco {
   atravessar(p: Personagem, elemento: string): Promise<void>
   /** aproxima a câmera nesses pontos (null volta ao que era) */
   focar(pontos: THREE.Vector3[] | null): void
-  /** choque de dois Haki do Rei: explosão de raios negros e vermelhos */
-  choqueRei(ponto: THREE.Vector3): void
+  /** pressão entre dois ataques; resolve quando a explosão principal começa */
+  choqueRei(ponto: THREE.Vector3, direcao: THREE.Vector3): Promise<void>
   /** efeito desenhado à mão (spritesheet); resolve false se a folha não existe */
   efeitoFolha(nome: string, dir: DirEfeito, de: THREE.Vector3, op?: { para?: THREE.Vector3; largura?: number; voo?: [number, number]; aoChegar?: () => void; chao?: boolean; escala?: number; aoQuadro?: [number, () => void] }): Promise<boolean>
   /** Entei em fases (cena longa); resolve no impacto, a explosão continua sozinha */
@@ -1467,8 +1467,8 @@ export class ControleBatalha {
     // os dois golpeiam um na direção do outro; as armas não chegam a se tocar
     await Promise.all([new Promise<void>((r) => a.atacar(b, r)), new Promise<void>((r) => setTimeout(() => b.atacar(a, r), 60))])
     // quadros de impacto: a tela pisca negra e vermelha, e o Haki explode no meio
+    await this.palco.choqueRei(meio, this.palco.peito(b).sub(this.palco.peito(a)))
     this.palco.lampejo('rei', 0.5)
-    this.palco.choqueRei(meio.clone().setY(0))
     this.palco.tremer(0.9)
     this.palco.choqueTela(meio)
     await esperar(750)

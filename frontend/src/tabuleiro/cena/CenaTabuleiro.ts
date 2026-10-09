@@ -421,11 +421,21 @@ export class CenaTabuleiro {
     choqueTela: (ponto: THREE.Vector3) => {
       this.choques.push(new ChoqueTela(ponto.clone()))
     },
-    choqueRei: (ponto: THREE.Vector3) => {
-      const h = new HakiRei(ponto, 1.4)
-      this.hakis.push(h)
-      this.cena.add(...h.objetos)
-      window.setTimeout(() => h.desligar(), 1100 / this.velocidade)
+    choqueRei: async (ponto: THREE.Vector3, direcao: THREE.Vector3) => {
+      const [clash, onda] = await Promise.all([carregarEfk('haki-clash'), carregarEfk('haki-clash-onda')])
+      if (!clash) {
+        const h = new HakiRei(ponto.clone().setY(0), 1.4)
+        this.hakis.push(h)
+        this.cena.add(...h.objetos)
+        window.setTimeout(() => h.desligar(), 1100 / this.velocidade)
+        return
+      }
+      // O pacote tem eixo X: as duas energias se opõem na direção dos ataques.
+      // O núcleo fica suspenso no ponto entre os peitos, sem deslocar para o chão.
+      const ef = this.tocarEfk('haki-clash', clash, ponto, 0.55)
+      ef.sprite.rotation.y = Math.atan2(direcao.x, direcao.z) - Math.PI / 2
+      await new Promise<void>((r) => window.setTimeout(r, 200)) // quadro 12, choque principal
+      if (onda) this.tocarEfk('haki-clash-onda', onda, ponto.clone().setY(0.03), 0.55)
     },
     avisar: () => {
       this.retratoBatalha = this.batalha?.retrato() ?? null
