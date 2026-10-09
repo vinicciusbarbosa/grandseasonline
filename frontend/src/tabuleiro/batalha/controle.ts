@@ -589,6 +589,17 @@ export class ControleBatalha {
     this.palco.avisar()
   }
 
+  /** Volta a build à padrão da classe (ou zera os pontos). */
+  resetarBuild(id: string, zerar: boolean) {
+    const k = this.config.find((x) => x.id === id)
+    if (!k || this.fase !== 'preparar') return
+    if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
+    k.build = zerar ? {} : buildPadrao(k.classe, !!k.akuma)
+    this.configNaCena()
+    this.rede?.enviar({ t: 'config', config: this.config })
+    this.palco.avisar()
+  }
+
   /** a vida (com a VIG da build) e os sprites (da classe) de cada um na cena */
   private configNaCena() {
     this.folhasDaConfig()

@@ -3,7 +3,7 @@ import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
 import { HAOSHOKU, MOVIMENTO_POR_VEZ } from './regras'
 import { SKILLS_ARMA } from './armas'
 import { BarraCombate, type DicaCombate } from './BarraCombate'
-import { ATRIBUTOS_BUILD, NOMES_CLASSE, PONTOS_BUILD, buildValida, comBuild, pontosGastos, VIDA_POR_VIG, type Config } from './elenco'
+import { ATRIBUTOS_BUILD, NOMES_CLASSE, PONTOS_BUILD, buildValida, comBuild, pontosGastos, MAX_POR_ATRIBUTO, VIDA_POR_VIG, type Config } from './elenco'
 
 /**
  * HUD da batalha, estilo RPG tático compacto: painéis escuros translúcidos
@@ -51,6 +51,27 @@ const CSS = `
 @keyframes rei-moldura { 0%,100% { border-color:#97394c; box-shadow:0 0 3px #d5143844,inset 0 0 0 1px var(--linha-selecao); } 50% { border-color:#ff6979; box-shadow:0 0 0 1px #b52040aa,0 0 12px #ed204c66,inset 0 0 0 1px var(--linha-selecao),inset 0 0 8px #b4102522; } }
 @keyframes rei-centelhas { 0%,100% { opacity:.18; } 40% { opacity:.45; } 50%,58% { opacity:.95; } 54%,64% { opacity:.35; } 75% { opacity:.6; } }
 @media(prefers-reduced-motion:reduce) { .hud .cartao.rei,.hud .rei-raios { animation:none; }.hud .cartao.rei { box-shadow:0 0 7px #ed204c55; }.hud .rei-raios { opacity:.6; } }
+
+/* build (pontos de atributo) na preparação */
+.hud .build { margin:2px 0 8px; padding:10px 12px 12px; border:1px solid rgba(216,180,90,.32); border-radius:6px; background:linear-gradient(180deg, rgba(34,40,58,.92), rgba(16,20,30,.92)); }
+.hud .build-topo { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.hud .build-pontos { white-space:nowrap; font-size:11px; color:#b8ae98; text-transform:uppercase; letter-spacing:.6px; }
+.hud .build-pontos b { font-size:17px; color:var(--ouro); margin-right:3px; }
+.hud .build-pontos.cheio b { color:#8a8270; }
+.hud .build-trilho { flex:1; height:5px; border-radius:3px; background:rgba(0,0,0,.5); overflow:hidden; }
+.hud .build-trilho > i { display:block; height:100%; background:linear-gradient(90deg, #8a6a28, #e8c060); transition:width .15s; }
+.hud .build-topo .bt { font-size:11px; padding:1px 8px; }
+.hud .build-grade { display:grid; grid-template-columns:repeat(3, minmax(160px, 1fr)); gap:6px 10px; }
+.hud .atr { display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 8px; padding:5px 8px; border-radius:4px; background:rgba(255,255,255,.035); border:1px solid transparent; }
+.hud .atr.com { border-color:rgba(143,224,160,.22); }
+.hud .atr .sig { font-size:11px; letter-spacing:.8px; color:#c8bca0; }
+.hud .atr.akm .sig { color:#ffcf5a; }
+.hud .atr .val { font-size:16px; color:#f2ead8; }
+.hud .atr .val small { font-size:11px; color:#8fe0a0; margin-left:3px; }
+.hud .atr .ctl { display:flex; gap:3px; }
+.hud .atr .ctl button { pointer-events:auto; width:22px; height:22px; border-radius:50%; border:1px solid rgba(216,180,90,.45); background:#232b3e; color:#f2e2b0; font:700 14px/1 'Trebuchet MS', sans-serif; cursor:pointer; padding:0; }
+.hud .atr .ctl button:hover:not(:disabled) { background:#3a3220; border-color:var(--ouro); }
+.hud .atr .ctl button:disabled { opacity:.3; cursor:default; }
 
 /* topo: a vez */
 .hud .vez { display:inline-flex; align-items:center; gap:10px; padding:4px 14px; border-radius:20px; font-size:12px; }
@@ -236,31 +257,48 @@ function SalaMp({ mp }: { mp: NonNullable<RetratoBatalha['mp']> }) {
 /** Build de um tripulante: + e − em cada atributo, com o valor final (base da classe + pontos). */
 function PainelBuild({ k, c, travado }: { k: Config; c: ControleBatalha; travado: boolean }) {
   const gastos = pontosGastos(k.build)
+  const livres = PONTOS_BUILD - gastos
   const { at, hp } = comBuild(k.classe, buildValida(k.build))
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', justifyContent: 'center', padding: '6px 4px 8px', background: '#00000033', borderRadius: 4 }}>
-      <div style={{ width: '100%', textAlign: 'center', fontSize: 11, color: gastos < PONTOS_BUILD ? '#ffd27a' : '#a89a78' }}>
-        {PONTOS_BUILD - gastos} de {PONTOS_BUILD} pontos livres · {NOMES_CLASSE[k.classe]}
+    <div className="build">
+      <div className="build-topo">
+        <span className={`build-pontos${livres ? '' : ' cheio'}`}>
+          <b>{livres}</b>pontos livres
+        </span>
+        <span className="build-trilho">
+          <i style={{ width: `${(gastos / PONTOS_BUILD) * 100}%` }} />
+        </span>
+        <button className="bt" disabled={travado} onClick={() => c.resetarBuild(k.id, false)} title={`Build padrão de ${NOMES_CLASSE[k.classe]}`}>
+          Padrão
+        </button>
+        <button className="bt" disabled={travado || !gastos} onClick={() => c.resetarBuild(k.id, true)}>
+          Zerar
+        </button>
       </div>
-      {ATRIBUTOS_BUILD.map(([a, nome, dica]) => {
-        const pts = k.build[a] ?? 0
-        const total = a === 'vig' ? hp : at[a]
-        return (
-          <div key={a} title={dica} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12 }}>
-            <b style={{ width: 30, color: a === 'akm' ? '#ffcf5a' : '#e8dcc0' }}>{a === 'vig' ? 'VIDA' : nome}</b>
-            <button className="bt" style={{ padding: '0 6px' }} disabled={travado || pts <= 0} onClick={() => c.mudarBuild(k.id, a, -1)}>
-              −
-            </button>
-            <span style={{ width: 34, textAlign: 'center' }}>
-              {total}
-              {pts > 0 && <small style={{ color: '#8fe0a0' }}> +{a === 'vig' ? pts * VIDA_POR_VIG : pts}</small>}
-            </span>
-            <button className="bt" style={{ padding: '0 6px' }} disabled={travado || gastos >= PONTOS_BUILD} onClick={() => c.mudarBuild(k.id, a, 1)}>
-              +
-            </button>
-          </div>
-        )
-      })}
+      <div className="build-grade">
+        {ATRIBUTOS_BUILD.map(([a, nome, dica]) => {
+          const pts = k.build[a] ?? 0
+          return (
+            <div key={a} className={`atr${a === 'akm' ? ' akm' : ''}${pts ? ' com' : ''}`} title={dica}>
+              <div>
+                <span className="sig">{a === 'vig' ? 'VIDA' : nome}</span>{' '}
+                <span className="val">
+                  {a === 'vig' ? hp : at[a]}
+                  {pts > 0 && <small>+{a === 'vig' ? pts * VIDA_POR_VIG : pts}</small>}
+                </span>
+              </div>
+              <span className="ctl">
+                <button disabled={travado || pts <= 0} onClick={() => c.mudarBuild(k.id, a, -1)} aria-label={`Tirar ponto de ${nome}`}>
+                  −
+                </button>
+                <button disabled={travado || !livres || pts >= MAX_POR_ATRIBUTO} onClick={() => c.mudarBuild(k.id, a, 1)} aria-label={`Pôr ponto em ${nome}`}>
+                  +
+                </button>
+              </span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -273,13 +311,8 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
   return (
     <div className="tela">
       <div className="painel janela">
-        <div className="tit" style={{ fontSize: 22, textAlign: 'center', color: '#ffe6a0' }}>
+        <div className="tit" style={{ fontSize: 22, textAlign: 'center', color: '#ffe6a0', marginBottom: 8 }}>
           {mp ? 'Montar a sua tripulação' : 'Montar as tripulações'}
-        </div>
-        <div style={{ font: '400 12px Georgia, serif', color: '#b8b0a0', margin: '2px 0 8px', textAlign: 'center' }}>
-          {mp
-            ? 'Escolha a classe, os atributos, a Akuma no Mi e o Haki de cada um. A batalha começa quando os dois derem Pronto (ou o tempo acabar).'
-            : 'Escolha a classe, os atributos, a Akuma no Mi e o Haki de cada um. Depois de começar, há 10 s para ligar o Haki.'}
         </div>
         {mp && <SalaMp mp={mp} />}
         {mp?.aviso && <div style={{ textAlign: 'center', color: '#ff9a8a', marginBottom: 8 }}>{mp.aviso}</div>}
