@@ -1450,8 +1450,8 @@ export class ControleBatalha {
 
   /**
    * Choque de Haki do Rei: a câmera aproxima os dois, cada um golpeia na
-   * direção do outro sem as armas se tocarem, e entre eles o Haki explode
-   * em raios negros e vermelhos. Ganha o maior overall.
+   * direção do outro sem as armas se tocarem, e entre eles os dois Haki se
+   * chocam (efeito haki-clash). Ganha o maior overall.
    */
   private async animarClash(antes: Estado, k: Extract<Evento, { t: 'clash' }>) {
     const a = this.palco.personagem(k.de)
@@ -1466,19 +1466,16 @@ export class ControleBatalha {
     const meio = this.palco.peito(a).lerp(this.palco.peito(b), 0.5)
     // os dois golpeiam um na direção do outro; as armas não chegam a se tocar
     await Promise.all([new Promise<void>((r) => a.atacar(b, r)), new Promise<void>((r) => setTimeout(() => b.atacar(a, r), 60))])
-    // quadros de impacto: a tela pisca negra e vermelha, e o Haki explode no meio
+    // quadros de impacto: o clash do Effekseer (as duas energias se empurrando
+    // no meio) e, no choque principal, a tela pisca negra e vermelha
     await this.palco.choqueRei(meio, this.palco.peito(b).sub(this.palco.peito(a)))
     this.palco.lampejo('rei', 0.5)
-    this.palco.tremer(0.9)
-    this.palco.choqueTela(meio)
     await esperar(750)
     this.palco.lampejo('rei', 0.25)
-    this.palco.tremer(0.5)
     await esperar(750)
     b.haki = false
     if (k.resultado === 'empate') {
       this.palco.lampejo('branco', 0.25)
-      this.palco.tremer(0.6)
       void this.palco.efeito('impacto', 'rei', meio, { dur: 0.6, escala: 3 })
       this.palco.flutuar(a, 'Anulou!', '#ffd34a', 1)
       this.palco.flutuar(b, 'Anulou!', '#ffd34a', 1)
