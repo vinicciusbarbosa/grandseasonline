@@ -444,8 +444,9 @@ if __name__ == '__main__':
     personagem_completo('pirata-atiradora', 'atirador2', altura=92, ataque=(8, 3))
     # o 2º espadachim pirata (colete azul) e o espadachim da Marinha (colete
     # azul-marinho, calça clara); o 2º lutador da Marinha de calção azul-marinho
-    personagem('marinha-almirante', 'espadachim', CAB['marinha-almirante'], alternar=(4, 5, 6),
-               cores={'roupa': (112, 0.9, 0.55), 'calca': (110, 0.15, 1.6)})
+    # (cabelo e calça sem branco: o Haki acha a lâmina pelo prateado claro)
+    personagem_completo('marinha-almirante', 'espadachim2', altura=92, partes=PARTES_CAPITAO,
+                        cores={'colete': (112, 0.9, 0.55), 'cabelo': (0, 0.05, 0.55), 'calca': (110, 0.35, 0.95)})
     personagem_completo('marinha-oficial', 'lutador2', altura=92, partes=PARTES_LUTADOR2, cores={'calca': (112, 0.9, 0.7)})
     # variações de cor do mesmo personagem
     personagem('espadachim-azul', 'espadachim', 'cabeca-espetado.png', alternar=(4, 5, 6),
@@ -464,15 +465,15 @@ if __name__ == '__main__':
     # os outros atiradores com a folha nova da atiradora (cabeça desenhada):
     # o médico de cabelo preto; o do outro navio de capa azul-marinho
     personagem_completo('pirata-medico', 'tank', altura=96)
-    personagem('marinha-enfermeira', 'espadachim', CAB['marinha-enfermeira'], alternar=(4, 5, 6),
-               cores={'roupa': (100, 0.6, 1.25), 'calca': (110, 0.15, 1.6)})
+    personagem_completo('marinha-enfermeira', 'espadachim2', altura=92, partes=PARTES_CAPITAO,
+                        cores={'colete': (104, 0.7, 0.85), 'cabelo': (104, 0.45, 0.5), 'calca': (110, 0.35, 0.95)})
     personagem_completo('marinha-atirador', 'atirador2', altura=92, ataque=(8, 3), partes=PARTES_ATIRADOR2,
                         cores={'capa': (110, 3.4, 1.0)})
 
     # Haki de armamento (arma e braço negros) nas folhas novas: tem de vir
     # depois, porque gravar() apaga as variantes
     import haki_folhas
-    for pid in ('pirata-espadachim', 'pirata-capitao'):
+    for pid in ('pirata-espadachim', 'pirata-capitao', 'marinha-almirante', 'marinha-enfermeira'):
         haki_folhas.gerar('espada', pid)
     for pid in ('pirata-lutador', 'marinha-oficial'):
         haki_folhas.gerar('punho', pid)
