@@ -301,7 +301,7 @@ export type RetratoBatalha = {
   /** passos máximos da vez (tripulação: 5 divididos; fila: os de quem joga) */
   movimentoMax: number
   /** modo fila por AGL: a ordem desta rodada a partir de quem joga agora */
-  fila: { id: string; nome: string; lado: Lado; retrato: string }[] | null
+  fila: { id: string; nome: string; lado: Lado; retrato: string; agl: number; rodada: 0 | 1; perde: boolean }[] | null
   tempo: number
   vencedor: Lado | null
   tripulacao: FichaHud[]
@@ -1738,6 +1738,30 @@ export class ControleBatalha {
     }
   }
 
+  /** fila por AGL na HUD: quem joga agora, o resto da rodada e a próxima rodada (prevista pela AGL) */
+  private filaHud(e: Estado): NonNullable<RetratoBatalha['fila']> {
+    const item = (x: Combatente, rodada: 0 | 1) => ({
+      id: x.id,
+      nome: x.nome,
+      lado: x.lado,
+      retrato: recurso(`${import.meta.env.BASE_URL}sprites/${this.folhas.get(x.id) ?? x.id}/parado_S.png`),
+      agl: x.at.agl,
+      rodada,
+      // perde a vez: atordoado agora (quem está na vez já está agindo)
+      perde: x.atordoado && x.id !== e.ativo && (rodada === 0 || !!x.atordoadoMais),
+    })
+    const vivo = (id: string | null | undefined) => {
+      const x = porId(e, id ?? '')
+      return x && x.hp > 0 ? x : null
+    }
+    const agora = [e.ativo, ...(e.fila ?? [])].map(vivo).filter((x): x is Combatente => !!x).map((x) => item(x, 0))
+    const depois = e.combatentes
+      .filter((x) => x.hp > 0)
+      .sort((a, b) => b.at.agl - a.at.agl)
+      .map((x) => item(x, 1))
+    return [...agora, ...depois].slice(0, 12)
+  }
+
   // ------------------------------------------------------------ retrato
   private ficha(c: Combatente): FichaHud {
     const p = this.palco.personagem(c.id)
@@ -1782,13 +1806,7 @@ export class ControleBatalha {
       vez: e.vez,
       movimento: e.movimento,
       movimentoMax: e.modo === 'fila' ? MOVIMENTO_FILA : MOVIMENTO_POR_VEZ,
-      fila:
-        e.modo === 'fila'
-          ? [e.ativo, ...(e.fila ?? [])]
-              .map((id) => porId(e, id ?? ''))
-              .filter((x): x is Combatente => !!x && x.hp > 0)
-              .map((x) => ({ id: x.id, nome: x.nome, lado: x.lado, retrato: recurso(`${import.meta.env.BASE_URL}sprites/${this.folhas.get(x.id) ?? x.id}/parado_S.png`) }))
-          : null,
+      fila: e.modo === 'fila' ? this.filaHud(e) : null,
       tempo: this.fase === 'minha' ? this.tempo() : tempoDaVez(e),
       tempoMax: tempoDaVez(e),
       vencedor: e.vencedor,

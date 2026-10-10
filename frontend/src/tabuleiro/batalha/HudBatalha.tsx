@@ -78,14 +78,29 @@ const CSS = `
 .hud .atr .ctl button:hover:not(:disabled) { background:#3a3220; border-color:var(--ouro); }
 .hud .atr .ctl button:disabled { opacity:.3; cursor:default; }
 
-/* modo fila por AGL: a ordem das vezes, embaixo da vez */
-.hud .fila-agl { display:flex; justify-content:center; align-items:center; gap:3px; margin-top:4px; }
-.hud .fila-item { display:inline-flex; align-items:center; gap:4px; padding:2px; border-radius:4px; background:var(--fundo); border:1px solid rgba(255,255,255,.12); opacity:.75; }
-.hud .fila-item .rosto { width:24px; height:24px; }
-.hud .fila-item.meu { border-color:rgba(143,224,160,.55); }
-.hud .fila-item.inimigo { border-color:rgba(255,138,122,.55); }
-.hud .fila-item.agora { opacity:1; padding-right:7px; box-shadow:0 0 0 1px var(--ouro), 0 0 8px rgba(216,180,90,.45); }
-.hud .fila-item.agora b { font-size:11px; }
+/* modo fila por AGL: quem joga agora, o próximo e o resto, embaixo da vez */
+.hud .fila-agl { display:flex; justify-content:center; align-items:center; gap:5px; margin-top:5px; flex-wrap:nowrap; width:max-content; position:relative; left:50%; transform:translateX(-50%); }
+.hud .fila-card { display:inline-flex; align-items:center; gap:6px; padding:3px 9px 3px 3px; border-radius:5px; background:var(--fundo); border:1px solid rgba(255,255,255,.15); }
+.hud .fila-card .rosto { width:30px; height:30px; }
+.hud .fila-card .txt { display:flex; flex-direction:column; line-height:1.15; }
+.hud .fila-card .rot { font-size:9px; letter-spacing:.8px; color:#a89a78; text-transform:uppercase; }
+.hud .fila-card b { font-size:13px; }
+.hud .fila-card .quem { font-size:10px; font-weight:700; }
+.hud .fila-card.meu { border-color:rgba(143,224,160,.7); }
+.hud .fila-card.meu .quem { color:#8fe0a0; }
+.hud .fila-card.inimigo { border-color:rgba(255,138,122,.7); }
+.hud .fila-card.inimigo .quem { color:#ff9a8a; }
+.hud .fila-card.agora { box-shadow:0 0 0 1px var(--ouro), 0 0 10px rgba(216,180,90,.5); }
+.hud .fila-card.agora .rot { color:var(--ouro); }
+.hud .fila-seta { color:#a89a78; font-size:14px; }
+.hud .fila-resto { display:inline-flex; align-items:center; gap:3px; }
+.hud .fila-mini { position:relative; display:inline-flex; padding:1px; border-radius:4px; background:var(--fundo); border:1px solid rgba(255,255,255,.12); }
+.hud .fila-mini .rosto { width:22px; height:22px; }
+.hud .fila-mini.meu { border-color:rgba(143,224,160,.55); }
+.hud .fila-mini.inimigo { border-color:rgba(255,138,122,.55); }
+.hud .fila-mini.prox { opacity:.6; }
+.hud .fila-perde { position:absolute; right:-3px; top:-5px; font-size:10px; }
+.hud .fila-rodada { font-size:9px; color:#a89a78; letter-spacing:.6px; text-transform:uppercase; padding:0 2px; border-left:1px solid rgba(216,180,90,.35); margin-left:2px; }
 
 /* topo: a vez */
 .hud .vez { display:inline-flex; align-items:center; gap:10px; padding:4px 14px; border-radius:20px; font-size:12px; }
@@ -148,8 +163,45 @@ function Barra({ v, max, c, fina, texto }: { v: number; max: number; c: string; 
   )
 }
 
-/** rosto pequeno na fila por AGL */
-const rostoFila = (url: string) => rosto(url, 24)
+/** Fila por AGL: o da vez e o próximo em destaque (nome e se é seu ou do inimigo); o resto em rostinhos, separando a próxima rodada. */
+function FilaAgl({ fila, meuLado }: { fila: NonNullable<RetratoBatalha['fila']>; meuLado: string }) {
+  const quem = (l: string) => (l === meuLado ? 'meu' : 'inimigo')
+  const Card = ({ f, rotulo, agora }: { f: (typeof fila)[number]; rotulo: string; agora?: boolean }) => (
+    <span className={`fila-card ${quem(f.lado)}${agora ? ' agora' : ''}`} title={`AGL ${f.agl}`}>
+      <i className="rosto" style={rosto(f.retrato, 30)} />
+      <span className="txt">
+        <span className="rot">{rotulo}</span>
+        <b>{f.nome}</b>
+        <span className="quem">{f.lado === meuLado ? 'Você' : 'Inimigo'}{f.perde ? ' · perde a vez' : ''}</span>
+      </span>
+    </span>
+  )
+  const [agora, prox, ...resto] = fila
+  if (!agora) return null
+  return (
+    <div className="fila-agl">
+      <Card f={agora} rotulo="Agora" agora />
+      {prox && (
+        <>
+          <span className="fila-seta">›</span>
+          <Card f={prox} rotulo={prox.rodada ? 'Próximo (nova rodada)' : 'Próximo'} />
+        </>
+      )}
+      {resto.length > 0 && <span className="fila-seta">›</span>}
+      <span className="fila-resto">
+        {resto.map((f, i) => (
+          <Fragment key={`${f.id}-${f.rodada}`}>
+            {f.rodada === 1 && (i === 0 ? prox?.rodada !== 1 : resto[i - 1].rodada === 0) && <span className="fila-rodada">nova rodada</span>}
+            <span className={`fila-mini ${quem(f.lado)}${f.rodada ? ' prox' : ''}`} title={`${f.nome} (${f.lado === meuLado ? 'você' : 'inimigo'}) · AGL ${f.agl}${f.perde ? ' · perde a vez' : ''}`}>
+              <i className="rosto" style={rosto(f.retrato, 22)} />
+              {f.perde && <span className="fila-perde">❄</span>}
+            </span>
+          </Fragment>
+        ))}
+      </span>
+    </div>
+  )
+}
 
 /** Rosto: recorte da cabeça na folha parada (as folhas têm todas a mesma proporção, 300×264 ou 150×132). */
 function rosto(url: string, l: number): React.CSSProperties {
@@ -638,16 +690,7 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                 {b.fase === 'inimiga' && <span style={{ color: '#a8a090' }}>agindo…</span>}
                 {b.mp?.aviso && <span style={{ color: '#ff9a8a' }}>{b.mp.aviso}</span>}
               </div>
-              {b.fila && b.fase !== 'haki' && (
-                <div className="fila-agl" title="Ordem das vezes (maior AGL primeiro)">
-                  {b.fila.map((f, i) => (
-                    <span key={f.id} className={`fila-item ${f.lado === meuLado ? 'meu' : 'inimigo'}${i === 0 ? ' agora' : ''}`} title={f.nome}>
-                      <i className="rosto" style={rostoFila(f.retrato)} />
-                      {i === 0 && <b>{f.nome}</b>}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {b.fila && b.fase !== 'haki' && <FilaAgl fila={b.fila} meuLado={meuLado} />}
             </div>
           )}
 
