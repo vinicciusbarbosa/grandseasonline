@@ -565,6 +565,7 @@ export class ControleBatalha {
       c.espirito = 100
       c.recargas = {}
       c.atordoado = false
+      c.atordoadoMais = 0
       c.queimadura = null
       if (jogador) {
         c.arma = t.arma

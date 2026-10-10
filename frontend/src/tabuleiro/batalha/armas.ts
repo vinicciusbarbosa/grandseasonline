@@ -53,6 +53,8 @@ export type Skill = {
   queima?: { dano: number; vezes: number }
   /** chance (0–1) de congelar (perde a próxima vez) */
   congela?: number
+  /** vezes que o congelado perde (padrão 1) */
+  congelaVezes?: number
 }
 
 export const SKILLS_ARMA: Record<TipoArma, Skill[]> = {
@@ -159,7 +161,7 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
       { id: 'ice-saber', nome: 'Sabre de Gelo', descricao: 'Espada de gelo de perto; congela o alvo.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.3, elemento: 'gelo', congela: 1 },
       { id: 'ice-time', nome: 'Ice Time', descricao: 'Toque que congela o alvo ao lado.', energia: 30, recarga: 3, alcance: 1, area: 'alvo', mult: 0.5, elemento: 'gelo', congela: 1 },
       { id: 'pheasant-beak', nome: 'Bico de Faisão (Pheasant Beak)', descricao: 'Uma ave de gelo voa até o alvo (até 5 casas) e explode em cristais; congela o alvo.', energia: 35, recarga: 3, alcance: 5, area: 'alvo', mult: 1.5, elemento: 'gelo', congela: 1 },
-      { id: 'era-gelo', nome: 'Era do Gelo (Ice Age)', descricao: 'Congela o mapa inteiro: acerta e congela todos os inimigos.', energia: 60, recarga: 5, alcance: 0, area: 'mapa', mult: 0.45, elemento: 'gelo', congela: 1 },
+      { id: 'era-gelo', nome: 'Era do Gelo (Ice Age)', descricao: 'Congela o mapa inteiro: acerta todos os inimigos e eles perdem as 2 próximas vezes.', energia: 60, recarga: 5, alcance: 0, area: 'mapa', mult: 0.45, elemento: 'gelo', congela: 1, congelaVezes: 2 },
     ],
   },
 }

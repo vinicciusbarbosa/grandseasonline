@@ -80,6 +80,8 @@ export type Combatente = {
   armamentoLigado: boolean
   /** Haki do Rei / congelado: perde a próxima vez */
   atordoado: boolean
+  /** vezes a MAIS que ainda perde depois desta (congelamento longo, ex.: Ice Age) */
+  atordoadoMais?: number
   /** skill → vezes da tripulação que ainda faltam para poder usar */
   recargas: Record<string, number>
   /** queimadura: dano no começo de cada vez */
@@ -277,6 +279,7 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
     c.observando = false
     c.armamentoLigado = false
     c.atordoado = false
+    c.atordoadoMais = 0
     c.queimadura = null
     c.recargas = {}
   }
@@ -490,6 +493,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
     // congela mesmo quem já está atordoado (fica congelado em vez de só atordoado)
     if (alvo.hp > 0 && s.congela && rnd() < s.congela) {
       alvo.atordoado = true
+      alvo.atordoadoMais = Math.max(alvo.atordoadoMais ?? 0, (s.congelaVezes ?? 1) - 1)
       ev.push({ t: 'congelou', id: alvo.id })
     }
     // Haki do Rei imbuído: atordoa quem tem Haki mais fraco
@@ -600,7 +604,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
   else if (fimDaVez && !acabou) {
     // quem estava atordoado perdeu esta vez; as recargas andam uma vez
     for (const c of vivos(e, e.vez)) {
-      c.atordoado = false
+      soltar(c)
       for (const k of Object.keys(c.recargas)) if (--c.recargas[k] <= 0) delete c.recargas[k]
     }
     e.vez = outro(e.vez)
@@ -652,7 +656,7 @@ function comecoDaVez(c: Combatente, ev: Evento[], espirito: (c: Combatente, v: n
  */
 function proximoDaFila(e: Estado, rnd: () => number, ev: Evento[], espirito: (c: Combatente, v: number) => void) {
   const fim = (c: Combatente) => {
-    c.atordoado = false
+    soltar(c)
     for (const k of Object.keys(c.recargas)) if (--c.recargas[k] <= 0) delete c.recargas[k]
   }
   const atual = porId(e, e.ativo ?? '')
@@ -673,5 +677,14 @@ function proximoDaFila(e: Estado, rnd: () => number, ev: Evento[], espirito: (c:
     }
     ev.push({ t: 'vez', lado: e.vez, turno: e.turno, id: c.id })
     return
+  }
+}
+
+/** Fim da vez de quem perdeu a vez: volta ao normal, ou continua congelado se ainda falta (atordoadoMais). */
+function soltar(c: Combatente) {
+  if (c.atordoado && c.atordoadoMais) c.atordoadoMais--
+  else {
+    c.atordoado = false
+    c.atordoadoMais = 0
   }
 }
