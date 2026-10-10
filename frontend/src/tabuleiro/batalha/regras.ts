@@ -182,8 +182,8 @@ export const RECUPERA_ARMAMENTO = { espirito: 25, usos: 1 }
  * leva de volta o dano base puro. */
 export const CLASH = { espirito: 30, empate: 3, bonus: 1.3 }
 export const FORCA = 1.4
-const MULT_ARMAMENTO = 1.4
-const MULT_AVANCADO = 1.55
+export const MULT_ARMAMENTO = 1.4
+export const MULT_AVANCADO = 1.55
 /** quanto da defesa o armamento fura (normal / avançado) */
 const FURA_ARMAMENTO = 0.15
 const FURA_AVANCADO = 0.35

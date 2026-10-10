@@ -29,7 +29,10 @@ function ArteHabilidade({ id, arma, indice }: { id: string; arma?: string; indic
 
 function dicaSkill(k: SkillHud): DicaCombate {
   const areas: Record<string, string> = { alvo: '1 alvo', linha: 'Em linha', leque: 'Em leque', volta: 'Ao redor', si: 'Em si', mapa: 'Mapa inteiro' }
+  const d=k.dano
   return { titulo:k.nome, texto:k.motivo ?? k.descricao, tags:[
+    ...(d ? [`Dano ≈ ${d.golpes>1 ? `${d.golpes} × ${d.porGolpe}` : d.porGolpe} (${d.atributo} ${d.valor})`, ...(d.haki ? [`Com Haki ≈ ${d.golpes>1 ? `${d.golpes} × ${d.haki}` : d.haki}`] : [])] : []),
+    ...(k.cura ? [`Cura ${k.cura}`] : []),
     k.espirito ? `${k.espirito} espírito` : k.energia ? `${k.energia} energia` : 'Sem custo de energia',
     ...(k.espera ? [`Recarga: ${k.espera} turnos`] : []), ...(k.alcance ? [`Alcance: ${k.alcance}`] : []),
     k.area === 'explosao' ? `Área ${k.raio*2+1} × ${k.raio*2+1}` : areas[k.area] ?? k.area,

@@ -30,7 +30,12 @@ import {
   reiImbuido,
   hakiPreparacao,
   tempoDaVez,
+  FORCA,
   MOVIMENTO_FILA,
+  MULT_ARMAMENTO,
+  MULT_AVANCADO,
+  REI_IMBUIDO,
+  poderDe,
   MOVIMENTO_POR_VEZ,
   aplicar,
   criarBatalha,
@@ -249,10 +254,22 @@ const ELEMENTAIS = new Set<TipoEfeito>(['fogo', 'luz', 'gelo', 'fumaca', 'aura',
 
 // ------------------------------------------------------------ preparação
 // ------------------------------------------------------------ HUD
-export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; raio: number; livre: boolean; motivo: string | null; fruta: boolean; origem: 'arma' | 'fruta' | 'haki' | 'suporte'; buff: boolean; espirito: number }
+export type SkillHud = { id: string; nome: string; descricao: string; energia: number; recarga: number; espera: number; alcance: number; area: string; raio: number; livre: boolean; motivo: string | null; fruta: boolean; origem: 'arma' | 'fruta' | 'haki' | 'suporte'; buff: boolean; espirito: number
+  /** dano médio de cada golpe antes da defesa do alvo (null = não causa dano); `haki`: com o armamento ligado; `cura`: o que cura */
+  dano: { porGolpe: number; golpes: number; atributo: 'ATK' | 'AKM'; valor: number; haki: number | null } | null
+  cura: number }
 
 /** Técnica selecionável na HUD; continua usando a ação haoshoku do combate/MP. */
 const HAKI_REI: Skill = { id: 'haoshoku', nome: 'Haki do Rei', descricao: 'Uma explosão de vontade atordoa os inimigos mais fracos ao redor. Não gasta a vez.', energia: 0, alcance: 0, area: 'explosao', raio: HAOSHOKU.raio, mult: 0, livre: true }
+/** Dano médio de uma skill (por golpe, antes da DEF do alvo): para a dica da HUD. */
+function danoDaSkill(c: Combatente, k: Skill): SkillHud['dano'] {
+  if (k.mult <= 0 || k.id === HAKI_REI.id) return null
+  const fruta = !!c.akuma && FRUTAS[c.akuma.fruta].skills.some((x) => x.id === k.id)
+  const porGolpe = poderDe(c, k) * FORCA * k.mult
+  const arm = c.haki.armamento
+  const haki = arm && !k.livre ? porGolpe * (arm.avancado ? MULT_AVANCADO : MULT_ARMAMENTO) * (arm.imbuido ? REI_IMBUIDO.mult : 1) : null
+  return { porGolpe: Math.round(porGolpe), golpes: k.golpes ?? 1, atributo: fruta ? 'AKM' : 'ATK', valor: fruta ? c.at.akm : c.at.atk, haki: haki && Math.round(haki) }
+}
 const skillsSelecionaveis = (c: Combatente) => [...skillsDe(c), ...(c.haki.rei ? [HAKI_REI] : [])]
 /** batalha multiplayer: a sala e o que falta (null = batalha contra a IA) */
 export type MpHud = {
@@ -1780,6 +1797,8 @@ export class ControleBatalha {
               origem: k.id === HAKI_REI.id ? 'haki' : s.akuma && FRUTAS[s.akuma.fruta].skills.includes(k) ? 'fruta' : k.cura ? 'suporte' : 'arma',
               buff: !!k.transforma,
               espirito: k.id === HAKI_REI.id ? HAOSHOKU.espirito : 0,
+              dano: danoDaSkill(s, k),
+              cura: k.cura ?? 0,
               recarga: s.recargas[k.id] ?? 0,
               espera: k.recarga ?? 0,
               raio: k.raio ?? 1,
