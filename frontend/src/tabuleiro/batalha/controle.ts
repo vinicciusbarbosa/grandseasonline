@@ -976,6 +976,16 @@ export class ControleBatalha {
   }
 
   selecionar(id: string | null) {
+    // fila por AGL: na sua vez, só quem está agindo fica selecionado (os outros do time esperam a vez deles)
+    const ativo = this.estado.modo === 'fila' && this.fase === 'minha' ? porId(this.estado, this.estado.ativo ?? '') : null
+    if (ativo && id !== ativo.id) {
+      const outro = id ? porId(this.estado, id) : null
+      id = ativo.id
+      if (outro && outro.lado === this.jogador) {
+        const p = this.palco.personagem(outro.id)
+        if (p) this.palco.flutuar(p, 'Espere a vez', '#c9c9c9', 1)
+      }
+    }
     // atordoado (Haki do Rei, gelo): não dá para escolher nesta vez
     const atordoado = id ? porId(this.estado, id) : null
     if (atordoado?.atordoado) {

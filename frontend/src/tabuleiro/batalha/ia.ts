@@ -97,7 +97,7 @@ export function proximaAcao(e: Estado): Acao {
   const perto = (c: Combatente, r: number) => inimigos.some((i) => distancia(i.casa, c.casa) <= r)
 
   // observação: liga em quem está perto do inimigo (não gasta ação)
-  for (const c of vivos(e, lado)) {
+  for (const c of vivos(e, lado).filter((x) => e.modo !== 'fila' || x.id === e.ativo)) {
     if (!c.observando && (c.haki.observacao?.usos ?? 0) > 0 && perto(c, 4)) return { t: 'observar', id: c.id, ligado: true }
   }
   {

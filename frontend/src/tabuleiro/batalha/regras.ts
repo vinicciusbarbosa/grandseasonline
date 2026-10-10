@@ -340,6 +340,8 @@ export function motivo(e: Estado, a: Acao): string | null {
   const c = porId(e, a.id)
   if (!c || c.hp <= 0) return 'Personagem inválido.'
   if (c.lado !== e.vez) return 'Não é a vez dele.'
+  // modo fila: só quem está na vez age (anda, ataca, usa skill e liga/desliga Haki)
+  if (e.modo === 'fila' && c.id !== e.ativo) return `Agora é a vez de ${porId(e, e.ativo ?? '')?.nome ?? 'outro'}.`
   if (a.t === 'observar') return a.ligado && !c.haki.observacao?.usos ? 'Sem usos de Haki de observação.' : null
   if (a.t === 'haki') {
     if (!a.ligado) return null
@@ -348,8 +350,6 @@ export function motivo(e: Estado, a: Acao): string | null {
     return null
   }
   if (c.atordoado) return `${c.nome} está atordoado.`
-  // modo fila: só quem está na vez anda, ataca e usa skill (ligar Haki vale para todos do lado)
-  if (e.modo === 'fila' && c.id !== e.ativo) return `Agora é a vez de ${porId(e, e.ativo ?? '')?.nome ?? 'outro'}.`
   if (a.t === 'mover') {
     if (!a.caminho.length) return 'Caminho vazio.'
     if (a.caminho.length > e.movimento) return 'Movimento insuficiente.'
