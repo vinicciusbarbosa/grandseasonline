@@ -64,6 +64,7 @@ function sala(modo: ModoVez, logger: Logger) {
     })
     const semente = Math.floor(Math.random() * 2147483646) + 1
     estado = criarBatalha(renomear(aplicarConfig(combatentesIniciais(), config), nomes), semente, modo)
+    estado.semClash = true // multiplayer: sem o choque de Haki do Rei
     fase = 'haki'
     fimPreparo = Date.now() + (PREPARO_HAKI_MP + 2) * 1000
     todos({ t: 'comecar', config, semente, modo })

@@ -699,6 +699,8 @@ export class ControleBatalha {
       this.nomesNaCena()
     }
     this.estado = criarBatalha(cs, semente, this.modo)
+    // multiplayer: sem o choque de Haki do Rei (igual ao servidor)
+    if (this.rede) this.estado.semClash = true
     this.inicioBatalha = performance.now()
     this.log = []
     this.registrar('Preparação: liguem o Haki (10 s).')

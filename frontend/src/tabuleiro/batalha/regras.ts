@@ -104,6 +104,8 @@ export type Estado = {
   /** modo fila: quem joga agora e quem ainda falta nesta rodada, em ordem */
   ativo?: string | null
   fila?: string[]
+  /** sem o choque de Haki do Rei (o multiplayer joga sem ele) */
+  semClash?: boolean
   /** quantas vezes já passou (1 = primeira vez do primeiro lado) */
   turno: number
   movimento: number
@@ -382,7 +384,7 @@ export function motivo(e: Estado, a: Acao): string | null {
  * queimadura, congelar, atordoar). `revida` diz se a observação avançada
  * revida (no tabuleiro: de perto).
  */
-export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatente, alvo: Combatente) => boolean) {
+export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatente, alvo: Combatente) => boolean, clash = true) {
   const espirito = (c: Combatente, v: number) => (c.espirito = Math.min(ESPIRITO_MAX, c.espirito + v))
 
   const ferir = (alvo: Combatente, dano: number) => {
@@ -403,7 +405,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
   /** Um golpe de `c` em `alvo`. */
   const golpear = (c: Combatente, alvo: Combatente, s: Skill, armamento: boolean, rei: boolean, mult = s.mult): void => {
     // Choque de Haki do Rei (uma vez por alvo na ação)
-    if (rei && alvo.haki.armamento?.imbuido && !clashes.has(alvo.id) && alvo.espirito >= CLASH.espirito) {
+    if (clash && rei && alvo.haki.armamento?.imbuido && !clashes.has(alvo.id) && alvo.espirito >= CLASH.espirito) {
       alvo.espirito -= CLASH.espirito
       const dif = c.haki.overall - alvo.haki.overall
       const resultado = Math.abs(dif) <= CLASH.empate ? 'empate' : rnd() < chanceHaki(dif) ? 'venceu' : 'perdeu'
@@ -508,7 +510,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
   const e: Estado = structuredClone(anterior)
   const rnd = sorteador(e.semente)
   const ev: Evento[] = []
-  const { golpear, espirito } = golpeador(rnd, ev, (c, alvo) => distancia(alvo.casa, c.casa) <= 1)
+  const { golpear, espirito } = golpeador(rnd, ev, (c, alvo) => distancia(alvo.casa, c.casa) <= 1, !e.semClash)
   let fimDaVez = false
 
   switch (a.t) {
