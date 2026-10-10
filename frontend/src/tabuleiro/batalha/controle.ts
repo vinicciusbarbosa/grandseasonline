@@ -30,6 +30,8 @@ import {
   reiImbuido,
   hakiPreparacao,
   tempoDaVez,
+  MOVIMENTO_FILA,
+  MOVIMENTO_POR_VEZ,
   aplicar,
   criarBatalha,
   motivo,
@@ -42,6 +44,7 @@ import {
   type Estado,
   type Evento,
   type Lado,
+  type ModoVez,
 } from './regras'
 
 export type Marca = 'mover' | 'alcance' | 'alvo' | 'cura' | 'destino' | 'area'
@@ -278,6 +281,10 @@ export type RetratoBatalha = {
   vez: Lado
   tempoMax: number
   movimento: number
+  /** passos máximos da vez (tripulação: 5 divididos; fila: os de quem joga) */
+  movimentoMax: number
+  /** modo fila por AGL: a ordem desta rodada a partir de quem joga agora */
+  fila: { id: string; nome: string; lado: Lado; retrato: string }[] | null
   tempo: number
   vencedor: Lado | null
   tripulacao: FichaHud[]
@@ -331,11 +338,14 @@ export class ControleBatalha {
   /** o lado que este jogador controla (contra a IA, sempre os piratas, de cima) */
   private jogador: Lado = 'piratas'
 
+  /** como as vezes se alternam (?fila na URL: fila única por AGL) */
+  readonly modo: ModoVez
   constructor(palco: Palco) {
     this.palco = palco
-    this.estado = criarBatalha(combatentesIniciais())
-    this.relogio = window.setInterval(() => this.checarTempo(), 500)
     const busca = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null
+    this.modo = busca?.has('fila') ? 'fila' : 'tripulacao'
+    this.estado = criarBatalha(combatentesIniciais(), undefined, this.modo)
+    this.relogio = window.setInterval(() => this.checarTempo(), 500)
     if (busca?.has('treino')) this.treino = { fruta: 'fogo', arma: 'espada', alvoFruta: '', armamento: 0, rei: false }
     else if (busca?.has('mp')) {
       let nome = busca.get('nome') || localStorage.getItem('nomeMp') || ''
@@ -358,10 +368,15 @@ export class ControleBatalha {
   private esperaMp: ((ok: boolean) => void) | null = null
 
   private conectarMp(nome: string) {
-    this.rede = new RedeBatalha(nome, (m) => this.receberMp(m), () => {
-      this.mp.aviso = 'Conexão com a sala perdida.'
-      this.palco.avisar()
-    })
+    this.rede = new RedeBatalha(
+      nome,
+      (m) => this.receberMp(m),
+      () => {
+        this.mp.aviso = 'Conexão com a sala perdida.'
+        this.palco.avisar()
+      },
+      this.modo === 'fila',
+    )
   }
 
   private receberMp(m: MsgServidorBatalha) {
@@ -683,7 +698,7 @@ export class ControleBatalha {
       renomear(cs, this.nomesMp)
       this.nomesNaCena()
     }
-    this.estado = criarBatalha(cs, semente)
+    this.estado = criarBatalha(cs, semente, this.modo)
     this.inicioBatalha = performance.now()
     this.log = []
     this.registrar('Preparação: liguem o Haki (10 s).')
@@ -746,6 +761,12 @@ export class ControleBatalha {
     }
     this.fase = this.estado.vez === this.jogador ? 'minha' : 'inimiga'
     this.dica = this.fase === 'minha' ? 'Sua vez: toque num tripulante.' : 'Vez do inimigo…'
+    // fila por AGL: a vez é de um personagem só, que já vem escolhido
+    const ativo = this.estado.modo === 'fila' ? porId(this.estado, this.estado.ativo ?? '') : null
+    if (ativo && this.fase === 'minha') {
+      this.selecionar(ativo.id)
+      this.dica = `Vez de ${ativo.nome}: anda até ${MOVIMENTO_FILA} casas e ataca.`
+    } else if (ativo) this.dica = `Vez de ${ativo.nome} (inimigo)…`
     this.redesenhar()
     if ((this.fase === 'inimiga' && !this.rede) || (this.fase === 'minha' && this.auto)) void this.jogarIA()
   }
@@ -762,7 +783,9 @@ export class ControleBatalha {
     await new Promise((r) => setTimeout(r, 700))
     let guarda = 0
     const lado = this.estado.vez
-    while (this.estado.vez === lado && (lado !== this.jogador || this.auto) && !this.estado.vencedor && guarda++ < 80) {
+    // fila: este laço joga só a vez de quem está ativo (a próxima abre outro laço)
+    const ativo = this.estado.ativo
+    while (this.estado.vez === lado && this.estado.ativo === ativo && (lado !== this.jogador || this.auto) && !this.estado.vencedor && guarda++ < 80) {
       const a = proximaAcao(this.estado)
       const ok = await this.executar(a)
       if (!ok) await this.executar({ t: 'passar' })
@@ -817,6 +840,7 @@ export class ControleBatalha {
       return false
     }
     const vezAntes = this.estado.vez
+    const ativoAntes = this.estado.ativo
     this.animando = true
     this.palco.limparMarcas()
     this.palco.avisar()
@@ -843,7 +867,7 @@ export class ControleBatalha {
       this.redesenhar()
       return true
     }
-    if (this.estado.vez !== vezAntes || this.estado.vencedor) this.novaVez()
+    if (this.estado.vez !== vezAntes || this.estado.ativo !== ativoAntes || this.estado.vencedor) this.novaVez()
     else {
       // continua com o mesmo personagem escolhido
       this.previa = null
@@ -1143,8 +1167,19 @@ export class ControleBatalha {
           break
         case 'vez':
           if (this.treino) break
-          this.registrar(`— Vez ${e.turno}: ${e.lado === this.jogador ? 'sua tripulação' : 'inimigo'} —`)
+          this.registrar(
+            e.id
+              ? `— Vez ${e.turno}: ${nome(e.id)} (${e.lado === this.jogador ? 'seu' : 'inimigo'}) —`
+              : `— Vez ${e.turno}: ${e.lado === this.jogador ? 'sua tripulação' : 'inimigo'} —`,
+          )
           break
+        case 'pulou': {
+          const p = P(e.id)
+          if (p) this.palco.flutuar(p, 'Perdeu a vez!', '#ff5a6e', 1)
+          this.registrar(`${nome(e.id)} está atordoado e perde a vez.`)
+          await esperar(400)
+          break
+        }
         case 'fim':
           this.registrar(e.vencedor === this.jogador ? 'Vitória!' : 'Derrota.')
           break
@@ -1716,6 +1751,14 @@ export class ControleBatalha {
       turno: e.turno,
       vez: e.vez,
       movimento: e.movimento,
+      movimentoMax: e.modo === 'fila' ? MOVIMENTO_FILA : MOVIMENTO_POR_VEZ,
+      fila:
+        e.modo === 'fila'
+          ? [e.ativo, ...(e.fila ?? [])]
+              .map((id) => porId(e, id ?? ''))
+              .filter((x): x is Combatente => !!x && x.hp > 0)
+              .map((x) => ({ id: x.id, nome: x.nome, lado: x.lado, retrato: recurso(`${import.meta.env.BASE_URL}sprites/${this.folhas.get(x.id) ?? x.id}/parado_S.png`) }))
+          : null,
       tempo: this.fase === 'minha' ? this.tempo() : tempoDaVez(e),
       tempoMax: tempoDaVez(e),
       vencedor: e.vencedor,

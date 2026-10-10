@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
-import { HAOSHOKU, MOVIMENTO_POR_VEZ } from './regras'
+import { HAOSHOKU } from './regras'
 import { SKILLS_ARMA } from './armas'
 import { BarraCombate, type DicaCombate } from './BarraCombate'
 import { ATRIBUTOS_BUILD, NOMES_CLASSE, PONTOS_BUILD, buildValida, comBuild, pontosGastos, MAX_POR_ATRIBUTO, VIDA_POR_VIG, type Config } from './elenco'
@@ -78,6 +78,15 @@ const CSS = `
 .hud .atr .ctl button:hover:not(:disabled) { background:#3a3220; border-color:var(--ouro); }
 .hud .atr .ctl button:disabled { opacity:.3; cursor:default; }
 
+/* modo fila por AGL: a ordem das vezes, embaixo da vez */
+.hud .fila-agl { display:flex; justify-content:center; align-items:center; gap:3px; margin-top:4px; }
+.hud .fila-item { display:inline-flex; align-items:center; gap:4px; padding:2px; border-radius:4px; background:var(--fundo); border:1px solid rgba(255,255,255,.12); opacity:.75; }
+.hud .fila-item .rosto { width:24px; height:24px; }
+.hud .fila-item.meu { border-color:rgba(143,224,160,.55); }
+.hud .fila-item.inimigo { border-color:rgba(255,138,122,.55); }
+.hud .fila-item.agora { opacity:1; padding-right:7px; box-shadow:0 0 0 1px var(--ouro), 0 0 8px rgba(216,180,90,.45); }
+.hud .fila-item.agora b { font-size:11px; }
+
 /* topo: a vez */
 .hud .vez { display:inline-flex; align-items:center; gap:10px; padding:4px 14px; border-radius:20px; font-size:12px; }
 .hud .vez .tit { font-size:15px; }
@@ -138,6 +147,9 @@ function Barra({ v, max, c, fina, texto }: { v: number; max: number; c: string; 
     </div>
   )
 }
+
+/** rosto pequeno na fila por AGL */
+const rostoFila = (url: string) => rosto(url, 24)
 
 /** Rosto: recorte da cabeça na folha parada (as folhas têm todas a mesma proporção, 300×264 ou 150×132). */
 function rosto(url: string, l: number): React.CSSProperties {
@@ -336,6 +348,7 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
       <div className="painel janela">
         <div className="tit" style={{ fontSize: 22, textAlign: 'center', color: '#ffe6a0', marginBottom: 8 }}>
           {mp ? 'Montar a sua tripulação' : 'Montar as tripulações'}
+          {c.modo === 'fila' && <div style={{ fontSize: 12, color: '#d8b45a', fontFamily: 'inherit', marginTop: 2 }}>Modo fila: cada personagem joga na sua vez, do maior AGL ao menor</div>}
         </div>
         {mp && <SalaMp mp={mp} />}
         {mp?.aviso && <div style={{ textAlign: 'center', color: '#ff9a8a', marginBottom: 8 }}>{mp.aviso}</div>}
@@ -433,6 +446,12 @@ function Preparar({ b, c }: { b: RetratoBatalha; c: ControleBatalha }) {
               </button>
               <button className="bt" onClick={() => (location.href = `${location.pathname}?mp`)} title="Batalha contra outro jogador (os dois abrem este link)">
                 ⚔ Multiplayer
+              </button>
+              <button className="bt" onClick={() => (location.href = `${location.pathname}?mp&fila`)} title="Multiplayer com fila única: cada personagem joga na sua vez, do mais ágil (AGL) ao menos ágil">
+                ⚔ Multiplayer (fila AGL)
+              </button>
+              <button className="bt" onClick={() => (location.href = c.modo === 'fila' ? location.pathname : `${location.pathname}?fila`)} title="Contra a IA: alterna entre a vez da tripulação e a fila única por AGL">
+                {c.modo === 'fila' ? '↔ Vez por tripulação' : '↕ Fila por AGL'}
               </button>
             </>
           )}
@@ -604,8 +623,8 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                 </span>
                 {b.fase === 'minha' && (
                   <>
-                    <span title="Passos da tripulação nesta vez">
-                      👣 {b.movimento}/{MOVIMENTO_POR_VEZ}
+                    <span title={b.fila ? 'Passos de quem joga nesta vez' : 'Passos da tripulação nesta vez'}>
+                      👣 {b.movimento}/{b.movimentoMax}
                     </span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       ⌛
@@ -619,6 +638,16 @@ export function HudBatalha({ b, c, velocidade, mudarVelocidade }: { b: RetratoBa
                 {b.fase === 'inimiga' && <span style={{ color: '#a8a090' }}>agindo…</span>}
                 {b.mp?.aviso && <span style={{ color: '#ff9a8a' }}>{b.mp.aviso}</span>}
               </div>
+              {b.fila && b.fase !== 'haki' && (
+                <div className="fila-agl" title="Ordem das vezes (maior AGL primeiro)">
+                  {b.fila.map((f, i) => (
+                    <span key={f.id} className={`fila-item ${f.lado === meuLado ? 'meu' : 'inimigo'}${i === 0 ? ' agora' : ''}`} title={f.nome}>
+                      <i className="rosto" style={rostoFila(f.retrato)} />
+                      {i === 0 && <b>{f.nome}</b>}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

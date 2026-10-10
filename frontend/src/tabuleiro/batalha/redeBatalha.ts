@@ -5,9 +5,9 @@ export class RedeBatalha {
   private readonly ws: WebSocket
   conectado = false
 
-  constructor(nome: string, aoReceber: (m: MsgServidorBatalha) => void, aoFechar: () => void) {
+  constructor(nome: string, aoReceber: (m: MsgServidorBatalha) => void, aoFechar: () => void, fila = false) {
     const protocolo = location.protocol === 'https:' ? 'wss' : 'ws'
-    this.ws = new WebSocket(`${protocolo}://${location.host}/mpb`)
+    this.ws = new WebSocket(`${protocolo}://${location.host}/${fila ? 'mpb-fila' : 'mpb'}`)
     this.ws.onopen = () => {
       this.conectado = true
       this.enviar({ t: 'entrar', nome })

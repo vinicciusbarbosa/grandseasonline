@@ -91,7 +91,8 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
 
 export function proximaAcao(e: Estado): Acao {
   const lado = e.vez
-  const meus = vivos(e, lado).filter((c) => !c.atordoado)
+  // (modo fila: só quem está na vez age)
+  const meus = vivos(e, lado).filter((c) => !c.atordoado && (e.modo !== 'fila' || c.id === e.ativo))
   const inimigos = vivos(e, outro(lado))
   const perto = (c: Combatente, r: number) => inimigos.some((i) => distancia(i.casa, c.casa) <= r)
 

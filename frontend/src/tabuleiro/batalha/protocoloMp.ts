@@ -1,11 +1,13 @@
 import type { Config } from './elenco'
-import type { Acao, Lado } from './regras'
+import type { Acao, Lado, ModoVez } from './regras'
 
 /**
  * Batalha multiplayer (WebSocket em /mpb, no mesmo servidor do Vite): dois
  * jogadores, um em cada navio. O servidor guarda o estado da batalha e roda
  * as mesmas regras (são determinísticas pela semente): valida cada ação, a
  * repassa aos dois na mesma ordem e cada um anima do seu lado.
+ *
+ * Duas salas: /mpb (vez da tripulação) e /mpb-fila (fila única por AGL).
  *
  * Fluxo: sala (os dois entram) → preparação (até 5 min: cada um monta a sua
  * tripulação; começa quando os dois dão Pronto ou o tempo acaba) → Haki
@@ -35,7 +37,7 @@ export type MsgServidorBatalha =
   /** a sala: quem está, quem deu pronto e quanto falta da preparação (s; null = esperando o oponente) */
   | { t: 'sala'; jogadores: JogadorBatalhaMp[]; restam: number | null }
   /** a preparação acabou: a montagem dos dois lados e a semente da batalha */
-  | { t: 'comecar'; config: Config[]; semente: number }
+  | { t: 'comecar'; config: Config[]; semente: number; modo?: ModoVez }
   /** a preparação de Haki acabou: o que cada um ligou */
   | { t: 'iniciar'; haki: HakiMp[] }
   /** ação aceita (n = ordem), para os dois aplicarem */

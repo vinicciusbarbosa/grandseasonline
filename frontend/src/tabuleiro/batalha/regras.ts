@@ -86,9 +86,24 @@ export type Combatente = {
   queimadura: { dano: number; vezes: number } | null
 }
 
+/**
+ * Como as vezes se alternam:
+ *   tripulacao — a vez é da tripulação inteira (5 movimentos divididos e um
+ *                ataque), alternando os lados;
+ *   fila       — fila única por AGL: cada personagem tem a SUA vez (anda até
+ *                MOVIMENTO_FILA casas e ataca uma vez), do mais ágil ao menos
+ *                ágil; quando todos jogaram, a fila recomeça.
+ */
+export type ModoVez = 'tripulacao' | 'fila'
+
 export type Estado = {
   combatentes: Combatente[]
+  /** lado de quem joga agora (no modo fila, o lado do `ativo`) */
   vez: Lado
+  modo?: ModoVez
+  /** modo fila: quem joga agora e quem ainda falta nesta rodada, em ordem */
+  ativo?: string | null
+  fila?: string[]
   /** quantas vezes já passou (1 = primeira vez do primeiro lado) */
   turno: number
   movimento: number
@@ -101,7 +116,10 @@ export type Estado = {
 export type Efeito = 'acertou' | 'critico' | 'bloqueou' | 'esquivou' | 'observou' | 'atravessou' | 'desgastado'
 
 export type Evento =
-  | { t: 'vez'; lado: Lado; turno: number }
+  /** id: no modo fila, quem joga agora */
+  | { t: 'vez'; lado: Lado; turno: number; id?: string }
+  /** modo fila: atordoado/congelado, perdeu a própria vez */
+  | { t: 'pulou'; id: string }
   | { t: 'mover'; id: string; caminho: Casa[] }
   | { t: 'skill'; id: string; skill: string; nome: string; alvo: Casa; casas: Casa[]; armamento: boolean; rei: boolean }
   /** cargas: as da Logia que sobraram (no 'atravessou') */
@@ -123,6 +141,8 @@ export type Evento =
 
 // ------------------------------------------------------------ números (teste)
 export const MOVIMENTO_POR_VEZ = 5
+/** modo fila: casas que cada personagem anda na própria vez */
+export const MOVIMENTO_FILA = 3
 export const TEMPO_POR_VEZ = 90 // s
 export const TEMPO_PENALIDADE = 30 // s, depois de perder 3 vezes pelo tempo
 export const tempoDaVez = (e: Estado) => (e.perdidas[e.vez] >= 3 ? TEMPO_PENALIDADE : TEMPO_POR_VEZ)
@@ -247,7 +267,7 @@ export function movimentos(e: Estado, c: Combatente, max = e.movimento) {
 }
 
 // ------------------------------------------------------------ início
-export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 2147483646) + 1): Estado {
+export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 2147483646) + 1, modo: ModoVez = 'tripulacao'): Estado {
   const cs = structuredClone(combatentes)
   for (const c of cs) {
     c.energia = ENERGIA_INICIAL
@@ -263,10 +283,24 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
     return v.reduce((s, c) => s + c.at.agl, 0) / Math.max(1, v.length)
   }
   const rnd = sorteador(semente)
+  if (modo === 'fila') {
+    const [ativo, ...fila] = ordemDaFila(cs, rnd)
+    const vez = cs.find((c) => c.id === ativo)!.lado
+    return { combatentes: cs, vez, modo, ativo, fila, turno: 1, movimento: MOVIMENTO_FILA, perdidas: { piratas: 0, marinha: 0 }, semente: Math.floor(rnd() * 2147483646) + 1, vencedor: null }
+  }
   const dp = media('piratas')
   const dm = media('marinha')
   const vez: Lado = dp > dm ? 'piratas' : dm > dp ? 'marinha' : rnd() < 0.5 ? 'piratas' : 'marinha'
   return { combatentes: cs, vez, turno: 1, movimento: MOVIMENTO_POR_VEZ, perdidas: { piratas: 0, marinha: 0 }, semente: Math.floor(rnd() * 2147483646) + 1, vencedor: null }
+}
+
+/** Ordem da rodada no modo fila: maior AGL primeiro (empate: sorteio). */
+function ordemDaFila(cs: Combatente[], rnd: () => number) {
+  return cs
+    .filter((c) => c.hp > 0)
+    .map((c) => ({ id: c.id, agl: c.at.agl, sorte: rnd() }))
+    .sort((a, b) => b.agl - a.agl || a.sorte - b.sorte)
+    .map((x) => x.id)
 }
 
 /**
@@ -309,6 +343,8 @@ export function motivo(e: Estado, a: Acao): string | null {
     return null
   }
   if (c.atordoado) return `${c.nome} está atordoado.`
+  // modo fila: só quem está na vez anda, ataca e usa skill (ligar Haki vale para todos do lado)
+  if (e.modo === 'fila' && c.id !== e.ativo) return `Agora é a vez de ${porId(e, e.ativo ?? '')?.nome ?? 'outro'}.`
   if (a.t === 'mover') {
     if (!a.caminho.length) return 'Caminho vazio.'
     if (a.caminho.length > e.movimento) return 'Movimento insuficiente.'
@@ -558,7 +594,8 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
   if (a.t === 'skill' && !skillsDe(porId(e, a.id)!).find((x) => x.id === a.skill)?.livre) fimDaVez = true
 
   const acabou = ['piratas', 'marinha'].some((l) => !vivos(e, l as Lado).length)
-  if (fimDaVez && !acabou) {
+  if (fimDaVez && !acabou && e.modo === 'fila') proximoDaFila(e, rnd, ev, espirito)
+  else if (fimDaVez && !acabou) {
     // quem estava atordoado perdeu esta vez; as recargas andam uma vez
     for (const c of vivos(e, e.vez)) {
       c.atordoado = false
@@ -568,25 +605,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     e.turno++
     e.movimento = MOVIMENTO_POR_VEZ
     for (const c of vivos(e, e.vez)) {
-      if (c.queimadura) {
-        const d = Math.min(c.hp - 1, c.queimadura.dano) // queimadura não derruba
-        if (d > 0) {
-          c.hp -= d
-          ev.push({ t: 'queimou', id: c.id, dano: d })
-        }
-        if (--c.queimadura.vezes <= 0) c.queimadura = null
-      }
-      if (c.akuma?.transformado) c.akuma.transformado--
-      c.energia = Math.min(ENERGIA_MAX, c.energia + ENERGIA_POR_VEZ)
-      espirito(c, ESPIRITO_POR_VEZ)
-      // armamento recupera com espírito
-      const arm = c.haki.armamento
-      // (só quando acabaram: recuperar a cada vez drenava o espírito e o Rei em área nunca saía)
-      if (arm && arm.usos === 0 && c.espirito >= RECUPERA_ARMAMENTO.espirito) {
-        c.espirito -= RECUPERA_ARMAMENTO.espirito
-        arm.usos = Math.min(arm.max, arm.usos + RECUPERA_ARMAMENTO.usos)
-        ev.push({ t: 'recuperou', id: c.id, usos: arm.usos })
-      }
+      comecoDaVez(c, ev, espirito)
     }
     ev.push({ t: 'vez', lado: e.vez, turno: e.turno })
   }
@@ -599,4 +618,58 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
   }
   e.semente = Math.floor(rnd() * 2147483646) + 1
   return { estado: e, eventos: ev }
+}
+
+/** Começo da vez de um personagem: queimadura, transformação, energia, espírito e o armamento que zerou. */
+function comecoDaVez(c: Combatente, ev: Evento[], espirito: (c: Combatente, v: number) => void) {
+  if (c.queimadura) {
+    const d = Math.min(c.hp - 1, c.queimadura.dano) // queimadura não derruba
+    if (d > 0) {
+      c.hp -= d
+      ev.push({ t: 'queimou', id: c.id, dano: d })
+    }
+    if (--c.queimadura.vezes <= 0) c.queimadura = null
+  }
+  if (c.akuma?.transformado) c.akuma.transformado--
+  c.energia = Math.min(ENERGIA_MAX, c.energia + ENERGIA_POR_VEZ)
+  espirito(c, ESPIRITO_POR_VEZ)
+  // armamento recupera com espírito
+  const arm = c.haki.armamento
+  // (só quando acabaram: recuperar a cada vez drenava o espírito e o Rei em área nunca saía)
+  if (arm && arm.usos === 0 && c.espirito >= RECUPERA_ARMAMENTO.espirito) {
+    c.espirito -= RECUPERA_ARMAMENTO.espirito
+    arm.usos = Math.min(arm.max, arm.usos + RECUPERA_ARMAMENTO.usos)
+    ev.push({ t: 'recuperou', id: c.id, usos: arm.usos })
+  }
+}
+
+/**
+ * Modo fila: acabou a vez do `ativo` (as recargas dele andam uma vez); passa
+ * ao próximo vivo da rodada. Rodada acabou: nova ordem por AGL. Quem está
+ * atordoado/congelado perde a vez dele (e volta ao normal).
+ */
+function proximoDaFila(e: Estado, rnd: () => number, ev: Evento[], espirito: (c: Combatente, v: number) => void) {
+  const fim = (c: Combatente) => {
+    c.atordoado = false
+    for (const k of Object.keys(c.recargas)) if (--c.recargas[k] <= 0) delete c.recargas[k]
+  }
+  const atual = porId(e, e.ativo ?? '')
+  if (atual) fim(atual)
+  for (let guarda = 0; guarda < 100; guarda++) {
+    if (!e.fila?.length) e.fila = ordemDaFila(e.combatentes, rnd)
+    const c = porId(e, e.fila.shift()!)
+    if (!c || c.hp <= 0) continue
+    e.ativo = c.id
+    e.vez = c.lado
+    e.turno++
+    e.movimento = MOVIMENTO_FILA
+    comecoDaVez(c, ev, espirito)
+    if (c.atordoado) {
+      ev.push({ t: 'pulou', id: c.id })
+      fim(c)
+      continue
+    }
+    ev.push({ t: 'vez', lado: e.vez, turno: e.turno, id: c.id })
+    return
+  }
 }

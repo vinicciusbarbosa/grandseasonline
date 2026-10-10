@@ -2,7 +2,7 @@ import type { Logger, ViteDevServer } from 'vite'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { aplicarConfig, combatentesIniciais, configPadrao, ehClasse, renomear, sortearNomes, type Config } from '../src/tabuleiro/batalha/elenco.ts'
 import { FOLGA_VEZ_MP, PREPARO_HAKI_MP, PREPARO_MP, type HakiMp, type MsgClienteBatalha, type MsgServidorBatalha } from '../src/tabuleiro/batalha/protocoloMp.ts'
-import { aplicar, criarBatalha, hakiPreparacao, tempoDaVez, type Estado, type Lado } from '../src/tabuleiro/batalha/regras.ts'
+import { aplicar, criarBatalha, hakiPreparacao, tempoDaVez, type Estado, type Lado, type ModoVez } from '../src/tabuleiro/batalha/regras.ts'
 
 /**
  * Sala da batalha multiplayer (WebSocket em /mpb): dois jogadores, um em
@@ -15,12 +15,18 @@ type Jogador = { ws: WebSocket; nome: string; lado: Lado; pronto: boolean; confi
 
 export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logger) {
   if (!http) return
-  const wss = new WebSocketServer({ noServer: true })
-  const log = (texto: string) => logger.info(`\x1b[35m[batalha]\x1b[0m ${texto}`, { timestamp: true })
+  // uma sala por modo: /mpb (vez da tripulação) e /mpb-fila (fila única por AGL)
+  const salas: Record<string, WebSocketServer> = { '/mpb': sala('tripulacao', logger), '/mpb-fila': sala('fila', logger) }
   http.on('upgrade', (req, socket, cabeca) => {
-    if (!req.url?.startsWith('/mpb')) return
+    const wss = salas[(req.url ?? '').split('?')[0]]
+    if (!wss) return
     wss.handleUpgrade(req, socket, cabeca, (ws) => wss.emit('connection', ws, req))
   })
+}
+
+function sala(modo: ModoVez, logger: Logger) {
+  const wss = new WebSocketServer({ noServer: true })
+  const log = (texto: string) => logger.info(`\x1b[35m[batalha${modo === 'fila' ? ' fila' : ''}]\x1b[0m ${texto}`, { timestamp: true })
 
   let jogadores: Jogador[] = []
   let fase: 'sala' | 'preparar' | 'haki' | 'batalha' = 'sala'
@@ -35,7 +41,7 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m))
   }
   const todos = (m: MsgServidorBatalha) => jogadores.forEach((j) => enviar(j.ws, m))
-  const sala = () =>
+  const mandarSala = () =>
     todos({ t: 'sala', jogadores: jogadores.map((j) => ({ nome: j.nome, lado: j.lado, pronto: j.pronto })), restam: fase === 'preparar' ? Math.max(0, Math.ceil((fimPreparo - Date.now()) / 1000)) : null })
 
   const reiniciar = () => {
@@ -57,10 +63,10 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
       return dele ? { ...dele, classe: ehClasse(dele.classe) ? dele.classe : k.classe } : k
     })
     const semente = Math.floor(Math.random() * 2147483646) + 1
-    estado = criarBatalha(renomear(aplicarConfig(combatentesIniciais(), config), nomes), semente)
+    estado = criarBatalha(renomear(aplicarConfig(combatentesIniciais(), config), nomes), semente, modo)
     fase = 'haki'
     fimPreparo = Date.now() + (PREPARO_HAKI_MP + 2) * 1000
-    todos({ t: 'comecar', config, semente })
+    todos({ t: 'comecar', config, semente, modo })
     log('preparação de Haki')
   }
 
@@ -83,8 +89,9 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
     const r = aplicar(estado, acao)
     if ('erro' in r) return r.erro
     const vezAntes = estado.vez
+    const ativoAntes = estado.ativo
     estado = r.estado
-    if (estado.vez !== vezAntes) inicioVez = Date.now()
+    if (estado.vez !== vezAntes || estado.ativo !== ativoAntes) inicioVez = Date.now()
     todos({ t: 'acao', n: n++, acao })
     if (estado.vencedor) {
       log(`fim: venceu ${estado.vencedor}`)
@@ -96,7 +103,7 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
   const tique = () => {
     if (fase === 'preparar') {
       if (Date.now() >= fimPreparo) comecar()
-      else sala()
+      else mandarSala()
     } else if (fase === 'haki') {
       if (Date.now() >= fimPreparo) iniciar()
     } else if (fase === 'batalha' && estado && !estado.vencedor) {
@@ -133,7 +140,7 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
           timer ??= setInterval(tique, 1000)
           log('preparação começou')
         }
-        sala()
+        mandarSala()
         return
       }
       if (!eu) return
@@ -145,7 +152,7 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
           if (fase !== 'preparar') break
           eu.pronto = !!m.pronto
           if (jogadores.length === 2 && jogadores.every((j) => j.pronto)) comecar()
-          else sala()
+          else mandarSala()
           break
         case 'haki':
           if (fase !== 'haki') break
@@ -184,7 +191,8 @@ export function abrirSalaBatalha(http: ViteDevServer['httpServer'], logger: Logg
         clearInterval(timer)
         timer = null
       }
-      sala()
+      mandarSala()
     })
   })
+  return wss
 }
