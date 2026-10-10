@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5173,
     host: mode === 'mp' ? true : undefined,
-    allowedHosts: mode === 'mp' ? true : undefined,
+    // túnel do Cloudflare (cloudflared tunnel --url ...) liberado também no `npm run dev`
+    allowedHosts: mode === 'mp' ? true : ['.trycloudflare.com'],
     proxy: {
       // Passar pelo proxy deixa front e API na mesma origem em desenvolvimento:
       // não há CORS no caminho e os cookies de sessão (sg_c/sg_k) valem também
