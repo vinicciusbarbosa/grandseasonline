@@ -3,7 +3,7 @@ import type { ControleBatalha, FichaHud, RetratoBatalha } from './controle'
 import { HAOSHOKU } from './regras'
 import { SKILLS_ARMA } from './armas'
 import { BarraCombate, type DicaCombate } from './BarraCombate'
-import { ATRIBUTOS_BUILD, NOMES_CLASSE, PONTOS_BUILD, buildValida, comBuild, pontosGastos, MAX_POR_ATRIBUTO, VIDA_POR_VIG, type Config } from './elenco'
+import { ATRIBUTOS_BUILD, NIVEL as NIVEL_PERSONAGEM, NOMES_CLASSE, PONTOS_BUILD, PONTOS_POR_NIVEL, buildValida, comBuild, pontosGastos, MAX_POR_ATRIBUTO, VIDA_POR_VIG, type Config } from './elenco'
 
 /**
  * HUD da batalha, estilo RPG tático compacto: painéis escuros translúcidos
@@ -61,6 +61,8 @@ const CSS = `
 .hud .build-trilho { flex:1; height:5px; border-radius:3px; background:rgba(0,0,0,.5); overflow:hidden; }
 .hud .build-trilho > i { display:block; height:100%; background:linear-gradient(90deg, #8a6a28, #e8c060); transition:width .15s; }
 .hud .build-topo .bt { font-size:11px; padding:1px 8px; }
+.hud .build-passo { display:inline-flex; gap:2px; }
+.hud .build-passo .bt { padding:1px 6px; min-width:26px; }
 .hud .build-grade { display:grid; grid-template-columns:repeat(3, minmax(160px, 1fr)); gap:6px 10px; }
 .hud .atr { display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 8px; padding:5px 8px; border-radius:4px; background:rgba(255,255,255,.035); border:1px solid transparent; }
 .hud .atr.com { border-color:rgba(143,224,160,.22); }
@@ -329,6 +331,7 @@ function PainelBuild({ k, c, travado }: { k: Config; c: ControleBatalha; travado
   const livres = PONTOS_BUILD - gastos
   const { at, hp } = comBuild(k.classe, buildValida(k.build))
   const [dica, setDica] = useState<{ nome: string; texto: string; x: number; y: number } | null>(null)
+  const [passo, setPasso] = useState(10)
   return (
     <div className="build">
       {dica && (
@@ -338,14 +341,21 @@ function PainelBuild({ k, c, travado }: { k: Config; c: ControleBatalha; travado
         </div>
       )}
       <div className="build-topo">
-        <span className={`build-pontos${livres ? '' : ' cheio'}`}>
-          <b>{livres}</b>pontos livres
+        <span className={`build-pontos${livres ? '' : ' cheio'}`} title={`Nível ${NIVEL_PERSONAGEM}: ${PONTOS_POR_NIVEL} pontos por nível`}>
+          <b>{livres}</b>de {PONTOS_BUILD} livres · nível {NIVEL_PERSONAGEM}
         </span>
         <span className="build-trilho">
           <i style={{ width: `${(gastos / PONTOS_BUILD) * 100}%` }} />
         </span>
-        <button className="bt" disabled={travado} onClick={() => c.resetarBuild(k.id, false)} title={`Build padrão de ${NOMES_CLASSE[k.classe]}`}>
-          Padrão
+        <span className="build-passo" title="Quantos pontos cada clique em + ou − põe/tira">
+          {[1, 5, 10, 25].map((n) => (
+            <button key={n} className={`bt${passo === n ? ' on' : ''}`} onClick={() => setPasso(n)}>
+              {n}
+            </button>
+          ))}
+        </span>
+        <button className="bt" disabled={travado} onClick={() => c.resetarBuild(k.id, false)} title={`Distribui os ${PONTOS_BUILD} pontos numa build sugerida para ${NOMES_CLASSE[k.classe]}${k.akuma ? ' com fruta' : ''}`}>
+          Sugerida
         </button>
         <button className="bt" disabled={travado || !gastos} onClick={() => c.resetarBuild(k.id, true)}>
           Zerar
@@ -375,10 +385,10 @@ function PainelBuild({ k, c, travado }: { k: Config; c: ControleBatalha; travado
                 </span>
               </div>
               <span className="ctl">
-                <button disabled={travado || pts <= 0} onClick={() => c.mudarBuild(k.id, a, -1)} aria-label={`Tirar ponto de ${nome}`}>
+                <button disabled={travado || pts <= 0} onClick={() => c.mudarBuild(k.id, a, -passo)} aria-label={`Tirar ${passo} de ${nome}`}>
                   −
                 </button>
-                <button disabled={travado || !livres || pts >= MAX_POR_ATRIBUTO} onClick={() => c.mudarBuild(k.id, a, 1)} aria-label={`Pôr ponto em ${nome}`}>
+                <button disabled={travado || !livres || pts >= MAX_POR_ATRIBUTO} onClick={() => c.mudarBuild(k.id, a, passo)} aria-label={`Pôr ${passo} em ${nome}`}>
                   +
                 </button>
               </span>

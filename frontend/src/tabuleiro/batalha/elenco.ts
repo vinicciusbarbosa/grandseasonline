@@ -27,63 +27,64 @@ import type { Atributos, Combatente, Haki, Lado } from './regras'
 export type Classe = 'espadachim' | 'lutador' | 'tank' | 'atirador'
 
 /**
- * Atributos BASE de cada classe (antes da build). Cada tripulante ainda
- * distribui PONTOS_BUILD pontos por cima (a build padrão de cada classe
- * deixa os números do teste de antes). O AKM não é da classe: todo mundo
- * começa com AKM_BASE e o resto vem dos pontos (depois, da raridade da fruta).
+ * Atributos BASE de cada classe num personagem nível 100 (antes dos pontos).
+ * Cada nível dá PONTOS_POR_NIVEL pontos para distribuir (começam zerados).
+ * O AKM não é da classe: todo mundo começa com AKM_BASE e o resto vem dos
+ * pontos (no jogo final: raridade da fruta, árvore de skills etc.).
+ * Armas, gemas e títulos vão somar por cima destes números depois.
  */
 const CLASSES: Record<Classe, { hp: number; at: Omit<Atributos, 'akm'>; arma: TipoArma }> = {
-  espadachim: { hp: 135, at: { atk: 20, def: 10, agl: 8, res: 10, pre: 14, dex: 8, con: 10 }, arma: 'espada' },
-  lutador: { hp: 140, at: { atk: 19, def: 12, agl: 6, res: 14, pre: 10, dex: 10, con: 16 }, arma: 'punhos' },
-  tank: { hp: 180, at: { atk: 21, def: 20, agl: 5, res: 14, pre: 6, dex: 5, con: 22 }, arma: 'maca' },
-  atirador: { hp: 100, at: { atk: 16, def: 6, agl: 10, res: 6, pre: 12, dex: 10, con: 6 }, arma: 'espingarda' },
+  espadachim: { hp: 550, at: { atk: 73, def: 40, agl: 50, res: 35, pre: 50, dex: 50, con: 35 }, arma: 'espada' },
+  lutador: { hp: 630, at: { atk: 67, def: 50, agl: 45, res: 45, pre: 40, dex: 45, con: 50 }, arma: 'punhos' },
+  tank: { hp: 860, at: { atk: 70, def: 75, agl: 25, res: 60, pre: 35, dex: 25, con: 65 }, arma: 'maca' },
+  atirador: { hp: 550, at: { atk: 66, def: 40, agl: 60, res: 30, pre: 70, dex: 50, con: 35 }, arma: 'espingarda' },
 }
 
 // ------------------------------------------------------------ build (pontos)
-/** Poder da Akuma no Mi de todo mundo antes da build */
-export const AKM_BASE = 12
-/** pontos que cada tripulante distribui na preparação */
-export const PONTOS_BUILD = 20
+/** Poder da Akuma no Mi de todo mundo antes dos pontos */
+export const AKM_BASE = 50
+export const NIVEL = 100
+export const PONTOS_POR_NIVEL = 3
+/** pontos que cada tripulante distribui na preparação (nível 100 × 3) */
+export const PONTOS_BUILD = NIVEL * PONTOS_POR_NIVEL
 /** no máximo isto num atributo só */
-export const MAX_POR_ATRIBUTO = 15
+export const MAX_POR_ATRIBUTO = 200
 /** cada ponto em VIG dá esta vida */
-export const VIDA_POR_VIG = 5
+export const VIDA_POR_VIG = 3
 export type AtributoBuild = keyof Atributos | 'vig'
 export type Build = Partial<Record<AtributoBuild, number>>
 /** ordem e nome na tela de build */
 export const ATRIBUTOS_BUILD: [AtributoBuild, string, string][] = [
-  ['atk', 'ATK', 'Ataque: o dano das skills da ARMA (cortes, socos, tiros, porretadas). Dano = ATK × 1,4 × multiplicador da skill, menos a DEF do alvo. Não muda o dano das skills da Akuma no Mi.'],
-  ['akm', 'AKM', 'Poder da Akuma no Mi: o dano das skills da FRUTA (Hiken, Lanças de Gelo, Raio de Luz...), na mesma conta do ATK. Sem fruta, não serve para nada.'],
-  ['def', 'DEF', 'Defesa: cada ponto tira 1% do dano recebido (no máximo 60%). O Haki de armamento do atacante fura parte dela (15% no normal, 35% no avançado) e algumas skills ignoram uma parte (Esmagar, Estocada Perfurante).'],
+  ['atk', 'ATK', 'Ataque: o dano das skills da ARMA (cortes, socos, tiros, porretadas). Dano = ATK × 1,4 × multiplicador da skill, reduzido pela DEF do alvo. Não muda o dano das skills da Akuma no Mi.'],
+  ['akm', 'AKM', 'Poder da Akuma no Mi: o dano das skills da FRUTA (Hiken, Lanças de Gelo, Raio de Luz...) e da queimadura, na mesma conta do ATK. Sem fruta, não serve para nada.'],
+  ['def', 'DEF', 'Defesa: reduz o dano recebido em DEF ÷ (DEF + 150) — 50 de DEF tira 25%, 150 tira 50%, 300 tira 67%. O Haki de armamento do atacante fura parte dela (15% no normal, 35% no avançado) e algumas skills ignoram uma parte.'],
   ['vig', 'VIG', `Vigor: +${VIDA_POR_VIG} de vida máxima por ponto. Com a vida em 0, o personagem cai.`],
-  ['agl', 'AGL', 'Agilidade: chance de esquivar = (sua AGL − PRE do atacante) × 2 + 5%, até 45%. Também ajuda a observação a prever o golpe, e a tripulação com a maior AGL média começa a batalha.'],
-  ['pre', 'PRE', 'Precisão: cada ponto acima da AGL do alvo tira 2% da chance de ele esquivar (e atrapalha a observação dele).'],
-  ['dex', 'DEX', 'Destreza: chance de crítico = (sua DEX − CON do alvo) × 2 + 5%, até 75%. O crítico dá ×1,5 de dano.'],
-  ['res', 'RES', 'Resistência: chance de bloquear = (sua RES − CON do atacante) × 2%, até 40%. O bloqueio corta o dano pela metade (não funciona contra o armamento avançado).'],
-  ['con', 'CON', 'Constituição: diminui a chance de levar crítico (contra a DEX do atacante) e a chance de o seu golpe ser bloqueado (contra a RES do alvo).'],
+  ['agl', 'AGL', 'Agilidade: esquiva, comparada com a PRE do atacante (iguais: 8%; o dobro: ~25%; até 45%). Também ajuda a observação, define quem joga primeiro na fila por AGL e a tripulação mais ágil começa.'],
+  ['pre', 'PRE', 'Precisão: acerto, comparada com a AGL do alvo — quanto maior em relação a ela, menos ele esquiva (e menos a observação dele prevê).'],
+  ['dex', 'DEX', 'Destreza: crítico (×1,5 de dano), comparada com a CON do alvo (iguais: 8%; o dobro: ~25%; até 75%).'],
+  ['res', 'RES', 'Resistência: bloqueio (corta o dano pela metade), comparada com a CON do atacante (iguais: 5%; o dobro: ~18%; até 40%). Não bloqueia o armamento avançado.'],
+  ['con', 'CON', 'Constituição: diminui a chance de levar crítico (contra a DEX do atacante) e a de o seu golpe ser bloqueado (contra a RES do alvo).'],
 ]
 const ehAtributo = (x: string): x is AtributoBuild => ATRIBUTOS_BUILD.some(([k]) => k === x)
 
+/** Build padrão: zerada (o jogador distribui os pontos). */
+export const buildPadrao = (): Build => ({})
+
 /**
- * Build padrão de cada classe. Com fruta, 12 pontos vão para o AKM e o
- * resto segue a ordem da classe.
+ * Build sugerida de cada classe (botão na preparação e simulações). Com
+ * fruta, 100 pontos vão para o AKM (tirados do ATK e, faltando, da VIG).
  */
-export function buildPadrao(classe: Classe, fruta: boolean): Build {
+export function buildSugerida(classe: Classe, fruta: boolean): Build {
   const b: Build = {
-    espadachim: { atk: 8, agl: 6, dex: 6 },
-    lutador: { atk: 6, def: 4, vig: 4, agl: 6 },
-    tank: { def: 6, vig: 8, res: 6 },
-    atirador: { pre: 6, atk: 6, agl: 4, dex: 4 },
+    espadachim: { atk: 120, agl: 60, dex: 60, vig: 60 },
+    lutador: { atk: 100, vig: 80, agl: 60, def: 60 },
+    tank: { atk: 70, def: 90, vig: 100, res: 40 },
+    atirador: { atk: 100, pre: 50, dex: 50, vig: 60, agl: 40 },
   }[classe]
   if (!fruta) return { ...b }
-  const out: Build = { akm: 12 }
-  let resta = PONTOS_BUILD - 12
-  for (const [k, v] of Object.entries(b) as [AtributoBuild, number][]) {
-    const n = Math.min(v, resta)
-    if (n) out[k] = n
-    resta -= n
-  }
-  return out
+  // 100 pontos para o AKM: saem do ATK e, se não der, da VIG
+  const doAtk = Math.min(b.atk ?? 0, 100)
+  return { ...b, atk: (b.atk ?? 0) - doAtk, vig: (b.vig ?? 0) - (100 - doAtk), akm: 100 }
 }
 
 /** pontos gastos (só os válidos) */
@@ -176,7 +177,7 @@ export const TRIPULACOES: Membro[] = [
 
 export function combatentesIniciais(): Combatente[] {
   return TRIPULACOES.map((m) => {
-    const p = { ...CLASSES[m.classe], ...comBuild(m.classe, buildPadrao(m.classe, !!m.akuma)) }
+    const p = { ...CLASSES[m.classe], ...comBuild(m.classe, buildPadrao()) }
     return {
       id: m.id,
       nome: m.nome,
@@ -213,7 +214,7 @@ export function configPadrao(): Config[] {
   return TRIPULACOES.map((m) => ({
     id: m.id,
     classe: m.classe,
-    build: buildPadrao(m.classe, !!m.akuma),
+    build: buildPadrao(),
     akuma: m.akuma ?? '',
     armamento: m.haki?.armamento ? (m.haki.armamento.imbuido ? 3 : m.haki.armamento.avancado ? 2 : 1) : 0,
     observacao: m.haki?.observacao ? (m.haki.observacao.avancado ? 2 : 1) : 0,

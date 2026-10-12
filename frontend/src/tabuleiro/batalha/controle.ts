@@ -21,7 +21,7 @@ import { FRUTAS, alvoValido, casasDaArea, distancia, type Skill, type TipoArma }
 
 /** skill usada em si mesmo (sem mirar): buff, em volta, mapa inteiro */
 const semMira = (s: Skill) => s.id === 'haoshoku' || s.area === 'si' || s.area === 'volta' || s.area === 'mapa'
-import { MAX_POR_ATRIBUTO, PONTOS_BUILD, TRIPULACOES, aplicarConfig, buildPadrao, combatentesIniciais, configPadrao, ehClasse, folhaDe, pontosGastos, renomear, type AtributoBuild, type Config } from './elenco'
+import { MAX_POR_ATRIBUTO, PONTOS_BUILD, TRIPULACOES, aplicarConfig, buildPadrao, buildSugerida, combatentesIniciais, configPadrao, ehClasse, folhaDe, pontosGastos, renomear, type AtributoBuild, type Config } from './elenco'
 import type { HakiMp, JogadorBatalhaMp, MsgServidorBatalha } from './protocoloMp'
 import { RedeBatalha } from './redeBatalha'
 import { proximaAcao } from './ia'
@@ -182,7 +182,7 @@ const VISUAL: Record<string, Visual> = {
   'tiro-certeiro': { efeito: 'bala', modo: 'projetil', escala: 0.8 },
   'chumbo-grosso': { efeito: 'bala', modo: 'projetil', escala: 0.5, tiros: 3 },
   rajada: { efeito: 'bala', modo: 'projetil', escala: 0.55, tiros: 3 },
-  'tiro-perfurante': { efeito: 'bala', modo: 'projetil', escala: 0.9 },
+  'tiros-escolhidos': { efeito: 'bala', modo: 'projetil', escala: 0.8 },
   estocada: { efeito: 'impacto', modo: 'perto', escala: 0.8 },
   'corte-rapido': { efeito: 'impacto', modo: 'perto', escala: 0.8 },
   arremesso: { efeito: 'adaga', modo: 'projetil', escala: 0.6 },
@@ -601,33 +601,33 @@ export class ControleBatalha {
     if (!k || this.fase !== 'preparar') return
     if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
     ;(k as Record<string, unknown>)[campo] = valor
-    // outra classe: começa da build padrão dela
-    if (campo === 'classe' && ehClasse(valor)) k.build = buildPadrao(valor, !!k.akuma)
     this.configNaCena()
     this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
   }
 
   /** Põe (+1) ou tira (−1) um ponto da build. */
-  mudarBuild(id: string, atrib: AtributoBuild, delta: 1 | -1) {
+  mudarBuild(id: string, atrib: AtributoBuild, delta: number) {
     const k = this.config.find((x) => x.id === id)
     if (!k || this.fase !== 'preparar') return
     if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
     const atual = k.build[atrib] ?? 0
-    const novo = atual + delta
-    if (novo < 0 || novo > MAX_POR_ATRIBUTO || (delta > 0 && pontosGastos(k.build) >= PONTOS_BUILD)) return
+    // +n: até onde dá (pontos livres e máximo do atributo); −n: até zero
+    const livres = PONTOS_BUILD - pontosGastos(k.build)
+    const novo = delta > 0 ? Math.min(atual + delta, atual + livres, MAX_POR_ATRIBUTO) : Math.max(0, atual + delta)
+    if (novo === atual) return
     k.build = { ...k.build, [atrib]: novo }
     this.configNaCena()
     this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
   }
 
-  /** Volta a build à padrão da classe (ou zera os pontos). */
+  /** Põe a build sugerida da classe (ou zera os pontos). */
   resetarBuild(id: string, zerar: boolean) {
     const k = this.config.find((x) => x.id === id)
     if (!k || this.fase !== 'preparar') return
     if (this.rede && (this.mp.pronto || !this.doMeuLado(k.id))) return
-    k.build = zerar ? {} : buildPadrao(k.classe, !!k.akuma)
+    k.build = zerar ? buildPadrao() : buildSugerida(k.classe, !!k.akuma)
     this.configNaCena()
     this.rede?.enviar({ t: 'config', config: this.config })
     this.palco.avisar()
@@ -902,6 +902,9 @@ export class ControleBatalha {
   /** mouse (passa por cima mostra a área; um clique ataca) ou toque (dois toques) */
   private readonly umClique = typeof matchMedia !== 'undefined' && matchMedia('(hover: hover) and (pointer: fine)').matches
 
+  /** Tiros Escolhidos (área 'multi'): as casas já escolhidas, em ordem */
+  private multi: Casa[] = []
+
   /** Skill em uso: a escolhida no painel ou o golpe básico da arma. */
   private efetiva(c: Combatente): Skill | undefined {
     const ss = skillsSelecionaveis(c)
@@ -940,6 +943,17 @@ export class ControleBatalha {
       return
     }
     const s = this.efetiva(sel)
+    // skill de escolher casas: cada clique marca/desmarca uma casa; completou, atira
+    if (s?.area === 'multi' && alvoValido(s, sel.casa, casa) && !mesmaCasa(casa, sel.casa)) {
+      const i = this.multi.findIndex((x) => mesmaCasa(x, casa))
+      if (i >= 0) this.multi.splice(i, 1)
+      else this.multi.push(casa)
+      const max = s.alvos ?? 1
+      if (this.multi.length >= max) return void this.atirarMulti(sel, s)
+      this.previa = this.multi[this.multi.length - 1] ?? null
+      this.dica = `${s.nome}: ${this.multi.length}/${max} casas — escolha mais ou toque em Atacar para atirar.`
+      return this.redesenhar()
+    }
     const acao = s ? this.acaoEm(sel, s, casa) : null
     const erro = acao ? motivo(this.estado, acao) : 'Sem skill.'
     // pode atacar/curar ali: ataca (mouse) ou mostra a área e confirma (toque)
@@ -997,6 +1011,7 @@ export class ControleBatalha {
     this.sel = id
     this.skill = null
     this.previa = null
+    this.multi = []
     if (id) {
       const c = porId(this.estado, id)!
       this.dica = `${c.nome}: casas azuis andam; inimigo marcado em vermelho dá para atacar (${this.umClique ? 'clique nele' : 'toque nele'}).`
@@ -1009,6 +1024,7 @@ export class ControleBatalha {
     const c = porId(this.estado, this.sel)!
     this.skill = this.skill === id ? null : id
     this.previa = null
+    this.multi = []
     const s = this.efetiva(c)
     // buff só de si mesmo (não dá para pôr num aliado): usa na hora, sem clicar na casa
     if (s && this.skill && s.area === 'si') {
@@ -1028,7 +1044,9 @@ export class ControleBatalha {
         ? 'Toque no personagem ou em Atacar para usar.'
         : s.area === 'alvo'
           ? 'Inimigo marcado em vermelho forte = dá para acertar.'
-          : 'Mire numa casa vermelha: a área em laranja mostra quem é atingido.'
+          : s.area === 'multi'
+            ? `Escolha até ${s.alvos ?? 1} casas (toque de novo numa para desmarcar); completou, atira.`
+            : 'Mire numa casa vermelha: a área em laranja mostra quem é atingido.'
     this.redesenhar()
   }
 
@@ -1055,7 +1073,25 @@ export class ControleBatalha {
   }
 
   usarPrevia() {
+    const c = this.sel ? porId(this.estado, this.sel) : null
+    const s = c && this.efetiva(c)
+    if (c && s?.area === 'multi' && this.multi.length) return void this.atirarMulti(c, s)
     if (this.previa) void this.usar(this.previa)
+  }
+
+  /** Tiros Escolhidos: atira nas casas marcadas (precisa pegar algum inimigo) */
+  private async atirarMulti(c: Combatente, s: Skill) {
+    const [alvo, ...extras] = this.multi
+    const acao: Acao = { t: 'skill', id: c.id, skill: s.id, alvo, ...(extras.length ? { extras } : {}) }
+    const erro = motivo(this.estado, acao)
+    if (erro) {
+      this.dica = erro
+      this.multi = []
+      this.previa = null
+      return this.redesenhar()
+    }
+    this.multi = []
+    await this.executar(acao)
   }
 
   passar() {
@@ -1094,7 +1130,8 @@ export class ControleBatalha {
           if (s.id === HAKI_REI.id && (o.lado === sel.lado || distancia(sel.casa, o.casa) > HAOSHOKU.raio)) continue
           if (!motivo(this.estado, this.acaoEm(sel, s, o.casa))) this.palco.marcar(o.casa, s.cura ? 'cura' : 'alvo')
         }
-        if (this.previa) for (const x of casasDaArea(s, sel.casa, this.previa)) {
+        if (s.area === 'multi') for (const x of this.multi) this.palco.marcar(x, 'area')
+        else if (this.previa) for (const x of casasDaArea(s, sel.casa, this.previa)) {
           if (s.id === HAKI_REI.id && (x.l < 0 || x.l >= LINHAS || x.c < 0 || x.c >= COLUNAS)) continue
           this.palco.marcar(x, 'area')
         }
@@ -1272,7 +1309,13 @@ export class ControleBatalha {
       // Arma de Luz ligada: o rifle atira joias de luz
     } else if (v.modo === 'projetil') {
       const tiros = v.tiros ?? 1
-      const alvos = s.area === 'leque' ? e.casas.map((x) => this.palco.centro(x)) : Array(tiros).fill(ate)
+      // leque e tiros escolhidos: um tiro em cada casa (no peito de quem estiver lá)
+      const naCasa = (x: Casa) => {
+        const quem = antes.combatentes.find((o) => o.hp > 0 && mesmaCasa(o.casa, x))
+        const p = quem && this.palco.personagem(quem.id)
+        return p ? this.palco.peito(p) : this.palco.centro(x)
+      }
+      const alvos = s.area === 'leque' || s.area === 'multi' ? e.casas.map(naCasa) : Array(tiros).fill(ate)
       await Promise.all(
         alvos.map((p, k) => new Promise<void>((r) => setTimeout(() => void this.palco.efeito(v.efeito, paleta, origem, { para: p, dur: 0.12 + origem.distanceTo(p) * 0.05, escala: v.escala }).then(r), k * 120))),
       )

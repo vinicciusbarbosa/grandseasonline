@@ -14,7 +14,7 @@ export const ARTE_SKILLS: Record<string, ArteSkill> = Object.fromEntries([
   ...[
     'corte', 'corte-duplo', 'corte-voador', 'estocada-perfurante', 'tornado-laminas',
     'pancada', 'esmagar', 'onda-choque', 'tremor', 'martelada-titanica',
-    'tiro', 'tiro-certeiro', 'chumbo-grosso', 'rajada', 'tiro-perfurante',
+    'tiro', 'tiro-certeiro', 'chumbo-grosso', 'rajada', 'tiros-escolhidos',
   ].map((id, indice) => [id, { atlas: 'armas', indice }]),
   ...[
     'nuvem-fumaca', 'prisao-fumaca', 'hiken', 'hotarubi',

@@ -10,13 +10,14 @@
  *   volta — as 8 casas em volta do atacante (o alvo é ele mesmo);
  *   si    — só o próprio personagem (transformação, buff);
  *   explosao — um quadrado em volta da casa alvo (raio 1 = 3×3, 2 = 5×5);
- *   mapa  — o tabuleiro inteiro (só acerta inimigos; ex.: Ice Age).
+ *   mapa  — o tabuleiro inteiro (só acerta inimigos; ex.: Ice Age);
+ *   multi — o jogador escolhe até `alvos` casas dentro do alcance (um tiro em cada).
  */
 
 import type { Casa } from '../tabuleiro'
 
 export type TipoArma = 'espada' | 'maca' | 'punhos' | 'espingarda' | 'adaga'
-export type Area = 'alvo' | 'linha' | 'leque' | 'volta' | 'si' | 'explosao' | 'mapa'
+export type Area = 'alvo' | 'linha' | 'leque' | 'volta' | 'si' | 'explosao' | 'mapa' | 'multi'
 export type Elemento = 'fogo' | 'gelo' | 'luz' | 'fumaca'
 
 export type Skill = {
@@ -45,12 +46,15 @@ export type Skill = {
   livre?: boolean
   /** transforma/buff por N vezes: +30% de ataque (Zoan também +10 de defesa) */
   transforma?: number
+  /** área 'multi': quantas casas dá para escolher */
+  alvos?: number
   /** raio da explosão (padrão 1) */
   raio?: number
   /** elemento (Logia): fogo vence gelo, etc. */
   elemento?: Elemento
   /** queimadura: dano no começo de cada vez do alvo */
-  queima?: { dano: number; vezes: number }
+  /** queimadura: por `vezes` vezes do alvo, dano = poder (AKM/ATK) × `fator` */
+  queima?: { fator: number; vezes: number }
   /** chance (0–1) de congelar (perde a próxima vez) */
   congela?: number
   /** vezes que o congelado perde (padrão 1) */
@@ -63,29 +67,29 @@ export const SKILLS_ARMA: Record<TipoArma, Skill[]> = {
     { id: 'corte-duplo', nome: 'Corte Duplo', descricao: 'Dois cortes seguidos (×0,65 cada).', energia: 12, recarga: 1, alcance: 1, area: 'alvo', mult: 0.65, golpes: 2 },
     { id: 'corte-voador', nome: 'Corte Voador', descricao: 'Lâmina de ar em linha reta: acerta todos até 3 casas.', energia: 22, recarga: 2, alcance: 3, area: 'linha', mult: 0.8 },
     { id: 'estocada-perfurante', nome: 'Estocada Perfurante', descricao: 'Atravessa 2 casas em linha e ignora 30% da defesa.', energia: 28, recarga: 2, alcance: 2, area: 'linha', mult: 1, ignoraDef: 0.3 },
-    { id: 'tornado-laminas', nome: 'Tornado de Lâminas', descricao: 'Gira cortando tudo em volta (×0,9).', energia: 40, recarga: 3, alcance: 0, area: 'volta', mult: 0.9 },
+    { id: 'tornado-laminas', nome: 'Tornado de Lâminas', descricao: 'Gira cortando tudo em volta (×0,75).', energia: 40, recarga: 3, alcance: 0, area: 'volta', mult: 0.75 },
   ],
   maca: [
     { id: 'pancada', nome: 'Pancada', descricao: 'Golpe de perto.', energia: 0, alcance: 1, area: 'alvo', mult: 1.1 },
-    { id: 'esmagar', nome: 'Esmagar', descricao: 'Golpe pesado que ignora 40% da defesa.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.4, ignoraDef: 0.4 },
-    { id: 'onda-choque', nome: 'Onda de Choque', descricao: 'Bate no chão: acerta as 8 casas em volta.', energia: 28, recarga: 2, alcance: 0, area: 'volta', mult: 0.7 },
-    { id: 'tremor', nome: 'Tremor', descricao: 'Racha o convés em linha reta até 3 casas.', energia: 30, recarga: 2, alcance: 3, area: 'linha', mult: 0.85 },
-    { id: 'martelada-titanica', nome: 'Martelada Titânica', descricao: 'Golpe enorme num alvo (×2,1).', energia: 45, recarga: 3, alcance: 1, area: 'alvo', mult: 2.1 },
+    { id: 'esmagar', nome: 'Esmagar', descricao: 'Golpe pesado (×1,45) que ignora 30% da defesa.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.45, ignoraDef: 0.3 },
+    { id: 'onda-choque', nome: 'Onda de Choque', descricao: 'Bate no chão: acerta as 8 casas em volta (×0,7).', energia: 28, recarga: 2, alcance: 0, area: 'volta', mult: 0.7 },
+    { id: 'tremor', nome: 'Tremor', descricao: 'Racha o convés em linha reta até 3 casas.', energia: 30, recarga: 2, alcance: 3, area: 'linha', mult: 0.9 },
+    { id: 'martelada-titanica', nome: 'Martelada Titânica', descricao: 'Golpe enorme num alvo (×1,9).', energia: 45, recarga: 3, alcance: 1, area: 'alvo', mult: 1.9 },
   ],
   // artes marciais (lutador): golpes rápidos e de deslocamento, menos dano bruto que a maça
   punhos: [
     { id: 'soco', nome: 'Soco', descricao: 'Golpe de perto.', energia: 0, alcance: 1, area: 'alvo', mult: 1 },
-    { id: 'sequencia-socos', nome: 'Sequência de Socos', descricao: 'Três socos seguidos (×0,45 cada).', energia: 15, recarga: 1, alcance: 1, area: 'alvo', mult: 0.45, golpes: 3 },
-    { id: 'chute-giratorio', nome: 'Chute Giratório', descricao: 'Gira chutando as 8 casas em volta (×0,75).', energia: 25, recarga: 2, alcance: 0, area: 'volta', mult: 0.75 },
-    { id: 'investida', nome: 'Investida', descricao: 'Avança com o ombro: acerta todos em linha até 2 casas, difícil de esquivar.', energia: 22, recarga: 2, alcance: 2, area: 'linha', mult: 0.9, precisao: 15 },
-    { id: 'golpe-devastador', nome: 'Golpe Devastador', descricao: 'Soco com o corpo inteiro (×1,9): ignora 25% da defesa e tem +20% de crítico.', energia: 42, recarga: 3, alcance: 1, area: 'alvo', mult: 1.9, ignoraDef: 0.25, critico: 20 },
+    { id: 'sequencia-socos', nome: 'Sequência de Socos', descricao: 'Três socos seguidos (×0,42 cada).', energia: 15, recarga: 1, alcance: 1, area: 'alvo', mult: 0.42, golpes: 3 },
+    { id: 'chute-giratorio', nome: 'Chute Giratório', descricao: 'Gira chutando as 8 casas em volta (×0,6).', energia: 25, recarga: 2, alcance: 0, area: 'volta', mult: 0.6 },
+    { id: 'investida', nome: 'Investida', descricao: 'Avança com o ombro: acerta todos em linha até 2 casas, difícil de esquivar.', energia: 22, recarga: 2, alcance: 2, area: 'linha', mult: 0.8, precisao: 15 },
+    { id: 'golpe-devastador', nome: 'Golpe Devastador', descricao: 'Soco com o corpo inteiro (×1,5): ignora 25% da defesa e tem +10% de crítico.', energia: 42, recarga: 3, alcance: 1, area: 'alvo', mult: 1.5, ignoraDef: 0.25, critico: 10 },
   ],
   espingarda: [
-    { id: 'tiro', nome: 'Tiro', descricao: 'Tiro a até 5 casas.', energia: 0, alcance: 5, area: 'alvo', mult: 0.9 },
-    { id: 'tiro-certeiro', nome: 'Tiro Certeiro', descricao: 'Mira com calma a até 7 casas: mais dano e difícil de esquivar.', energia: 18, recarga: 1, alcance: 7, area: 'alvo', mult: 1.2, precisao: 20 },
-    { id: 'chumbo-grosso', nome: 'Chumbo Grosso', descricao: 'Espalha: a casa e as duas do lado, a até 4 casas.', energia: 25, recarga: 2, alcance: 4, area: 'leque', mult: 0.65 },
-    { id: 'rajada', nome: 'Rajada', descricao: 'Três tiros rápidos a até 5 casas (×0,45 cada).', energia: 30, recarga: 2, alcance: 5, area: 'alvo', mult: 0.45, golpes: 3 },
-    { id: 'tiro-perfurante', nome: 'Tiro Perfurante', descricao: 'Bala que atravessa todos em linha até 6 casas.', energia: 40, recarga: 3, alcance: 6, area: 'linha', mult: 0.85 },
+    { id: 'tiro', nome: 'Tiro', descricao: 'Tiro a até 4 casas.', energia: 0, alcance: 4, area: 'alvo', mult: 1.05 },
+    { id: 'tiro-certeiro', nome: 'Tiro Certeiro', descricao: 'Mira com calma a até 6 casas: mais dano e difícil de esquivar.', energia: 18, recarga: 1, alcance: 6, area: 'alvo', mult: 1.45, precisao: 20 },
+    { id: 'chumbo-grosso', nome: 'Chumbo Grosso', descricao: 'Espalha: a casa e as duas do lado, a até 3 casas.', energia: 25, recarga: 2, alcance: 3, area: 'leque', mult: 0.65 },
+    { id: 'rajada', nome: 'Rajada', descricao: 'Três tiros rápidos a até 4 casas (×0,5 cada).', energia: 30, recarga: 2, alcance: 4, area: 'alvo', mult: 0.5, golpes: 3 },
+    { id: 'tiros-escolhidos', nome: 'Tiros Escolhidos', descricao: 'Escolhe até 3 casas a até 5 casas e atira em cada uma (×0,55).', energia: 40, recarga: 2, alcance: 5, area: 'multi', alvos: 3, mult: 0.55 },
   ],
   adaga: [
     { id: 'estocada', nome: 'Estocada', descricao: 'Golpe de perto.', energia: 0, alcance: 1, area: 'alvo', mult: 0.85 },
@@ -132,11 +136,11 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     elemento: 'fogo',
     passiva: 'Intangível. Fogo vence gelo: atinge a Logia de gelo mesmo sem Haki.',
     skills: [
-      { id: 'hiken', nome: 'Punho de Fogo (Hiken)', descricao: 'Punho de fogo gigante a até 4 casas; queima. De perto, explode à queima-roupa; de longe, é arremessado.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1.15, elemento: 'fogo', queima: { dano: 6, vezes: 2 } },
-      { id: 'hotarubi', nome: 'Vaga-lumes (Hotarubi)', descricao: 'Bolinhas verdes flutuam até a área 3×3 (até 4 casas) e explodem; queima.', energia: 30, recarga: 2, alcance: 4, area: 'explosao', mult: 0.7, elemento: 'fogo', queima: { dano: 5, vezes: 2 } },
-      { id: 'higan', nome: 'Balas de Fogo (Higan)', descricao: 'Rajada de balas de fogo disparadas do dedo no alvo (até 3 casas); dano alto e queima.', energia: 30, recarga: 2, alcance: 3, area: 'alvo', mult: 1.5, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },
+      { id: 'hiken', nome: 'Punho de Fogo (Hiken)', descricao: 'Punho de fogo gigante a até 4 casas; queima por 2 vezes. De perto, explode à queima-roupa; de longe, é arremessado.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1.15, elemento: 'fogo', queima: { fator: 0.25, vezes: 2 } },
+      { id: 'hotarubi', nome: 'Vaga-lumes (Hotarubi)', descricao: 'Bolinhas verdes flutuam até a área 3×3 (até 4 casas) e explodem; queima todos por 2 vezes.', energia: 30, recarga: 2, alcance: 4, area: 'explosao', mult: 0.7, elemento: 'fogo', queima: { fator: 0.25, vezes: 2 } },
+      { id: 'higan', nome: 'Balas de Fogo (Higan)', descricao: 'Rajada de balas de fogo disparadas do dedo no alvo (até 3 casas); dano alto e queima por 2 vezes.', energia: 30, recarga: 2, alcance: 3, area: 'alvo', mult: 1.5, elemento: 'fogo', queima: { fator: 0.25, vezes: 2 } },
       { id: 'corpo-chamas', nome: 'Corpo de Chamas', descricao: 'O corpo vira fogo por 3 vezes: +30% de ataque (não gasta a vez).', energia: 25, recarga: 4, alcance: 0, area: 'si', mult: 0, transforma: 3, livre: true },
-      { id: 'entei', nome: 'Entei', descricao: 'Sol de fogo gigante sobre a cabeça, arremessado: explode 5×5 a até 5 casas; queima.', energia: 55, recarga: 4, alcance: 5, area: 'explosao', raio: 2, mult: 1, elemento: 'fogo', queima: { dano: 8, vezes: 2 } },
+      { id: 'entei', nome: 'Entei', descricao: 'Sol de fogo gigante sobre a cabeça, arremessado: explode 5×5 a até 5 casas e queima todos que pegar por 2 vezes.', energia: 55, recarga: 4, alcance: 5, area: 'explosao', raio: 2, mult: 1.6, elemento: 'fogo', queima: { fator: 0.35, vezes: 2 } },
     ],
   },
   luz: {
@@ -157,10 +161,10 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
     elemento: 'gelo',
     passiva: 'Intangível. Congela: o alvo pode perder a próxima vez.',
     skills: [
-      { id: 'lanca-gelo', nome: 'Lanças de Gelo (Partisan)', descricao: 'Lanças de gelo a até 4 casas; congela o alvo.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1, elemento: 'gelo', congela: 1 },
-      { id: 'ice-saber', nome: 'Sabre de Gelo', descricao: 'Espada de gelo de perto; congela o alvo.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.3, elemento: 'gelo', congela: 1 },
+      { id: 'lanca-gelo', nome: 'Lanças de Gelo (Partisan)', descricao: 'Lanças de gelo a até 4 casas.', energia: 20, recarga: 1, alcance: 4, area: 'alvo', mult: 1.15, elemento: 'gelo' },
+      { id: 'ice-saber', nome: 'Sabre de Gelo', descricao: 'Espada de gelo de perto.', energia: 18, recarga: 1, alcance: 1, area: 'alvo', mult: 1.45, elemento: 'gelo' },
       { id: 'ice-time', nome: 'Ice Time', descricao: 'Toque que congela o alvo ao lado.', energia: 30, recarga: 3, alcance: 1, area: 'alvo', mult: 0.5, elemento: 'gelo', congela: 1 },
-      { id: 'pheasant-beak', nome: 'Bico de Faisão (Pheasant Beak)', descricao: 'Uma ave de gelo voa até o alvo (até 5 casas) e explode em cristais; congela o alvo.', energia: 35, recarga: 3, alcance: 5, area: 'alvo', mult: 1.5, elemento: 'gelo', congela: 1 },
+      { id: 'pheasant-beak', nome: 'Bico de Faisão (Pheasant Beak)', descricao: 'Uma ave de gelo voa até o alvo (até 5 casas) e explode em cristais.', energia: 35, recarga: 3, alcance: 5, area: 'alvo', mult: 1.65, elemento: 'gelo' },
       { id: 'era-gelo', nome: 'Era do Gelo (Ice Age)', descricao: 'Congela o mapa inteiro: acerta todos os inimigos e eles perdem as 2 próximas vezes.', energia: 60, recarga: 5, alcance: 0, area: 'mapa', mult: 0.45, elemento: 'gelo', congela: 1, congelaVezes: 2 },
     ],
   },
@@ -174,6 +178,7 @@ export function casasDaArea(s: Skill, de: Casa, alvo: Casa): Casa[] {
   const dc = Math.sign(alvo.c - de.c)
   switch (s.area) {
     case 'alvo':
+    case 'multi':
       return [alvo]
     case 'linha': {
       const r: Casa[] = []

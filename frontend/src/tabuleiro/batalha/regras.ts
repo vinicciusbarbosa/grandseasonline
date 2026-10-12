@@ -82,6 +82,8 @@ export type Combatente = {
   atordoado: boolean
   /** vezes a MAIS que ainda perde depois desta (congelamento longo, ex.: Ice Age) */
   atordoadoMais?: number
+  /** já soltou o Haki do Rei em área (uma vez por batalha) */
+  reiUsado?: boolean
   /** skill → vezes da tripulação que ainda faltam para poder usar */
   recargas: Record<string, number>
   /** queimadura: dano no começo de cada vez */
@@ -183,7 +185,22 @@ export const RECUPERA_ARMAMENTO = { espirito: 25, usos: 1 }
  * explode e anula; atacante que vence ganha `bonus` no golpe; que perde
  * leva de volta o dano base puro. */
 export const CLASH = { espirito: 30, empate: 3, bonus: 1.3 }
+/**
+ * Escala nível 100 (cada nível dá 3 pontos): atributos na casa das centenas.
+ * Dano = poder (ATK ou AKM) × FORCA × multiplicador × redução da DEF, com
+ * a DEF em curva (DEF / (DEF + DEF_K)): sempre ajuda, nunca zera o dano.
+ * Esquiva, crítico e bloqueio usam a proporção entre os dois atributos
+ * (rel), então dobrar um atributo não estoura a chance.
+ */
 export const FORCA = 1.4
+export const DEF_K = 150
+export const reducaoDef = (def: number) => Math.max(0, def) / (Math.max(0, def) + DEF_K)
+/** proporção entre dois atributos: −1 (b muito maior) … 0 (iguais) … 1 (a muito maior) */
+export const rel = (a: number, b: number) => (a + b > 0 ? (a - b) / (a + b) : 0)
+/** chances (0–1) a partir dos atributos */
+export const chanceEsquiva = (agl: number, pre: number, precisao = 0) => limitar(0.08 + 0.5 * rel(agl, pre) - precisao / 100, 0, 0.45)
+export const chanceCritico = (dex: number, con: number, bonus = 0) => limitar(0.08 + 0.5 * rel(dex, con) + bonus / 100, 0, 0.75)
+export const chanceBloqueio = (res: number, con: number) => limitar(0.05 + 0.4 * rel(res, con), 0, 0.4)
 export const MULT_ARMAMENTO = 1.4
 export const MULT_AVANCADO = 1.55
 /** quanto da defesa o armamento fura (normal / avançado) */
@@ -280,6 +297,7 @@ export function criarBatalha(combatentes: Combatente[], semente = (Date.now() % 
     c.armamentoLigado = false
     c.atordoado = false
     c.atordoadoMais = 0
+    c.reiUsado = false
     c.queimadura = null
     c.recargas = {}
   }
@@ -324,7 +342,8 @@ export function hakiPreparacao(anterior: Estado, id: string, tipo: 'armamento' |
 // ------------------------------------------------------------ ações
 export type Acao =
   | { t: 'mover'; id: string; caminho: Casa[] }
-  | { t: 'skill'; id: string; skill: string; alvo: Casa }
+  /** extras: skill de vários alvos escolhidos (área 'multi'), as outras casas além de `alvo` */
+  | { t: 'skill'; id: string; skill: string; alvo: Casa; extras?: Casa[] }
   | { t: 'observar'; id: string; ligado: boolean }
   | { t: 'haki'; id: string; tipo: 'armamento'; ligado: boolean }
   | { t: 'haoshoku'; id: string }
@@ -362,6 +381,7 @@ export function motivo(e: Estado, a: Acao): string | null {
   }
   if (a.t === 'haoshoku') {
     if (!c.haki.rei) return `${c.nome} não tem Haki do Rei.`
+    if (c.reiUsado) return 'O Haki do Rei em área já foi usado nesta batalha.'
     return c.espirito < HAOSHOKU.espirito ? `Espírito insuficiente (${HAOSHOKU.espirito}).` : null
   }
   const s = skillsDe(c).find((x) => x.id === a.skill)
@@ -369,12 +389,18 @@ export function motivo(e: Estado, a: Acao): string | null {
   if (c.recargas[s.id]) return `Em recarga (${c.recargas[s.id]}).`
   if (c.energia < s.energia) return 'Energia insuficiente.'
   if (!alvoValido(s, c.casa, a.alvo)) return 'Fora de alcance.'
+  if (a.extras?.length) {
+    if (s.area !== 'multi') return 'Essa skill não escolhe várias casas.'
+    const todas = alvosDaAcao(s, c.casa, a)
+    if (todas.length !== a.extras.length + 1 || todas.length > (s.alvos ?? 1)) return `Escolha até ${s.alvos ?? 1} casas diferentes.`
+    if (todas.some((x) => !dentro(x) || !alvoValido(s, c.casa, x))) return 'Fora de alcance.'
+  }
   if (s.cura) {
     const o = ocupante(e, a.alvo)
     if (!o || o.lado !== c.lado) return 'Escolha um aliado.'
   } else if (!s.transforma) {
     // não deixa gastar a vez num golpe que não pega ninguém
-    const pega = casasDaArea(s, c.casa, a.alvo).some((x) => dentro(x) && ocupante(e, x)?.lado === outro(c.lado))
+    const pega = alvosDaAcao(s, c.casa, a).some((x) => dentro(x) && ocupante(e, x)?.lado === outro(c.lado))
     if (!pega) return s.area === 'alvo' ? 'Escolha um inimigo.' : 'Nenhum inimigo na área.'
   }
   return null
@@ -452,7 +478,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
       // chance (nunca garantida): maestria + diferença de Haki + agilidade
       // contra precisão; a avançada tem base e teto maiores
       const chance = limitar(
-        (obs.avancado ? OBSERVACAO.avancada : OBSERVACAO.normal) + (alvo.haki.overall - c.haki.overall) / 100 + (alvo.at.agl - c.at.pre) / 100,
+        (obs.avancado ? OBSERVACAO.avancada : OBSERVACAO.normal) + (alvo.haki.overall - c.haki.overall) / 100 + 0.3 * rel(alvo.at.agl, c.at.pre),
         0.05,
         obs.avancado ? OBSERVACAO.tetoAvancada : OBSERVACAO.tetoNormal,
       )
@@ -461,7 +487,7 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
         ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'observou' })
         // observação avançada: prevê e revida na hora (de perto)
         if (obs.avancado && revida(c, alvo)) {
-          const d = Math.max(1, Math.round(atkDe(alvo) * FORCA * 0.8 * (1 - Math.min(60, defDe(c)) / 100) * (0.9 + rnd() * 0.2)))
+          const d = Math.max(1, Math.round(atkDe(alvo) * FORCA * 0.8 * (1 - reducaoDef(defDe(c))) * (0.9 + rnd() * 0.2)))
           ev.push({ t: 'contra', de: alvo.id, alvo: c.id, dano: d })
           ferir(c, d)
         }
@@ -469,17 +495,16 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
       }
     }
     // esquiva normal
-    const esquiva = limitar((alvo.at.agl - c.at.pre) * 2 + 5 - (s.precisao ?? 0), 0, 45) / 100 // luz: precisão 100 = não esquiva
+    const esquiva = chanceEsquiva(alvo.at.agl, c.at.pre, s.precisao) // luz: precisão 100 = não esquiva
     if (rnd() < esquiva) {
       ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: 0, efeito: 'esquivou' })
       return
     }
     const avancado = armamento && !!c.haki.armamento?.avancado
-    let def = Math.min(60, defDe(alvo)) * (1 - (s.ignoraDef ?? 0)) * (armamento ? 1 - (avancado ? FURA_AVANCADO : FURA_ARMAMENTO) : 1)
-    def = Math.max(0, def)
-    const critico = rnd() < limitar((c.at.dex - alvo.at.con) * 2 + 5 + (s.critico ?? 0), 0, 75) / 100
-    const bloqueio = !avancado && rnd() < limitar((alvo.at.res - c.at.con) * 2, 0, 40) / 100
-    let dano = poderDe(c, s) * FORCA * mult * (1 - def / 100) * (0.9 + rnd() * 0.2)
+    const def = defDe(alvo) * (1 - (s.ignoraDef ?? 0)) * (armamento ? 1 - (avancado ? FURA_AVANCADO : FURA_ARMAMENTO) : 1)
+    const critico = rnd() < chanceCritico(c.at.dex, alvo.at.con, s.critico)
+    const bloqueio = !avancado && rnd() < chanceBloqueio(alvo.at.res, c.at.con)
+    let dano = poderDe(c, s) * FORCA * mult * (1 - reducaoDef(def)) * (0.9 + rnd() * 0.2)
     if (armamento) dano *= avancado ? MULT_AVANCADO : MULT_ARMAMENTO
     if (rei) dano *= REI_IMBUIDO.mult
     if (critico) dano *= 1.5
@@ -489,7 +514,8 @@ export function golpeador(rnd: () => number, ev: Evento[], revida: (c: Combatent
     ev.push({ t: 'golpe', de: c.id, alvo: alvo.id, dano: final, efeito: logiaSemCarga ? 'desgastado' : bloqueio ? 'bloqueou' : critico ? 'critico' : 'acertou' })
     espirito(c, ESPIRITO_AO_ACERTAR)
     ferir(alvo, final)
-    if (alvo.hp > 0 && s.queima) alvo.queimadura = { ...s.queima }
+    // queimadura: dano por vez proporcional ao poder de quem queimou (AKM nas skills da fruta)
+    if (alvo.hp > 0 && s.queima) alvo.queimadura = { dano: Math.max(1, Math.round(poderDe(c, s) * s.queima.fator)), vezes: s.queima.vezes }
     // congela mesmo quem já está atordoado (fica congelado em vez de só atordoado)
     if (alvo.hp > 0 && s.congela && rnd() < s.congela) {
       alvo.atordoado = true
@@ -538,6 +564,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
     case 'haoshoku': {
       const c = porId(e, a.id)!
       c.espirito -= HAOSHOKU.espirito
+      c.reiUsado = true
       ev.push({ t: 'haoshoku', id: c.id })
       for (const o of vivos(e, outro(c.lado))) {
         if (distancia(o.casa, c.casa) > HAOSHOKU.raio) continue
@@ -562,7 +589,7 @@ export function aplicar(anterior: Estado, a: Acao): Resultado {
       if (armamento) c.haki.armamento!.usos--
       // acabou o recurso: desliga sozinho
       if (!c.haki.armamento?.usos) c.armamentoLigado = false
-      const casas = casasDaArea(s, c.casa, a.alvo).filter(dentro)
+      const casas = alvosDaAcao(s, c.casa, a).filter(dentro)
       ev.push({ t: 'skill', id: c.id, skill: s.id, nome: s.nome, alvo: a.alvo, casas, armamento, rei })
       if (s.transforma && c.akuma) {
         c.akuma.transformado = s.transforma
@@ -687,4 +714,12 @@ function soltar(c: Combatente) {
     c.atordoado = false
     c.atordoadoMais = 0
   }
+}
+
+/** Casas atingidas por uma ação de skill: a área dela, ou (área 'multi') as casas escolhidas, sem repetir. */
+export function alvosDaAcao(s: Skill, de: Casa, a: { alvo: Casa; extras?: Casa[] }): Casa[] {
+  if (s.area !== 'multi') return casasDaArea(s, de, a.alvo)
+  const r: Casa[] = []
+  for (const x of [a.alvo, ...(a.extras ?? [])]) if (!r.some((y) => mesmaCasa(x, y))) r.push(x)
+  return r
 }

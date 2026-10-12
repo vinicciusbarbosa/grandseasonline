@@ -7,12 +7,14 @@
  */
 
 import type { Casa } from '../tabuleiro'
-import { alvoValido, casasDaArea } from './armas'
+import { alvoValido, casasDaArea, type Skill } from './armas'
 import {
   HAOSHOKU,
   custoArmamento,
   chanceHaki,
   FORCA,
+  poderDe,
+  reducaoDef,
   distancia,
   motivo,
   movimentos,
@@ -25,9 +27,8 @@ import {
 } from './regras'
 
 /** Dano esperado (bem grosseiro) de um golpe. */
-export function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number, armamento: boolean) {
-  const def = Math.min(60, alvo.at.def)
-  let d = c.at.atk * FORCA * mult * golpes * (1 - def / 100)
+export function esperado(c: Combatente, alvo: Combatente, mult: number, golpes: number, armamento: boolean, s?: Skill) {
+  let d = (s ? poderDe(c, s) : c.at.atk) * FORCA * mult * golpes * (1 - reducaoDef(alvo.at.def * (1 - (s?.ignoraDef ?? 0))))
   if (armamento) d *= c.haki.armamento?.avancado ? 1.4 : 1.25
   // prefere terminar quem está quase caindo
   if (d >= alvo.hp) d = alvo.hp + 25
@@ -60,7 +61,16 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
         if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo } }
         continue
       }
-      const casas = casasDaArea(s, de, alvo)
+      // tiros escolhidos: além do alvo, os outros inimigos ao alcance que mais sofrem
+      const extras =
+        s.area === 'multi'
+          ? inimigos
+              .filter((i) => !(i.casa.l === alvo.l && i.casa.c === alvo.c) && alvoValido(s, de, i.casa))
+              .sort((a, b) => esperado(c, b, s.mult, 1, false, s) - esperado(c, a, s.mult, 1, false, s))
+              .slice(0, (s.alvos ?? 1) - 1)
+              .map((i) => i.casa)
+          : []
+      const casas = [...casasDaArea(s, de, alvo), ...extras]
       let v = 0
       let logia = false
       for (const x of casas) {
@@ -68,7 +78,7 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
         if (!o || o === c) continue
         if (o.lado === c.lado) continue // companheiros não se ferem
         if (o.logia && o.logia.cargas > 0) logia = true
-        v += esperado(c, o, s.mult, s.golpes ?? 1, false)
+        v += esperado(c, o, s.mult, s.golpes ?? 1, false, s)
       }
       if (v <= 0) continue
       // armamento: contra Logia com cargas, ou em golpe forte se sobra uso
@@ -79,11 +89,11 @@ function melhorGolpe(e: Estado, c: Combatente, de: Casa): Opcao | null {
         v = 0
         for (const x of casas) {
           const o = inimigos.find((p) => p.casa.l === x.l && p.casa.c === x.c)
-          if (o) v += esperado(c, o, s.mult, s.golpes ?? 1, true)
+          if (o) v += esperado(c, o, s.mult, s.golpes ?? 1, true, s)
         }
       }
       v -= s.energia * 0.3 // guarda energia
-      if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo }, haki: { armamento } }
+      if (!melhor || v > melhor.valor) melhor = { valor: v, acao: { t: 'skill', id: c.id, skill: s.id, alvo, ...(extras.length ? { extras } : {}) }, haki: { armamento } }
     }
   }
   return melhor
@@ -109,10 +119,10 @@ export function proximaAcao(e: Estado): Acao {
     }
     // Haki do Rei em área, se pega pelo menos dois mais fracos
     for (const c of meus) {
-      if (!c.haki.rei || c.espirito < HAOSHOKU.espirito) continue
+      if (!c.haki.rei || c.reiUsado || c.espirito < HAOSHOKU.espirito) continue
       const pega = inimigos.filter((i) => distancia(i.casa, c.casa) <= HAOSHOKU.raio && chanceHaki(c.haki.overall - i.haki.overall) >= 0.5 && !i.atordoado)
-      // não gasta a vez: vale soltar se pega pelo menos um
-      if (pega.length >= 1) return { t: 'haoshoku', id: c.id }
+      // uma vez por batalha: guarda para pegar pelo menos dois (ou o último que sobrou)
+      if (pega.length >= 2 || (pega.length >= 1 && inimigos.length <= 2)) return { t: 'haoshoku', id: c.id }
     }
     let melhor: Opcao | null = null
     for (const c of meus) {
