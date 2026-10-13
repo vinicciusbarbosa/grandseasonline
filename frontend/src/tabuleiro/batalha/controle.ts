@@ -144,6 +144,8 @@ export interface Palco {
   pheasant(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Ice Age do Effekseer em volta de quem lança; resolve quando a expansão alcança longe (~0,8 s), false sem o efeito */
   iceAge(p: Personagem): Promise<boolean>
+  /** Fruta da Fumaça (Effekseer): o jato até o alvo e a nuvem em cada casa (ou, na prisão, a cúpula na área); resolve no impacto, false sem o efeito */
+  fumaca(p: Personagem, ate: THREE.Vector3, casas: THREE.Vector3[], prisao: boolean): Promise<boolean>
   /** Hiken do Effekseer: o punho de fogo vai até o alvo e explode; resolve no impacto, false sem o efeito */
   hiken(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Higan do Effekseer: rajada de balas do dedo até o alvo; resolve quando metade acerta, false sem o efeito */
@@ -189,8 +191,8 @@ const VISUAL: Record<string, Visual> = {
   'golpe-vital': { efeito: 'impacto', modo: 'perto' },
   'danca-laminas': { efeito: 'tornado', modo: 'si', escala: 2.4 },
   'primeiros-socorros': { efeito: 'aura', modo: 'area', escala: 1.2 },
-  'nuvem-fumaca': { efeito: 'fumaca', modo: 'area', escala: 1.2 },
-  'prisao-fumaca': { efeito: 'fumaca', modo: 'area', escala: 1.3 },
+  'nuvem-fumaca': { efeito: 'fumaca', modo: 'especial', escala: 1.2 },
+  'prisao-fumaca': { efeito: 'fumaca', modo: 'especial', escala: 1.3 },
   // Mera Mera (Ace)
   hiken: { efeito: 'explosaoFogo', modo: 'especial', escala: 1.2 },
   hotarubi: { efeito: 'explosaoFogo', modo: 'especial', escala: 1 },
@@ -241,8 +243,6 @@ const FOLHA_SKILL: Record<string, FxFolha[]> = {
   'chute-giratorio': [{ folha: 'anel-poeira', onde: 'si', chao: true, largura: 2.8 }],
   'golpe-devastador': [{ folha: 'explosao-terra', onde: 'alvo', chao: true, largura: 1.6 }],
   uivo: [{ folha: 'anel-poeira', onde: 'si', chao: true, largura: 3.2 }, { folha: 'tremor', onde: 'si', chao: true, largura: 2.6 }],
-  'nuvem-fumaca': [{ folha: 'nuvem-veneno', onde: 'casas', largura: 1.5 }],
-  'prisao-fumaca': [{ folha: 'nuvem-veneno', onde: 'casas', largura: 1.7 }],
   'lanca-gelo': [{ folha: 'estrela-gelo', onde: 'alvo' }],
   'ice-saber': [{ folha: 'estrela-gelo', onde: 'alvo' }],
   'ice-time': [{ folha: 'estrela-gelo', onde: 'alvo', largura: 1.3 }],
@@ -1605,6 +1605,18 @@ export class ControleBatalha {
         // Effekseer: clarão de contato na mão; os cristais crescem no alvo quando
         // ele congela (evento 'congelou') e ficam até a vez do congelado acabar
         if (!(await P.iceTime(a, hits[0] ?? null, ate))) await esperar(300)
+        break
+      }
+      case 'nuvem-fumaca':
+      case 'prisao-fumaca': {
+        // Effekseer (scripts/efeitos/fumaca.py); sem ele, a nuvem desenhada em cada casa
+        const prisao = id === 'prisao-fumaca'
+        if (await P.fumaca(a, ate, casas, prisao)) {
+          if (prisao) P.tremer(0.35)
+          break
+        }
+        for (const x of casas) void P.efeitoFolha('nuvem-veneno', 'S', x, { largura: prisao ? 1.7 : 1.5 })
+        await esperar(450)
         break
       }
       case 'era-gelo': {

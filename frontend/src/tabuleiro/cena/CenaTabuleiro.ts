@@ -383,6 +383,10 @@ export class CenaTabuleiro {
       Promise.all([carregarEfk('partisan'), carregarEfk('partisan-formacao'), carregarEfk('partisan-impacto')]).then(([l, f, i]) => (l && f && i ? this.partisanEfk(p, ate, l, f, i) : false)),
     pheasant: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('pheasant-beak'), carregarEfk('pheasant-beak-impacto')]).then(([ave, imp]) => (ave && imp ? this.pheasantEfk(p, ate, ave, imp) : false)),
+    fumaca: (p: Personagem, ate: THREE.Vector3, casas: THREE.Vector3[], prisao: boolean) =>
+      Promise.all(['fumaca-jato', prisao ? 'fumaca-prisao' : 'fumaca-nuvem'].map((n) => carregarEfk(n))).then(([j, n]) =>
+        j && n ? this.fumacaEfk(p, ate, casas, prisao, j, n) : false,
+      ),
     iceAge: (p: Personagem) =>
       carregarEfk('ice-age').then((d) => {
         if (!d) return false
@@ -788,6 +792,32 @@ export class CenaTabuleiro {
         toca(impacto, 'hiken-impacto', para, escala * 1.4)
         r(true)
       })
+    })
+  }
+
+  /**
+   * Fruta da Fumaça (scripts/efeitos/fumaca.py): o jato sai do peito e corre
+   * até o alvo; no impacto, a nuvem engole cada casa atingida (Nuvem de
+   * Fumaça) ou a Prisão de Fumaça gira em volta da área 3×3 e estoura.
+   * Resolve quando o golpe acerta (o dano aparece junto).
+   */
+  private fumacaEfk(p: Personagem, ate: THREE.Vector3, casas: THREE.Vector3[], prisao: boolean, jato: DadosEfk, nuvem: DadosEfk) {
+    const ESCALA = 0.25 // 1 casa ≈ 4 unidades do efeito
+    const de = p.pos.clone()
+    const alvo = ate.clone().setY(0)
+    const j = this.tocarEfk('fumaca-jato', jato, de, ESCALA, alvo)
+    j.sprite.rotation.set(0, Math.atan2(alvo.x - de.x, alvo.z - de.z), 0)
+    const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms / this.velocidade))
+    return esperar((j.quadroImpacto / 60) * 1000).then(async () => {
+      if (prisao) {
+        // centro da área: a casa do meio (a do alvo)
+        this.tocarEfk('fumaca-prisao', nuvem, alvo, ESCALA)
+        await esperar((72 / 60) * 1000) // estouro
+      } else {
+        for (const c of casas.length ? casas : [ate]) this.tocarEfk('fumaca-nuvem', nuvem, c.clone().setY(0), ESCALA)
+        await esperar(250)
+      }
+      return true
     })
   }
 
