@@ -309,65 +309,101 @@ def rachadura(n=512):
 
 
 # ------------------------------------------------------------ versão "energia" (como a referência)
+def serrilha(pts, faixas, rng, alt=(30, 70), passo=6, puxa=(-0.6, 0.0)):
+    """contorno fechado com pontas de chama nas faixas (frações 0..1 do contorno):
+    a cada `passo` pontos sai uma ponta para fora, puxada para trás (`puxa`)"""
+    P = np.array(pts, float)
+    c = P.mean(0)
+    out = []
+    m = len(P)
+    for i, q in enumerate(P):
+        out.append(tuple(q))
+        f = i / m
+        if i % passo == passo // 2 and any(f0 <= f < f1 for f0, f1 in faixas):
+            nrm = q - c
+            nrm /= np.linalg.norm(nrm) + 1e-9
+            h = rng.uniform(*alt)
+            ponta = q + nrm * h + np.array(puxa) * h
+            out.append(tuple(ponta))
+    return out
+
+
+def faiscas(T, rng, caixa, n, cor=BRANCO):
+    """pontinhos de luz espalhados (o 'pó' de eletricidade da referência)"""
+    x0, y0, x1, y1 = caixa
+    for _ in range(n):
+        r = rng.uniform(1.5, 4.5)
+        T.elipse(rng.uniform(x0, x1), rng.uniform(y0, y1), r, r, cor + (int(rng.uniform(70, 170)),))
+
+
+def contorno_unico(img, larg=4, cor=BRANCO, dentro=None):
+    """contorno branco em volta da silhueta inteira (as partes se fundem numa
+    forma só, como no desenho da referência). `dentro`: camada extra (riscos,
+    faíscas) recortada para ficar só dentro da silhueta."""
+    a = img.getchannel('A').point(lambda v: 255 if v > 40 else 0)
+    borda = Image.fromarray(np.clip(np.asarray(a.filter(ImageFilter.MaxFilter(larg * 2 + 1)), np.int16)
+                                    - np.asarray(a.filter(ImageFilter.MinFilter(3)), np.int16), 0, 255).astype(np.uint8))
+    if dentro is not None:
+        d = np.asarray(dentro).copy()
+        d[..., 3] = np.minimum(d[..., 3], np.asarray(a.filter(ImageFilter.MinFilter(larg * 2 + 1))))
+        img.alpha_composite(Image.fromarray(d, 'RGBA'))
+    linha = Image.new('RGBA', img.size, cor + (0,))
+    linha.putalpha(borda.filter(ImageFilter.GaussianBlur(0.6)))
+    img.alpha_composite(linha)
+    return img
+
+
 def cabeca_energia(n=1024):
-    """cabeça de dragão feita de raio, de perfil (focinho para a direita; o jogo
-    espelha quando o alvo está à esquerda), só a silhueta: ciano translúcido,
-    contorno branco, veios de luz por dentro, a boca aberta e a juba/chifres em
-    labaredas. Sem feições (olhos, dentes): só a fenda de luz do olho."""
+    """cabeça do dragão de raio como a referência: uma silhueta só, ciano de um
+    tom, contorno branco fino, bordas em labaredas, boca fechada, só a lasca de
+    luz do olho; sem juba. De perfil (focinho para a direita, um pouco para
+    baixo); o jogo espelha quando o alvo está à esquerda."""
     T = Tela(n)
-    W = BRANCO + (255,)
-    FILL = CIANO + (205,)
-    FUNDO = (40, 150, 240, 170)
-    rng = np.random.default_rng(9)
-    # juba em labaredas varrendo para trás (sai da nuca e vai até a borda esquerda)
-    for ang, r1 in ((150, 330), (170, 420), (192, 440), (212, 400), (232, 330), (128, 260)):
-        curva = 60 * (1 if ang < 180 else -1)
-        pts = chama(400, 430, ang + rng.uniform(-5, 5), 60, r1 + rng.uniform(-25, 25), 100, curva)
-        T.poli(catmull(pts, 8), FUNDO, W, 4)
-    # chifres longos para trás
-    for pts, w0 in [([(470, 320), (400, 230), (300, 170), (170, 150)], 62), ([(440, 340), (360, 290), (260, 270), (160, 290)], 40)]:
-        T.poli(traco(pts, w0, 4), FILL, W, 6)
-    # franja pontuda da bochecha
-    fr = [(470, 540), (330, 620, 1), (420, 560), (300, 560, 1), (420, 500)]
-    T.poli(catmull(fr, 6), FUNDO, W, 5)
-    # mandíbula (aberta, apontando para a frente e para baixo)
-    mand = [(560, 545, 1), (720, 565), (870, 615, 1), (800, 655), (660, 660), (530, 625), (480, 585)]
-    T.poli(catmull(mand, 8), FILL, W, 8)
-    # crânio e maxila: nuca, sobrancelha marcada, focinho longo e a ponta do nariz
-    cranio = [(330, 400), (420, 310), (560, 325, 1), (610, 372), (770, 385), (905, 395, 1), (940, 440), (905, 485, 1),
-              (730, 470), (560, 520, 1), (470, 560), (370, 530)]
-    T.poli(catmull(cranio, 10), FILL, W, 9)
-    # labaredas sob o queixo
-    for ang, r1 in ((95, 150), (115, 190), (135, 160)):
-        T.poli(catmull(chama(660, 640, ang, 10, r1, 40, 30), 8), FUNDO, W, 4)
-    # veios de luz por dentro, do focinho para a nuca
-    for v in ([(890, 425), (740, 425), (580, 445), (420, 430)], [(850, 610), (700, 615), (560, 590)], [(560, 345), (470, 360), (380, 410)]):
-        T.poli(traco(v, 10, 2), BRANCO + (190,))
-    # raio dentro da boca (a energia da garganta)
-    T.linha([(575, 535), (640, 518), (680, 545), (750, 522), (830, 528)], BRANCO + (230,), 8)
-    # o brilho branco do olho (só a fenda de luz, como na imagem)
-    T.poli(catmull([(540, 388), (590, 370), (630, 382), (585, 395)], 6), BRANCO + (255,))
-    # bigodes longos saindo do focinho, varrendo para trás
-    for bg in ([(900, 470), (950, 590), (890, 720), (740, 790), (560, 770), (420, 720)], [(880, 480), (900, 600), (860, 720), (800, 840), (820, 950)]):
-        T.poli(traco(bg, 14, 2), W)
+    FILL = (70, 215, 250, 225)
+    rng = np.random.default_rng(4)
+    # labaredas largas que saem da nuca, da sobrancelha e de baixo do queixo
+    for cx, cy, ang, r0, r1, larg, curva in [
+        (560, 330, 235, 0, 230, 34, -40), (520, 340, 215, 0, 200, 30, -30),   # pontas da sobrancelha (chifres)
+        (400, 360, 200, 20, 260, 46, -40), (340, 420, 185, 20, 270, 50, -30), (320, 500, 165, 20, 240, 46, 30),
+        (380, 590, 140, 10, 210, 42, 40),                                       # nuca
+        (520, 640, 115, 10, 230, 40, 30), (640, 630, 100, 10, 290, 46, 25), (740, 600, 85, 10, 200, 34, 20),  # barba
+        (700, 400, 250, 0, 120, 26, -20), (820, 445, 255, 0, 90, 20, -15),    # cristas do focinho
+    ]:
+        T.poli(catmull(chama(cx, cy, ang + rng.uniform(-4, 4), r0, r1, larg, curva), 8), FILL)
+    # cabeça: crânio, sobrancelha marcada, focinho longo, nariz e queixo (boca fechada)
+    base = [(300, 440), (380, 350), (480, 330), (560, 300, 1), (600, 372), (720, 402), (850, 442), (900, 470, 1), (925, 522, 1), (880, 545),
+            (800, 552, 1), (840, 578, 1), (760, 612), (640, 640), (520, 660), (420, 620), (330, 540)]
+    T.poli(catmull(base, 10), FILL)
     img = T.pronto()
-    img = brilho_atras(img, (40, 120, 255), 30, 0.6)
-    return brilho_atras(img, CIANO, 12, 0.9)
+    # por dentro: o lado de longe mais escuro, riscos e pó de luz (recortados na silhueta)
+    D = Tela(n)
+    D.poli(catmull([(500, 600), (640, 580), (780, 556), (860, 552), (770, 590), (650, 625), (540, 645)], 8), (25, 160, 230, 110))
+    D.linha([(918, 528), (850, 548), (790, 552), (700, 572), (630, 595)], BRANCO + (240,), 5)   # boca fechada
+    D.linha([(880, 478), (760, 440), (640, 418)], BRANCO + (190,), 4)                            # sulco do focinho
+    for q in ([(420, 380), (470, 420)], [(390, 470), (450, 505)], [(460, 560), (520, 595)], [(560, 340), (590, 390)],
+              [(700, 425), (745, 440)], [(620, 600), (600, 690)], [(360, 430), (300, 420)]):
+        D.linha(q, BRANCO + (190,), 4)
+    D.poli(traco([(555, 425), (610, 412), (670, 428)], 28, 2, 8), BRANCO + (255,))               # lasca de luz do olho
+    faiscas(D, rng, (250, 200, 950, 950), 260)
+    img = contorno_unico(img, 3, dentro=D.pronto())
+    img = brilho_atras(img, (40, 120, 255), 26, 0.55)
+    return brilho_atras(img, CIANO, 10, 0.8)
 
 
 def corpo_energia(n=256):
-    """faixa do corpo de energia: ciano translúcido, veios de luz ao longo e borda branca"""
+    """faixa do corpo como a referência: ciano de um tom, contorno branco fino,
+    alguns riscos brancos curtos e pó de luz"""
     T = Tela(n, 2)
-    u0, u1 = 70, 930
-    T.poli([(u0, 0), (u1, 0), (u1, 1000), (u0, 1000)], (40, 150, 240, 170))
-    T.poli([(170, 0), (830, 0), (830, 1000), (170, 1000)], CIANO + (205,))
-    T.poli([(330, 0), (670, 0), (670, 1000), (330, 1000)], CLARO + (150,))
-    # veios de luz ondulando ao longo (repetem: começam e terminam no mesmo x)
-    for x0, amp, fase in ((260, 60, 0), (500, 90, 1.7), (740, 60, 3.1), (380, 50, 2.4), (620, 50, 0.8)):
-        pts = [(x0 + amp * np.sin(2 * np.pi * y / 1000 + fase), y) for y in range(0, 1001, 40)]
-        T.linha(pts, BRANCO + (170,), 7)
-    T.poli([(u0 - 26, 0), (u0 + 4, 0), (u0 + 4, 1000), (u0 - 26, 1000)], BRANCO + (255,))
-    T.poli([(u1 - 4, 0), (u1 + 26, 0), (u1 + 26, 1000), (u1 - 4, 1000)], BRANCO + (255,))
+    u0, u1 = 90, 910
+    rng = np.random.default_rng(6)
+    T.poli([(u0, 0), (u1, 0), (u1, 1000), (u0, 1000)], (70, 215, 250, 215))
+    T.poli([(u0, 0), (u0 + 230, 0), (u0 + 230, 1000), (u0, 1000)], (30, 170, 235, 215))
+    for y in range(40, 1000, 160):
+        x = rng.uniform(300, 700)
+        T.linha([(x, y), (x + rng.uniform(-40, 40), y + 90)], BRANCO + (170,), 9)
+    faiscas(T, rng, (u0, 0, u1, 1000), 50)
+    T.poli([(u0 - 22, 0), (u0 + 2, 0), (u0 + 2, 1000), (u0 - 22, 1000)], BRANCO + (255,))
+    T.poli([(u1 - 2, 0), (u1 + 22, 0), (u1 + 22, 1000), (u1 - 2, 1000)], BRANCO + (255,))
     return T.pronto()
 
 
@@ -383,5 +419,5 @@ def crista_energia(n=256):
         x += w
         pts.append((x, 950 - rng.uniform(150, 300)))
     pts.append((940, 950, 1))
-    T.poli(catmull(pts, 6), CIANO + (210,), BRANCO + (255,), 7)
+    T.poli(catmull(pts, 6), (70, 215, 250, 215), BRANCO + (255,), 5)
     return T.pronto()
