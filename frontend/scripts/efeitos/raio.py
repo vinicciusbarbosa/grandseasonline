@@ -48,6 +48,7 @@ def fita(nome, tex, cor, largura, vida, mistura, intervalo=0.5, rolar=0.0):
               fita={'l': -largura, 'r': largura, 'cor': cor, 'olho': 1, 'uvTipo': 0, 'tile': 1})
 
 
+AURA = 'Texture/raio_aura.png'
 BRILHO, ZIG, CORPO, HALO, CRISTA, CABECA = ('Texture/raio_brilho.png', 'Texture/raio_zigzag.png', 'Texture/raio_corpo.png',
                                            'Texture/raio_halo.png', 'Texture/raio_crista.png', 'Texture/dragao_cabeca.png')
 ZIG_V, HALO_V, ESTRELA, RACHA = 'Texture/raio_zigzag_violeta.png', 'Texture/raio_halo_violeta.png', 'Texture/raio_estrela.png', 'Texture/raio_rachadura.png'
@@ -76,11 +77,16 @@ def dragao():
     corpo = fita('Corpo', CORPO, [1, 1, 1, 1], 1.9, 26, 1)
     corpo['fita']['uvTipo'] = 1  # escamas repetem pela distância
     corpo['fita']['tile'] = 6.0
+    # a aura de raio que flui pelo corpo todo (textura rolando ao longo)
+    aura = fita('Aura', AURA, [0.6, 1.0, 1.0, 0.95], 3.0, 24, 2, rolar=-9.0)
+    aura['fita']['uvTipo'] = 1
+    aura['fita']['tile'] = 5.0
     cabeca = no('Cabeça', 0, (T1 + 4, T1 + 4), 1, (1, 1), (0, 0), (0, 0, 0), eterno=False,
                 pos={'t': 'curva', 'c': curva},
                 filhos=[
-                    fita('Halo azul', HALO, [0.25, 0.5, 1.0, 0.45], 4.4, 28, 2),
-                    fita('Halo', HALO, [0.4, 0.85, 1.0, 0.6], 3.2, 26, 2),
+                    fita('Halo azul', HALO, [0.2, 0.45, 1.0, 0.6], 5.0, 28, 2),
+                    fita('Halo', HALO, [0.35, 0.9, 1.0, 0.75], 3.4, 26, 2),
+                    aura,
                     corpo,
                     fita('Núcleo', HALO, [0.95, 1.0, 1.0, 0.75], 0.45, 20, 2),
                     sprite('Crista', CRISTA, [1, 1, 1, 0.95], 10 ** 9, (0.9, 0.9), (16, 22), V((-0.15, 0.15), (1.3, 1.7), 0),
@@ -91,11 +97,18 @@ def dragao():
                            V((-0.03, 0.03), (-0.01, 0.04), (-0.03, 0.03)), 0.55, 0.1, fade=(1, 14), atraso=(T0, T0), vgiro=(-6, 6)),
                     sprite('Poeira', BRILHO, CIANO_F, 10 ** 9, (0.25, 0.25), (20, 34), V((-2.2, 2.2), (-1.6, 2.0), (-1.4, 1.4)),
                            V((-0.015, 0.015), (0.0, 0.02), (-0.015, 0.015)), 0.22, 0.06, fade=(2, 16), atraso=(T0, T0)),
-                    # a cabeça: de frente, virada para a câmera, com o brilho atrás
-                    dict(sprite('Brilho da cabeça', BRILHO, AZUL_F, 1, (1, 1), (T1 - T0, T1 - T0), V(0, 0.3, 0.4), V(0, 0, 0), 10.0, 10.0,
+                    # aura dos olhos: chispas e arcos soltos na cabeça que ficam para trás (rastro)
+                    dict(sprite('Aura dos olhos', ZIG, [0.85, 1.0, 1.0, 1.0], 10 ** 9, (0.35, 0.35), (6, 10), V((-0.5, 0.5), (0.6, 1.2), (-0.5, 0.5)),
+                                V((-0.02, 0.02), (0.0, 0.03), (-0.02, 0.02)), 1.6, 0.6, fade=(0, 5), atraso=(T0, T0)), comPai=True),
+                    dict(sprite('Chispas dos olhos', ESTRELA, [1, 1, 1, 1], 10 ** 9, (0.5, 0.5), (8, 14), V((-0.4, 0.4), (0.7, 1.1), (-0.4, 0.4)),
+                                V(0, 0, 0), 0.9, 0.1, fade=(0, 8), atraso=(T0, T0), vgiro=(-10, 10)), comPai=True),
+                    # a cabeça: virada para a câmera e girada para onde anda (billboard 3), com brilho forte atrás
+                    dict(sprite('Brilho da cabeça', BRILHO, AZUL_F, 1, (1, 1), (T1 - T0, T1 - T0), V(0, 0.3, 0.4), V(0, 0, 0), 12.0, 12.0,
+                                fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0)), comPai=True),
+                    dict(sprite('Brilho claro', BRILHO, CIANO_F, 1, (1, 1), (T1 - T0, T1 - T0), V(0, 0.3, 0.4), V(0, 0, 0), 7.0, 7.0,
                                 fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0)), comPai=True),
                     dict(sprite('Cabeça', CABECA, [1, 1, 1, 1], 1, (1, 1), (T1 - T0 + 2, T1 - T0 + 2), V(0, 0.4, 0.5), V(0, 0, 0), 8.0, 8.0,
-                                fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0), mistura=1, giro=(0, 0)), comPai=True),
+                                fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0), mistura=1, giro=(0, 0), billboard=3), comPai=True),
                 ])
     carga = no('Carga', 0, (T0 + 6, T0 + 6), 1, (1, 1), (0, 0), (0, 0, 0), pos={'t': 'fixo', 'p': V(0, 2.8, 0.8)}, filhos=[
         sprite('Brilho', BRILHO, CIANO_F, 1, (1, 1), (T0 + 6, T0 + 6), V(0, 0, 0), V(0, 0, 0), 1.0, 5.5, fade=(2, 6), heranca=(2, 0, 0)),
@@ -168,9 +181,9 @@ def gravar(nome, efeito, texs):
 
 if __name__ == '__main__':
     import raio_arte as A
-    # versão "energia" (como a referência do anime): ciano translúcido, contorno branco, sem feições
-    texs = {BRILHO: A.brilho(), ZIG: A.relampago(cor=A.CIANO, semente=1),
-            CORPO: A.corpo_energia(), HALO: A.halo(), CRISTA: A.crista_energia(), CABECA: A.cabeca_energia(),
+    # traço de anime: cores vivas, cel-shading, contorno branco e muito brilho
+    texs = {BRILHO: A.brilho(), ZIG: A.relampago(cor=A.CIANO, semente=1), AURA: A.aura(),
+            CORPO: A.corpo_anime(), HALO: A.halo(), CRISTA: A.crista_anime(), CABECA: A.cabeca_anime(),
             ESTRELA: A.estrela(), RACHA: A.rachadura()}
     gravar('raio-dragao', dragao(), texs)
     gravar('raio-impacto', impacto(), texs)

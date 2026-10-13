@@ -421,3 +421,132 @@ def crista_energia(n=256):
     pts.append((940, 950, 1))
     T.poli(catmull(pts, 6), (70, 215, 250, 215), BRANCO + (255,), 5)
     return T.pronto()
+
+
+# ------------------------------------------------------------ versão anime (cartoon, cores vivas)
+CIANO_VIVO = (40, 225, 255)
+AZUL_VIVO = (25, 110, 255)
+LUZ = (205, 252, 255)
+
+
+def estrela4(T, cx, cy, R, r, cor, giro=0.0):
+    """estrela de 4 pontas (a chispa de anime)"""
+    pts = []
+    for k in range(8):
+        a = np.radians(giro + k * 45)
+        d = R if k % 2 == 0 else r
+        pts.append((cx + np.cos(a) * d, cy + np.sin(a) * d))
+    T.poli(pts, cor)
+
+
+def zigue(rng, a, b, n=7, amp=22):
+    """linha de raio quebrada de a até b"""
+    a, b = np.array(a, float), np.array(b, float)
+    d = b - a
+    nrm = np.array([-d[1], d[0]]) / (np.linalg.norm(d) + 1e-9)
+    pts = [tuple(a)]
+    for t in np.linspace(0, 1, n)[1:-1]:
+        pts.append(tuple(a + d * t + nrm * rng.uniform(-amp, amp)))
+    pts.append(tuple(b))
+    return pts
+
+
+def cabeca_anime(n=1024):
+    """cabeça do dragão de raio em traço de anime: silhueta arredondada que só
+    lembra um dragão oriental (focinho longo, duas labaredas para trás como
+    chifres), cel-shading em 3 tons vivos, contorno branco, muito brilho, e o
+    olho é uma chispa de luz soltando um rastro de raio. De perfil, focinho
+    para a direita: o jogo gira o sprite para onde o dragão anda."""
+    T = Tela(n)
+    FILL = CIANO_VIVO + (235,)
+    rng = np.random.default_rng(11)
+    for cx, cy, ang, r0, r1, larg, curva in [
+        (570, 350, 222, 0, 300, 46, -60), (500, 352, 205, 0, 250, 38, -40),     # labaredas-chifre
+        (380, 420, 190, 20, 230, 52, -30), (340, 520, 172, 20, 210, 50, 30), (420, 610, 148, 10, 170, 44, 40),  # nuca
+        (560, 625, 125, 0, 120, 34, 25), (680, 600, 112, 0, 90, 26, 20),        # queixo
+        (690, 395, 248, 0, 85, 24, -15),                                         # tufo da testa
+    ]:
+        T.poli(catmull(chama(cx, cy, ang + rng.uniform(-4, 4), r0, r1, larg, curva), 8), FILL)
+    base = [(320, 455), (400, 372), (520, 340), (610, 360), (720, 398), (835, 432), (905, 468), (935, 512), (900, 548), (800, 565),
+            (690, 588), (580, 622), (470, 632), (380, 592), (330, 525)]
+    T.poli(catmull(base, 10), FILL)
+    img = T.pronto()
+    # cel-shading (recortado na silhueta): sombra embaixo/atrás, luz em cima
+    D = Tela(n)
+    D.poli(catmull([(300, 520), (420, 560), (560, 575), (700, 548), (840, 520), (925, 528), (880, 560), (700, 600), (560, 640), (420, 640), (300, 600)], 8),
+           AZUL_VIVO + (200,))
+    for cx, cy, ang, r0, r1, larg, curva in [(500, 352, 205, 30, 250, 26, -40), (380, 420, 190, 40, 230, 30, -30)]:
+        D.poli(catmull(chama(cx, cy, ang, r0, r1, larg, curva), 8), AZUL_VIVO + (170,))
+    D.poli(catmull([(470, 375), (600, 372), (760, 412), (880, 462), (860, 478), (740, 440), (600, 405), (480, 405)], 8), LUZ + (230,))
+    D.poli(catmull([(585, 362), (640, 300), (610, 375)], 6), LUZ + (200,))
+    D.linha([(925, 520), (840, 540), (740, 556)], BRANCO + (200,), 4)   # boca fechada, só um risco
+    faiscas(D, rng, (250, 200, 950, 950), 120)
+    img = contorno_unico(img, 4, dentro=D.pronto())
+    # o olho: chispa de luz com rastro de raio fluindo para trás
+    O = Tela(n)
+    ex, ey = 640, 430
+    for k in range(3):
+        alvo = (ex - 300 - k * 40, ey - 70 + k * 60)
+        pts = zigue(rng, (ex - 10, ey), alvo, 7, 26)
+        O.linha(pts, CIANO_VIVO + (255,), 16 - k * 3)
+        O.linha(pts, BRANCO + (255,), 6 - k)
+    O.elipse(ex, ey, 34, 18, BRANCO + (255,))
+    estrela4(O, ex, ey, 95, 14, BRANCO + (255,), 0)
+    estrela4(O, ex, ey, 55, 9, BRANCO + (255,), 45)
+    olho = O.pronto()
+    olho = brilho_atras(olho, CIANO_VIVO, 14, 1.0)
+    img.alpha_composite(olho)
+    img = brilho_atras(img, AZUL_VIVO, 40, 0.75)
+    return brilho_atras(img, CIANO_VIVO, 14, 0.95)
+
+
+def corpo_anime(n=256):
+    """faixa do corpo: cel-shading em 3 tons vivos, contorno branco, pó de luz"""
+    T = Tela(n, 2)
+    u0, u1 = 90, 910
+    rng = np.random.default_rng(6)
+    T.poli([(u0, 0), (u1, 0), (u1, 1000), (u0, 1000)], CIANO_VIVO + (235,))
+    T.poli([(u0, 0), (u0 + 250, 0), (u0 + 250, 1000), (u0, 1000)], AZUL_VIVO + (220,))
+    T.poli([(560, 0), (700, 0), (700, 1000), (560, 1000)], LUZ + (210,))
+    for y in range(40, 1000, 200):
+        x = rng.uniform(380, 520)
+        T.linha([(x, y), (x + rng.uniform(-30, 30), y + 80)], BRANCO + (170,), 9)
+    faiscas(T, rng, (u0, 0, u1, 1000), 40)
+    T.poli([(u0 - 24, 0), (u0 + 2, 0), (u0 + 2, 1000), (u0 - 24, 1000)], BRANCO + (255,))
+    T.poli([(u1 - 2, 0), (u1 + 24, 0), (u1 + 24, 1000), (u1 - 2, 1000)], BRANCO + (255,))
+    return T.pronto()
+
+
+def crista_anime(n=256):
+    T = Tela(n, 2)
+    rng = np.random.default_rng(8)
+    pts = [(60, 950)]
+    x = 60
+    while x < 900:
+        w = rng.uniform(110, 170)
+        pts.append((x + w * 0.55, 950 - rng.uniform(600, 880), 1))
+        x += w
+        pts.append((x, 950 - rng.uniform(150, 300)))
+    pts.append((940, 950, 1))
+    T.poli(catmull(pts, 6), CIANO_VIVO + (235,), BRANCO + (255,), 5)
+    return brilho_atras(T.pronto(), CIANO_VIVO, 6, 0.9)
+
+
+def aura(n=256):
+    """aura de raio que flui ao longo do corpo (repete na vertical): fiapos
+    ondulando e pequenos arcos, mais forte nas bordas"""
+    T = Tela(n, 2)
+    rng = np.random.default_rng(13)
+    for k in range(14):
+        x0 = rng.uniform(40, 960)
+        amp, fase, per = rng.uniform(20, 60), rng.uniform(0, 6.3), int(rng.integers(1, 3))
+        y0, y1 = sorted(rng.uniform(0, 1000, 2))
+        pts = [(x0 + amp * np.sin(2 * np.pi * per * y / 1000 + fase), y) for y in np.linspace(y0, y0 + rng.uniform(250, 500), 12)]
+        cor = (CIANO_VIVO if k % 3 else BRANCO) + (int(rng.uniform(150, 230)),)
+        T.linha(pts, cor, rng.uniform(6, 14))
+        T.linha([(x, y - 1000) for x, y in pts], cor, 8)  # o que passa de 1000 volta por cima
+    for k in range(5):
+        x, y = rng.uniform(80, 920), rng.uniform(80, 900)
+        T.linha(zigue(rng, (x, y), (x + rng.uniform(-80, 80), y + rng.uniform(80, 160)), 5, 20), BRANCO + (255,), 6)
+    img = T.pronto()
+    return brilho_atras(img, CIANO_VIVO, 6, 0.9)

@@ -4,7 +4,7 @@ import { recurso } from './visualFolhas'
 /**
  * Tocador de efeitos do Effekseer, convertidos por
  * scripts/efeitos/efk_converter.py (projeto .efkproj -> efeito.json). Cobre o
- * que esses efeitos usam: sprite (billboard, eixo Y fixo, fixo), fita
+ * que esses efeitos usam: sprite (billboard, eixo Y fixo, fixo, virado para onde anda), fita
  * (ribbon) e anel; posição fixa/PVA/curva, rotação fixa/PVA, escala
  * fixa/easing, geração em círculo, fade, UV fixo e rolando, mistura e soma.
  *
@@ -82,6 +82,9 @@ class Inst {
   readonly mundo = new THREE.Matrix4()
   /** mundo do pai no nascimento (herança "só ao nascer") */
   readonly paiNasc = new THREE.Matrix4()
+  /** billboard 3: posição no último desenho e o ângulo na tela (suavizado) */
+  posAnt: THREE.Vector3 | null = null
+  angTela = 0
   private readonly p0 = new THREE.Vector3()
   private readonly v0 = new THREE.Vector3()
   private readonly a0 = new THREE.Vector3()
@@ -532,6 +535,25 @@ export class EfeitoEfk {
     } else if (s.billboard === 2) {
       dx = new THREE.Vector3().setFromMatrixColumn(f.mundo, 0).normalize()
       dy = new THREE.Vector3().setFromMatrixColumn(f.mundo, 1).normalize()
+    } else if (s.billboard === 3) {
+      // virado para a câmera e girado no plano da tela para o +U da textura
+      // apontar para onde o sprite anda; sem ficar de cabeça para baixo
+      // (indo para a esquerda, espelha em vez de girar 180°)
+      if (f.posAnt) {
+        const v = p.clone().sub(f.posAnt)
+        const vx = v.dot(direita)
+        const vy = v.dot(cima)
+        if (Math.hypot(vx, vy) > 1e-4) {
+          const alvo = Math.atan2(vy, vx)
+          const dif = Math.atan2(Math.sin(alvo - f.angTela), Math.cos(alvo - f.angTela))
+          f.angTela += dif * 0.35
+        }
+      } else f.posAnt = new THREE.Vector3()
+      f.posAnt.copy(p)
+      const a = f.angTela
+      dx = direita.clone().multiplyScalar(Math.cos(a)).addScaledVector(cima, Math.sin(a))
+      dy = cima.clone().multiplyScalar(Math.cos(a)).addScaledVector(direita, -Math.sin(a))
+      if (dy.dot(cima) < 0) dy.negate()
     } else {
       const a = f.giroZ() * GRAU
       dx = direita.clone().multiplyScalar(Math.cos(a)).addScaledVector(cima, Math.sin(a))
