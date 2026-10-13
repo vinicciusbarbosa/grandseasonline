@@ -574,7 +574,18 @@ export class EfeitoEfk {
   private fita(m: Malha, no: No, pts: Inst[], olho: THREE.Vector3) {
     if (pts.length < 2) return
     const fi = no.fita!
-    const ps = pts.map((f) => new THREE.Vector3().setFromMatrixPosition(f.mundo))
+    // pontos nascidos no mesmo lugar (vários por quadro) dão tangente nula e
+    // abrem buracos na fita: fica só um de cada posição
+    const ps: THREE.Vector3[] = []
+    const fs: Inst[] = []
+    for (const f of pts) {
+      const q = new THREE.Vector3().setFromMatrixPosition(f.mundo)
+      if (ps.length && q.distanceToSquared(ps[ps.length - 1]) < 1e-8) continue
+      ps.push(q)
+      fs.push(f)
+    }
+    if (ps.length < 2) return
+    pts = fs
     let dist = 0
     let ant = -1
     for (let k = 0; k < ps.length; k++) {

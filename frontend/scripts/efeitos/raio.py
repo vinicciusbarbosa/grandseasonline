@@ -89,25 +89,21 @@ def dragao():
                     aura,
                     corpo,
                     fita('Núcleo', HALO, [0.95, 1.0, 1.0, 0.75], 0.45, 20, 2),
-                    sprite('Crista', CRISTA, [1, 1, 1, 0.95], 10 ** 9, (0.9, 0.9), (16, 22), V((-0.15, 0.15), (1.3, 1.7), 0),
-                           V(0, (0.0, 0.015), 0), 2.8, 0.9, fade=(1, 9), atraso=(T0, T0), giro=(-18, 18), mistura=1),
                     sprite('Arcos', ZIG, [0.9, 1.0, 1.0, 1.0], 10 ** 9, (0.55, 0.55), (5, 8), V((-1.6, 1.6), (-1.2, 1.8), (-0.8, 0.8)),
                            V(0, 0, 0), 2.0, 3.2, fade=(0, 4), atraso=(T0, T0)),
                     sprite('Faíscas', ESTRELA, [0.9, 1.0, 1.0, 1.0], 10 ** 9, (0.3, 0.3), (18, 30), V((-1.8, 1.8), (-1.4, 1.6), (-1.2, 1.2)),
                            V((-0.03, 0.03), (-0.01, 0.04), (-0.03, 0.03)), 0.55, 0.1, fade=(1, 14), atraso=(T0, T0), vgiro=(-6, 6)),
                     sprite('Poeira', BRILHO, CIANO_F, 10 ** 9, (0.25, 0.25), (20, 34), V((-2.2, 2.2), (-1.6, 2.0), (-1.4, 1.4)),
                            V((-0.015, 0.015), (0.0, 0.02), (-0.015, 0.015)), 0.22, 0.06, fade=(2, 16), atraso=(T0, T0)),
-                    # aura dos olhos: chispas e arcos soltos na cabeça que ficam para trás (rastro)
+                    # aura dos olhos: arcos soltos na cabeça que ficam para trás (rastro)
                     dict(sprite('Aura dos olhos', ZIG, [0.85, 1.0, 1.0, 1.0], 10 ** 9, (0.35, 0.35), (6, 10), V((-0.5, 0.5), (0.6, 1.2), (-0.5, 0.5)),
                                 V((-0.02, 0.02), (0.0, 0.03), (-0.02, 0.02)), 1.6, 0.6, fade=(0, 5), atraso=(T0, T0)), comPai=True),
-                    dict(sprite('Chispas dos olhos', ESTRELA, [1, 1, 1, 1], 10 ** 9, (0.5, 0.5), (8, 14), V((-0.4, 0.4), (0.7, 1.1), (-0.4, 0.4)),
-                                V(0, 0, 0), 0.9, 0.1, fade=(0, 8), atraso=(T0, T0), vgiro=(-10, 10)), comPai=True),
                     # a cabeça: virada para a câmera e girada para onde anda (billboard 3), com brilho forte atrás
                     dict(sprite('Brilho da cabeça', BRILHO, AZUL_F, 1, (1, 1), (T1 - T0, T1 - T0), V(0, 0.3, 0.4), V(0, 0, 0), 12.0, 12.0,
                                 fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0)), comPai=True),
                     dict(sprite('Brilho claro', BRILHO, CIANO_F, 1, (1, 1), (T1 - T0, T1 - T0), V(0, 0.3, 0.4), V(0, 0, 0), 7.0, 7.0,
                                 fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0)), comPai=True),
-                    dict(sprite('Cabeça', CABECA, [1, 1, 1, 1], 1, (1, 1), (T1 - T0 + 2, T1 - T0 + 2), V(0, 0.4, 0.5), V(0, 0, 0), 8.0, 8.0,
+                    dict(sprite('Cabeça', CABECA, [1, 1, 1, 1], 1, (1, 1), (T1 - T0 + 2, T1 - T0 + 2), V(0, 0, 0), V(0, 0, 0), 8.0, 8.0,
                                 fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0), mistura=1, giro=(0, 0), billboard=3), comPai=True),
                 ])
     carga = no('Carga', 0, (T0 + 6, T0 + 6), 1, (1, 1), (0, 0), (0, 0, 0), pos={'t': 'fixo', 'p': V(0, 2.8, 0.8)}, filhos=[

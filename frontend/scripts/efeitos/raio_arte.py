@@ -452,52 +452,48 @@ def zigue(rng, a, b, n=7, amp=22):
 
 
 def cabeca_anime(n=1024):
-    """cabeça do dragão de raio em traço de anime: silhueta arredondada que só
-    lembra um dragão oriental (focinho longo, duas labaredas para trás como
-    chifres), cel-shading em 3 tons vivos, contorno branco, muito brilho, e o
-    olho é uma chispa de luz soltando um rastro de raio. De perfil, focinho
-    para a direita: o jogo gira o sprite para onde o dragão anda."""
+    """a ponta do dragão-rajada: sem cabeça desenhada, só a frente do corpo um
+    pouco mais larga e arredondada (como cobra), nas cores do corpo, e o olho
+    é uma aura de raio fluindo para trás. A ponta esquerda some no corpo.
+    Focinho para a direita: o jogo gira o sprite para onde o dragão anda.
+    Escala: o sprite tem 8 unidades e o corpo 3.8 de largura (~475 aqui)."""
     T = Tela(n)
-    FILL = CIANO_VIVO + (235,)
     rng = np.random.default_rng(11)
-    for cx, cy, ang, r0, r1, larg, curva in [
-        (570, 350, 222, 0, 300, 46, -60), (500, 352, 205, 0, 250, 38, -40),     # labaredas-chifre
-        (380, 420, 190, 20, 230, 52, -30), (340, 520, 172, 20, 210, 50, 30), (420, 610, 148, 10, 170, 44, 40),  # nuca
-        (560, 625, 125, 0, 120, 34, 25), (680, 600, 112, 0, 90, 26, 20),        # queixo
-        (690, 395, 248, 0, 85, 24, -15),                                         # tufo da testa
-    ]:
-        T.poli(catmull(chama(cx, cy, ang + rng.uniform(-4, 4), r0, r1, larg, curva), 8), FILL)
-    base = [(320, 455), (400, 372), (520, 340), (610, 360), (720, 398), (835, 432), (905, 468), (935, 512), (900, 548), (800, 565),
-            (690, 588), (580, 622), (470, 632), (380, 592), (330, 525)]
-    T.poli(catmull(base, 10), FILL)
+    forma = [(0, 262), (300, 255), (560, 225), (760, 250), (880, 330), (915, 420), (920, 500), (915, 580), (880, 670), (760, 750),
+             (560, 775), (300, 745), (0, 738)]
+    T.poli(catmull(forma, 12), CIANO_VIVO + (235,))
     img = T.pronto()
-    # cel-shading (recortado na silhueta): sombra embaixo/atrás, luz em cima
     D = Tela(n)
-    D.poli(catmull([(300, 520), (420, 560), (560, 575), (700, 548), (840, 520), (925, 528), (880, 560), (700, 600), (560, 640), (420, 640), (300, 600)], 8),
+    D.poli(catmull([(0, 600), (300, 610), (560, 640), (760, 620), (900, 560), (880, 670), (760, 750), (560, 775), (300, 745), (0, 738)], 8),
            AZUL_VIVO + (200,))
-    for cx, cy, ang, r0, r1, larg, curva in [(500, 352, 205, 30, 250, 26, -40), (380, 420, 190, 40, 230, 30, -30)]:
-        D.poli(catmull(chama(cx, cy, ang, r0, r1, larg, curva), 8), AZUL_VIVO + (170,))
-    D.poli(catmull([(470, 375), (600, 372), (760, 412), (880, 462), (860, 478), (740, 440), (600, 405), (480, 405)], 8), LUZ + (230,))
-    D.poli(catmull([(585, 362), (640, 300), (610, 375)], 6), LUZ + (200,))
-    D.linha([(925, 520), (840, 540), (740, 556)], BRANCO + (200,), 4)   # boca fechada, só um risco
-    faiscas(D, rng, (250, 200, 950, 950), 120)
-    img = contorno_unico(img, 4, dentro=D.pronto())
-    # o olho: chispa de luz com rastro de raio fluindo para trás
+    D.poli(catmull([(0, 340), (300, 330), (560, 310), (760, 330), (870, 390), (850, 410), (740, 370), (560, 360), (300, 380), (0, 390)], 8),
+           LUZ + (220,))
+    for k in range(3):   # raios estalando por cima
+        y = rng.uniform(380, 640)
+        D.linha(zigue(rng, (rng.uniform(0, 200), y), (rng.uniform(600, 880), y + rng.uniform(-80, 80)), 8, 30), BRANCO + (230,), 5)
+    faiscas(D, rng, (0, 230, 920, 770), 120)
+    img = contorno_unico(img, 5, dentro=D.pronto())
+    # olho: aura de raio (brilho + labaredas de luz e arcos fluindo para trás)
     O = Tela(n)
-    ex, ey = 640, 430
-    for k in range(3):
-        alvo = (ex - 300 - k * 40, ey - 70 + k * 60)
-        pts = zigue(rng, (ex - 10, ey), alvo, 7, 26)
-        O.linha(pts, CIANO_VIVO + (255,), 16 - k * 3)
-        O.linha(pts, BRANCO + (255,), 6 - k)
-    O.elipse(ex, ey, 34, 18, BRANCO + (255,))
-    estrela4(O, ex, ey, 95, 14, BRANCO + (255,), 0)
-    estrela4(O, ex, ey, 55, 9, BRANCO + (255,), 45)
-    olho = O.pronto()
-    olho = brilho_atras(olho, CIANO_VIVO, 14, 1.0)
-    img.alpha_composite(olho)
+    ex, ey = 700, 420
+    for k in range(7):
+        comp = rng.uniform(300, 520)
+        sobe = rng.uniform(-170, 10)
+        pts = [(ex - 10 - t * comp, ey + sobe * t ** 1.3 + 22 * np.sin(t * 6 + k)) for t in np.linspace(0, 1, 12)]
+        O.poli(traco(pts, rng.uniform(30, 50), 2, 8), (BRANCO if k % 3 == 0 else CIANO_VIVO) + (235,))
+    for k in range(4):
+        O.linha(zigue(rng, (ex - 20, ey), (ex - 320 - k * 40, ey - 150 + k * 50), 8, 24), BRANCO + (255,), 7 - k)
+    O.elipse(ex, ey, 50, 24, LUZ + (255,))
+    O.elipse(ex + 5, ey, 30, 13, BRANCO + (255,))
+    olho = brilho_atras(O.pronto(), CIANO_VIVO, 26, 1.0)
+    img.alpha_composite(brilho_atras(olho, BRANCO, 8, 0.9))
     img = brilho_atras(img, AZUL_VIVO, 40, 0.75)
-    return brilho_atras(img, CIANO_VIVO, 14, 0.95)
+    img = brilho_atras(img, CIANO_VIVO, 14, 0.95)
+    # a ponta de trás some no corpo (sem corte nem contorno)
+    a = np.asarray(img).copy()
+    rampa = np.clip(np.arange(n) / (n * 0.22), 0, 1)
+    a[..., 3] = (a[..., 3] * rampa[None, :]).astype(np.uint8)
+    return Image.fromarray(a, 'RGBA')
 
 
 def corpo_anime(n=256):
