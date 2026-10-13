@@ -806,6 +806,8 @@ export class CenaTabuleiro {
     const ESCALA = 0.25 // 1 casa ≈ 4 unidades do efeito
     const de = p.pos.clone()
     const alvo = ate.clone().setY(0)
+    // a cabeça é de perfil (focinho para a direita): espelha quando o alvo fica à esquerda na tela
+    if (alvo.clone().project(this.camera).x < de.clone().project(this.camera).x) dragao = espelharTex(dragao, 'Texture/dragao_cabeca.png')
     const d = this.tocarEfk('raio-dragao', dragao, de, ESCALA, alvo)
     d.sprite.rotation.set(0, Math.atan2(alvo.x - de.x, alvo.z - de.z), 0)
     return new Promise<boolean>((r) =>
@@ -1948,4 +1950,15 @@ export class CenaTabuleiro {
   private limparMarcas() {
     this.marcas.clear()
   }
+}
+
+/** cópia do efeito com a textura `tex` espelhada na horizontal (UV de trás para frente) */
+function espelharTex(dados: DadosEfk, tex: string): DadosEfk {
+  type N = DadosEfk['filhos'][number]
+  const no = (n: N): N => ({
+    ...n,
+    render: n.render?.tex === tex ? { ...n.render, uv: { t: 'fixo', x: 1024, y: 0, w: -1024, h: 1024 } } : n.render,
+    filhos: n.filhos.map(no),
+  })
+  return { ...dados, filhos: dados.filhos.map(no) }
 }

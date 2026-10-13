@@ -52,7 +52,7 @@ BRILHO, ZIG, CORPO, HALO, CRISTA, CABECA = ('Texture/raio_brilho.png', 'Texture/
                                            'Texture/raio_halo.png', 'Texture/raio_crista.png', 'Texture/dragao_cabeca.png')
 ZIG_V, HALO_V, ESTRELA, RACHA = 'Texture/raio_zigzag_violeta.png', 'Texture/raio_halo_violeta.png', 'Texture/raio_estrela.png', 'Texture/raio_rachadura.png'
 CIANO_F = [0.35, 0.9, 1.0, 1.0]
-VIOLETA_F = [0.62, 0.45, 1.0, 1.0]
+AZUL_F = [0.25, 0.5, 1.0, 1.0]
 
 
 def espiral(nome, tex, cor, largura, vida, fase, raio=1.3, passos=10):
@@ -75,38 +75,34 @@ def dragao():
     ]
     corpo = fita('Corpo', CORPO, [1, 1, 1, 1], 1.9, 26, 1)
     corpo['fita']['uvTipo'] = 1  # escamas repetem pela distância
-    corpo['fita']['tile'] = 3.2
+    corpo['fita']['tile'] = 6.0
     cabeca = no('Cabeça', 0, (T1 + 4, T1 + 4), 1, (1, 1), (0, 0), (0, 0, 0), eterno=False,
                 pos={'t': 'curva', 'c': curva},
                 filhos=[
-                    fita('Halo violeta', HALO_V, [0.6, 0.45, 1.0, 0.45], 4.4, 28, 2),
+                    fita('Halo azul', HALO, [0.25, 0.5, 1.0, 0.45], 4.4, 28, 2),
                     fita('Halo', HALO, [0.4, 0.85, 1.0, 0.6], 3.2, 26, 2),
                     corpo,
                     fita('Núcleo', HALO, [0.95, 1.0, 1.0, 0.75], 0.45, 20, 2),
-                    espiral('Espiral ciano', HALO, [0.7, 1.0, 1.0, 1.0], 0.22, 22, 0),
-                    espiral('Espiral violeta', HALO_V, [0.75, 0.6, 1.0, 1.0], 0.22, 22, 180),
                     sprite('Crista', CRISTA, [1, 1, 1, 0.95], 10 ** 9, (0.9, 0.9), (16, 22), V((-0.15, 0.15), (1.3, 1.7), 0),
                            V(0, (0.0, 0.015), 0), 2.8, 0.9, fade=(1, 9), atraso=(T0, T0), giro=(-18, 18), mistura=1),
                     sprite('Arcos', ZIG, [0.9, 1.0, 1.0, 1.0], 10 ** 9, (0.55, 0.55), (5, 8), V((-1.6, 1.6), (-1.2, 1.8), (-0.8, 0.8)),
                            V(0, 0, 0), 2.0, 3.2, fade=(0, 4), atraso=(T0, T0)),
-                    sprite('Arcos violeta', ZIG_V, [1, 1, 1, 0.9], 10 ** 9, (1.1, 1.1), (5, 8), V((-1.8, 1.8), (-1.4, 2.0), (-0.8, 0.8)),
-                           V(0, 0, 0), 2.2, 3.4, fade=(0, 4), atraso=(T0, T0)),
                     sprite('Faíscas', ESTRELA, [0.9, 1.0, 1.0, 1.0], 10 ** 9, (0.3, 0.3), (18, 30), V((-1.8, 1.8), (-1.4, 1.6), (-1.2, 1.2)),
                            V((-0.03, 0.03), (-0.01, 0.04), (-0.03, 0.03)), 0.55, 0.1, fade=(1, 14), atraso=(T0, T0), vgiro=(-6, 6)),
                     sprite('Poeira', BRILHO, CIANO_F, 10 ** 9, (0.25, 0.25), (20, 34), V((-2.2, 2.2), (-1.6, 2.0), (-1.4, 1.4)),
                            V((-0.015, 0.015), (0.0, 0.02), (-0.015, 0.015)), 0.22, 0.06, fade=(2, 16), atraso=(T0, T0)),
                     # a cabeça: de frente, virada para a câmera, com o brilho atrás
-                    dict(sprite('Brilho da cabeça', BRILHO, [0.55, 0.75, 1.0, 1.0], 1, (1, 1), (T1 - T0, T1 - T0), V(0, 0.3, 0.4), V(0, 0, 0), 10.0, 10.0,
+                    dict(sprite('Brilho da cabeça', BRILHO, AZUL_F, 1, (1, 1), (T1 - T0, T1 - T0), V(0, 0.3, 0.4), V(0, 0, 0), 10.0, 10.0,
                                 fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0)), comPai=True),
                     dict(sprite('Cabeça', CABECA, [1, 1, 1, 1], 1, (1, 1), (T1 - T0 + 2, T1 - T0 + 2), V(0, 0.4, 0.5), V(0, 0, 0), 8.0, 8.0,
                                 fade=(3, 4), atraso=(T0, T0), heranca=(2, 0, 0), mistura=1, giro=(0, 0)), comPai=True),
                 ])
     carga = no('Carga', 0, (T0 + 6, T0 + 6), 1, (1, 1), (0, 0), (0, 0, 0), pos={'t': 'fixo', 'p': V(0, 2.8, 0.8)}, filhos=[
         sprite('Brilho', BRILHO, CIANO_F, 1, (1, 1), (T0 + 6, T0 + 6), V(0, 0, 0), V(0, 0, 0), 1.0, 5.5, fade=(2, 6), heranca=(2, 0, 0)),
-        sprite('Brilho violeta', BRILHO, VIOLETA_F, 1, (1, 1), (T0 + 6, T0 + 6), V(0, 0, 0), V(0, 0, 0), 2.0, 8.0, fade=(2, 8), heranca=(2, 0, 0)),
+        sprite('Brilho azul', BRILHO, AZUL_F, 1, (1, 1), (T0 + 6, T0 + 6), V(0, 0, 0), V(0, 0, 0), 2.0, 8.0, fade=(2, 8), heranca=(2, 0, 0)),
         sprite('Faíscas na mão', ZIG, [0.9, 1, 1, 1], 34, (0.45, 0.45), (4, 6), V((-1.2, 1.2), (-1.2, 1.2), (-0.6, 0.6)), V(0, 0, 0), 1.4, 2.4,
                fade=(0, 3), heranca=(2, 0, 0)),
-        sprite('Faíscas violeta', ZIG_V, [1, 1, 1, 1], 16, (0.9, 0.9), (4, 6), V((-1.4, 1.4), (-1.4, 1.4), (-0.6, 0.6)), V(0, 0, 0), 1.6, 2.6,
+        sprite('Faíscas 2', ZIG, [0.8, 0.95, 1, 1], 16, (0.9, 0.9), (4, 6), V((-1.4, 1.4), (-1.4, 1.4), (-0.6, 0.6)), V(0, 0, 0), 1.6, 2.6,
                fade=(0, 3), heranca=(2, 0, 0)),
     ])
     fim = no('Fim', 0, (1, 1), 1, (1, 1), (T1, T1), (0, 0, 0), pos={'t': 'fixo', 'p': V(0, 2.6, 10)})
@@ -127,20 +123,20 @@ def impacto():
         anel={'vertices': 56, 'fora': [1.0, 0], 'dentro': [0.78, 0], 'meio': 0.5, 'corFora': cor[:3] + [0], 'corMeio': cor, 'corDentro': cor[:3] + [0]})
     return {'fim': 60, 'filhos': [
         no('Impacto', 0, (60, 60), 1, (1, 1), (0, 0), (0, 0, 0), pos={'t': 'fixo', 'p': V(0, 0, 0)}, filhos=[
-            sprite('Clarão violeta', BRILHO, VIOLETA_F, 1, (1, 1), (16, 16), V(0, 2.5, 0), V(0, 0, 0), 4.0, 22.0, fade=(0, 12), heranca=(2, 0, 0)),
+            sprite('Clarão azul', BRILHO, AZUL_F, 1, (1, 1), (16, 16), V(0, 2.5, 0), V(0, 0, 0), 4.0, 22.0, fade=(0, 12), heranca=(2, 0, 0)),
             sprite('Clarão', BRILHO, [0.85, 1.0, 1.0, 1.0], 1, (1, 1), (12, 12), V(0, 2.5, 0), V(0, 0, 0), 3.0, 15.0, fade=(0, 9), heranca=(2, 0, 0)),
             chao('Rachaduras', RACHA, [1, 1, 1, 1], 48, 9.0, 10.5, (0, 30)),
             chao('Brilho no chão', BRILHO, CIANO_F, 30, 6.0, 12.0, (0, 22)),
             sprite('Pilar', ZIG, [0.95, 1.0, 1.0, 1.0], 3, (2, 2), (9, 12), V((-0.4, 0.4), 6.5, (-0.4, 0.4)), V(0, 0, 0), 14, 14,
                    fade=(0, 6), heranca=(2, 0, 0), giro=(82, 98)),
-            sprite('Pilar violeta', ZIG_V, [1, 1, 1, 1], 2, (3, 3), (8, 10), V((-0.8, 0.8), 6.5, (-0.8, 0.8)), V(0, 0, 0), 13, 13,
+            sprite('Pilar 2', ZIG, [0.8, 0.95, 1, 1], 2, (3, 3), (8, 10), V((-0.8, 0.8), 6.5, (-0.8, 0.8)), V(0, 0, 0), 13, 13,
                    fade=(0, 6), heranca=(2, 0, 0), giro=(80, 100)),
             sprite('Estrela', ZIG, [0.95, 1.0, 1.0, 1.0], 14, (0.35, 0.35), (8, 12), V((-0.4, 0.4), (1.5, 3.5), (-0.4, 0.4)), V(0, 0, 0), 5.0, 8.5,
                    fade=(0, 6), heranca=(2, 0, 0)),
-            sprite('Estrela violeta', ZIG_V, [1, 1, 1, 1], 8, (0.6, 0.6), (8, 12), V((-0.4, 0.4), (1.5, 3.5), (-0.4, 0.4)), V(0, 0, 0), 5.5, 9.0,
+            sprite('Estrela 2', ZIG, [0.8, 0.95, 1, 1], 8, (0.6, 0.6), (8, 12), V((-0.4, 0.4), (1.5, 3.5), (-0.4, 0.4)), V(0, 0, 0), 5.5, 9.0,
                    fade=(0, 6), heranca=(2, 0, 0)),
             anel('Anel', 0, 24, 10, [0.6, 1, 1, 1]),
-            anel('Anel violeta', 4, 28, 13, [0.7, 0.55, 1, 0.9]),
+            anel('Anel azul', 4, 28, 13, [0.3, 0.6, 1, 0.9]),
             sprite('Faíscas', ESTRELA, [0.9, 1.0, 1.0, 1.0], 40, (0.1, 0.1), (20, 34), V((-0.5, 0.5), (1.5, 3.0), (-0.5, 0.5)),
                    V((-0.3, 0.3), (0.05, 0.28), (-0.3, 0.3)), 0.7, 0.2, fade=(0, 14), heranca=(2, 0, 0), a=V(0, (-0.013, -0.008), 0), vgiro=(-8, 8)),
             sprite('Arcos', ZIG, [0.85, 1.0, 1.0, 0.9], 34, (1.0, 1.0), (4, 6), V((-2.6, 2.6), (0.3, 4.0), (-2.6, 2.6)), V(0, 0, 0), 1.8, 2.8,
@@ -172,8 +168,9 @@ def gravar(nome, efeito, texs):
 
 if __name__ == '__main__':
     import raio_arte as A
-    texs = {BRILHO: A.brilho(), ZIG: A.relampago(cor=A.CIANO, semente=1), ZIG_V: A.relampago(cor=A.VIOLETA, semente=7, galhos=3),
-            CORPO: A.corpo(), HALO: A.halo(), HALO_V: A.halo(cor=A.VIOLETA), CRISTA: A.crista(), CABECA: A.cabeca(),
+    # versão "energia" (como a referência do anime): ciano translúcido, contorno branco, sem feições
+    texs = {BRILHO: A.brilho(), ZIG: A.relampago(cor=A.CIANO, semente=1),
+            CORPO: A.corpo_energia(), HALO: A.halo(), CRISTA: A.crista_energia(), CABECA: A.cabeca_energia(),
             ESTRELA: A.estrela(), RACHA: A.rachadura()}
     gravar('raio-dragao', dragao(), texs)
     gravar('raio-impacto', impacto(), texs)

@@ -305,4 +305,83 @@ def rachadura(n=512):
         T.linha(pts, CIANO + (255,), 18)
         T.linha(pts, BRANCO + (255,), 6)
     img = T.pronto()
-    return brilho_atras(img, VIOLETA, 10, 0.7)
+    return brilho_atras(img, (40, 120, 255), 10, 0.7)
+
+
+# ------------------------------------------------------------ versão "energia" (como a referência)
+def cabeca_energia(n=1024):
+    """cabeça de dragão feita de raio, de perfil (focinho para a direita; o jogo
+    espelha quando o alvo está à esquerda), só a silhueta: ciano translúcido,
+    contorno branco, veios de luz por dentro, a boca aberta e a juba/chifres em
+    labaredas. Sem feições (olhos, dentes): só a fenda de luz do olho."""
+    T = Tela(n)
+    W = BRANCO + (255,)
+    FILL = CIANO + (205,)
+    FUNDO = (40, 150, 240, 170)
+    rng = np.random.default_rng(9)
+    # juba em labaredas varrendo para trás (sai da nuca e vai até a borda esquerda)
+    for ang, r1 in ((150, 330), (170, 420), (192, 440), (212, 400), (232, 330), (128, 260)):
+        curva = 60 * (1 if ang < 180 else -1)
+        pts = chama(400, 430, ang + rng.uniform(-5, 5), 60, r1 + rng.uniform(-25, 25), 100, curva)
+        T.poli(catmull(pts, 8), FUNDO, W, 4)
+    # chifres longos para trás
+    for pts, w0 in [([(470, 320), (400, 230), (300, 170), (170, 150)], 62), ([(440, 340), (360, 290), (260, 270), (160, 290)], 40)]:
+        T.poli(traco(pts, w0, 4), FILL, W, 6)
+    # franja pontuda da bochecha
+    fr = [(470, 540), (330, 620, 1), (420, 560), (300, 560, 1), (420, 500)]
+    T.poli(catmull(fr, 6), FUNDO, W, 5)
+    # mandíbula (aberta, apontando para a frente e para baixo)
+    mand = [(560, 545, 1), (720, 565), (870, 615, 1), (800, 655), (660, 660), (530, 625), (480, 585)]
+    T.poli(catmull(mand, 8), FILL, W, 8)
+    # crânio e maxila: nuca, sobrancelha marcada, focinho longo e a ponta do nariz
+    cranio = [(330, 400), (420, 310), (560, 325, 1), (610, 372), (770, 385), (905, 395, 1), (940, 440), (905, 485, 1),
+              (730, 470), (560, 520, 1), (470, 560), (370, 530)]
+    T.poli(catmull(cranio, 10), FILL, W, 9)
+    # labaredas sob o queixo
+    for ang, r1 in ((95, 150), (115, 190), (135, 160)):
+        T.poli(catmull(chama(660, 640, ang, 10, r1, 40, 30), 8), FUNDO, W, 4)
+    # veios de luz por dentro, do focinho para a nuca
+    for v in ([(890, 425), (740, 425), (580, 445), (420, 430)], [(850, 610), (700, 615), (560, 590)], [(560, 345), (470, 360), (380, 410)]):
+        T.poli(traco(v, 10, 2), BRANCO + (190,))
+    # raio dentro da boca (a energia da garganta)
+    T.linha([(575, 535), (640, 518), (680, 545), (750, 522), (830, 528)], BRANCO + (230,), 8)
+    # o brilho branco do olho (só a fenda de luz, como na imagem)
+    T.poli(catmull([(540, 388), (590, 370), (630, 382), (585, 395)], 6), BRANCO + (255,))
+    # bigodes longos saindo do focinho, varrendo para trás
+    for bg in ([(900, 470), (950, 590), (890, 720), (740, 790), (560, 770), (420, 720)], [(880, 480), (900, 600), (860, 720), (800, 840), (820, 950)]):
+        T.poli(traco(bg, 14, 2), W)
+    img = T.pronto()
+    img = brilho_atras(img, (40, 120, 255), 30, 0.6)
+    return brilho_atras(img, CIANO, 12, 0.9)
+
+
+def corpo_energia(n=256):
+    """faixa do corpo de energia: ciano translúcido, veios de luz ao longo e borda branca"""
+    T = Tela(n, 2)
+    u0, u1 = 70, 930
+    T.poli([(u0, 0), (u1, 0), (u1, 1000), (u0, 1000)], (40, 150, 240, 170))
+    T.poli([(170, 0), (830, 0), (830, 1000), (170, 1000)], CIANO + (205,))
+    T.poli([(330, 0), (670, 0), (670, 1000), (330, 1000)], CLARO + (150,))
+    # veios de luz ondulando ao longo (repetem: começam e terminam no mesmo x)
+    for x0, amp, fase in ((260, 60, 0), (500, 90, 1.7), (740, 60, 3.1), (380, 50, 2.4), (620, 50, 0.8)):
+        pts = [(x0 + amp * np.sin(2 * np.pi * y / 1000 + fase), y) for y in range(0, 1001, 40)]
+        T.linha(pts, BRANCO + (170,), 7)
+    T.poli([(u0 - 26, 0), (u0 + 4, 0), (u0 + 4, 1000), (u0 - 26, 1000)], BRANCO + (255,))
+    T.poli([(u1 - 4, 0), (u1 + 26, 0), (u1 + 26, 1000), (u1 - 4, 1000)], BRANCO + (255,))
+    return T.pronto()
+
+
+def crista_energia(n=256):
+    """labaredas de energia na borda do corpo: um tom ciano translúcido, contorno branco"""
+    T = Tela(n, 2)
+    rng = np.random.default_rng(8)
+    pts = [(60, 950)]
+    x = 60
+    while x < 900:
+        w = rng.uniform(110, 170)
+        pts.append((x + w * 0.55, 950 - rng.uniform(600, 880), 1))
+        x += w
+        pts.append((x, 950 - rng.uniform(150, 300)))
+    pts.append((940, 950, 1))
+    T.poli(catmull(pts, 6), CIANO + (210,), BRANCO + (255,), 7)
+    return T.pronto()
