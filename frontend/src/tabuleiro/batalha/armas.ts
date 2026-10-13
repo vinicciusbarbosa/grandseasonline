@@ -18,7 +18,7 @@ import type { Casa } from '../tabuleiro'
 
 export type TipoArma = 'espada' | 'maca' | 'punhos' | 'espingarda' | 'adaga'
 export type Area = 'alvo' | 'linha' | 'leque' | 'volta' | 'si' | 'explosao' | 'mapa' | 'multi'
-export type Elemento = 'fogo' | 'gelo' | 'luz' | 'fumaca'
+export type Elemento = 'fogo' | 'gelo' | 'luz' | 'fumaca' | 'raio'
 
 export type Skill = {
   id: string
@@ -153,6 +153,15 @@ export const FRUTAS: Record<string, { nome: string; tipo: TipoAkuma; elemento?: 
       { id: 'yasakani', nome: 'Chuva de Joias (Yasakani no Magatama)', descricao: 'Cruza os braços, carrega luz nas mãos e dispara uma rajada de joias de luz numa área 3×3 a até 6 casas.', energia: 40, recarga: 3, alcance: 6, area: 'explosao', mult: 0.85, elemento: 'luz', precisao: 100 },
       { id: 'chute-luz', nome: 'Chute da Luz', descricao: 'Chute na velocidade da luz: vai até o alvo (até 6 casas) e volta.', energia: 25, recarga: 1, alcance: 6, area: 'alvo', mult: 1.25, elemento: 'luz', precisao: 100 },
       { id: 'raio-luz', nome: 'Raio de Luz', descricao: 'Carrega luz na ponta do dedo e dispara um laser em linha reta até 6 casas.', energia: 22, recarga: 1, alcance: 6, area: 'linha', mult: 0.9, elemento: 'luz', precisao: 100 },
+    ],
+  },
+  raio: {
+    nome: 'Fruta do Trovão (Goro Goro)',
+    tipo: 'logia',
+    elemento: 'raio',
+    passiva: 'Intangível. O raio é rápido: os golpes da fruta são difíceis de esquivar.',
+    skills: [
+      { id: 'sango', nome: 'Dragão de Trovão (Sango)', descricao: 'Um dragão de raio serpenteia até o alvo (até 6 casas) e explode numa área 3×3.', energia: 45, recarga: 3, alcance: 6, area: 'explosao', mult: 1.25, elemento: 'raio', precisao: 30 },
     ],
   },
   gelo: {

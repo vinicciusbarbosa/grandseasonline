@@ -383,6 +383,8 @@ export class CenaTabuleiro {
       Promise.all([carregarEfk('partisan'), carregarEfk('partisan-formacao'), carregarEfk('partisan-impacto')]).then(([l, f, i]) => (l && f && i ? this.partisanEfk(p, ate, l, f, i) : false)),
     pheasant: (p: Personagem, ate: THREE.Vector3) =>
       Promise.all([carregarEfk('pheasant-beak'), carregarEfk('pheasant-beak-impacto')]).then(([ave, imp]) => (ave && imp ? this.pheasantEfk(p, ate, ave, imp) : false)),
+    sango: (p: Personagem, ate: THREE.Vector3) =>
+      Promise.all([carregarEfk('raio-dragao'), carregarEfk('raio-impacto')]).then(([d, i]) => (d && i ? this.sangoEfk(p, ate, d, i) : false)),
     fumaca: (p: Personagem, ate: THREE.Vector3, casas: THREE.Vector3[], prisao: boolean) =>
       Promise.all(['fumaca-jato', prisao ? 'fumaca-prisao' : 'fumaca-nuvem'].map((n) => carregarEfk(n))).then(([j, n]) =>
         j && n ? this.fumacaEfk(p, ate, casas, prisao, j, n) : false,
@@ -793,6 +795,25 @@ export class CenaTabuleiro {
         r(true)
       })
     })
+  }
+
+  /**
+   * Sango (scripts/efeitos/raio.py): carga elétrica nas mãos, o dragão de raio
+   * serpenteia até o alvo e explode (clarão, raio do céu, anel e faíscas).
+   * Resolve no impacto (o dano aparece junto).
+   */
+  private sangoEfk(p: Personagem, ate: THREE.Vector3, dragao: DadosEfk, impacto: DadosEfk) {
+    const ESCALA = 0.25 // 1 casa ≈ 4 unidades do efeito
+    const de = p.pos.clone()
+    const alvo = ate.clone().setY(0)
+    const d = this.tocarEfk('raio-dragao', dragao, de, ESCALA, alvo)
+    d.sprite.rotation.set(0, Math.atan2(alvo.x - de.x, alvo.z - de.z), 0)
+    return new Promise<boolean>((r) =>
+      window.setTimeout(() => {
+        this.tocarEfk('raio-impacto', impacto, alvo, ESCALA)
+        r(true)
+      }, ((d.quadroImpacto / 60) * 1000) / this.velocidade),
+    )
   }
 
   /**
@@ -1342,8 +1363,8 @@ export class CenaTabuleiro {
    * partículas pelo buraco e se refaz.
    */
   private async atravessar(p: Personagem, elemento: string) {
-    const cor = { fumaca: 0xe8ecf2, fogo: 0xffa040, luz: 0xfff27a, gelo: 0x9fe8ff }[elemento] ?? 0xe8ecf2
-    const tipo: TipoEfeito = (['fumaca', 'fogo', 'luz', 'gelo'].includes(elemento) ? elemento : 'fumaca') as TipoEfeito
+    const cor = { fumaca: 0xe8ecf2, fogo: 0xffa040, luz: 0xfff27a, gelo: 0x9fe8ff, raio: 0x7fe8ff }[elemento] ?? 0xe8ecf2
+    const tipo: TipoEfeito = (elemento === 'raio' ? 'luz' : ['fumaca', 'fogo', 'luz', 'gelo'].includes(elemento) ? elemento : 'fumaca') as TipoEfeito
     const peito = this.palco.peito(p)
     for (let i = 0; i < 4; i++) {
       const d = new THREE.Vector3((Math.random() - 0.5) * 0.9, (Math.random() - 0.3) * 0.8, (Math.random() - 0.5) * 0.4)

@@ -297,6 +297,7 @@ const FRUTAS_OP: [string, string][] = [
   ['fogo', 'Logia: Fogo (Mera)'],
   ['luz', 'Logia: Luz (Pika)'],
   ['gelo', 'Logia: Gelo (Hie)'],
+  ['raio', 'Logia: Trovão (Goro)'],
 ]
 const NIVEL = ['—', 'normal', 'avançado']
 /** armamento: o nível 3 é o Haki do Rei imbuído no golpe */

@@ -1,5 +1,5 @@
 /**
- * Pré-visualização dos efeitos (sem o jogo): /preview-efk.html?fx=nuvem|prisao
+ * Pré-visualização dos efeitos (sem o jogo): /preview-efk.html?fx=nuvem|prisao|raio
  * Um pedaço de convés (casas de 1×1), quem lança em (0,0,0) e o alvo 3 casas
  * à frente. window.passo(n) avança n quadros (60 fps) e desenha; usado pelos
  * scripts de captura para montar GIFs.
@@ -47,8 +47,17 @@ const fx = new URLSearchParams(location.search).get('fx') ?? 'nuvem'
 const agenda: [number, () => void][] = []
 let q = 0
 ;(async () => {
-  const jato = (await carregarEfk('fumaca-jato'))!
   const alvo = new THREE.Vector3(0, 0, 3)
+  if (fx === 'raio') {
+    // Sango (Goro Goro): o dragão de raio vai até o alvo e explode
+    const dr = (await carregarEfk('raio-dragao'))!
+    const im = (await carregarEfk('raio-impacto'))!
+    const d = tocar('raio-dragao', dr, new THREE.Vector3(0, 0, 0), alvo)
+    agenda.push([d.quadroImpacto, () => tocar('raio-impacto', im, alvo)])
+    ;(window as unknown as { pronto: boolean }).pronto = true
+    return
+  }
+  const jato = (await carregarEfk('fumaca-jato'))!
   const j = tocar('fumaca-jato', jato, new THREE.Vector3(0, 0, 0), alvo)
   if (fx === 'prisao') {
     const pr = (await carregarEfk('fumaca-prisao'))!

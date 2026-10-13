@@ -144,6 +144,8 @@ export interface Palco {
   pheasant(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Ice Age do Effekseer em volta de quem lança; resolve quando a expansão alcança longe (~0,8 s), false sem o efeito */
   iceAge(p: Personagem): Promise<boolean>
+  /** Sango (Goro Goro): o dragão de raio vai até o alvo e explode; resolve no impacto, false sem o efeito */
+  sango(p: Personagem, ate: THREE.Vector3): Promise<boolean>
   /** Fruta da Fumaça (Effekseer): o jato até o alvo e a nuvem em cada casa (ou, na prisão, a cúpula na área); resolve no impacto, false sem o efeito */
   fumaca(p: Personagem, ate: THREE.Vector3, casas: THREE.Vector3[], prisao: boolean): Promise<boolean>
   /** Hiken do Effekseer: o punho de fogo vai até o alvo e explode; resolve no impacto, false sem o efeito */
@@ -204,6 +206,8 @@ const VISUAL: Record<string, Visual> = {
   yasakani: { efeito: 'orbeLuz', modo: 'especial', escala: 0.5 },
   'chute-luz': { efeito: 'feixeLuz', modo: 'especial', escala: 1 },
   'raio-luz': { efeito: 'feixeLuz', modo: 'especial', escala: 0.8 },
+  // Goro Goro (Enel)
+  sango: { efeito: 'feixeLuz', modo: 'especial', escala: 1.2 },
   // Hie Hie (Aokiji)
   'lanca-gelo': { efeito: 'espinhoGelo', modo: 'especial', escala: 1.4 },
   'ice-saber': { efeito: 'corte', modo: 'perto', escala: 1.2 },
@@ -1605,6 +1609,16 @@ export class ControleBatalha {
         // Effekseer: clarão de contato na mão; os cristais crescem no alvo quando
         // ele congela (evento 'congelou') e ficam até a vez do congelado acabar
         if (!(await P.iceTime(a, hits[0] ?? null, ate))) await esperar(300)
+        break
+      }
+      case 'sango': {
+        // dragão de raio (scripts/efeitos/raio.py); sem ele, um feixe de luz
+        if (await P.sango(a, ate)) {
+          P.lampejo('branco', 0.15)
+          P.tremer(0.5)
+          break
+        }
+        await P.efeito('feixeLuz', 'normal', origem, { para: ate, dur: 0.4, escala: 1.2 })
         break
       }
       case 'nuvem-fumaca':
